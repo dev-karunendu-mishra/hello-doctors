@@ -2,20 +2,31 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\DoctorManagementController;
+use App\Http\Controllers\Admin\AdvertisementController;
 use App\Http\Controllers\Doctor\DashboardController as DoctorDashboardController;
+use App\Http\Controllers\Doctor\ProfileController as DoctorProfileController;
+use App\Http\Controllers\Doctor\RegistrationController;
 use App\Http\Controllers\Patient\DashboardController as PatientDashboardController;
+use App\Http\Controllers\Public\HomeController;
+use App\Http\Controllers\Public\SearchController;
+use App\Http\Controllers\Public\AboutController;
+use App\Http\Controllers\Public\ContactController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
-});
+// Public Routes
+Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/search', [SearchController::class, 'index'])->name('search');
+Route::get('/doctors/{id}', [SearchController::class, 'show'])->name('doctors.show');
+Route::get('/about', [AboutController::class, 'index'])->name('about');
+Route::get('/contact', [ContactController::class, 'index'])->name('contact');
+Route::post('/contact', [ContactController::class, 'store'])->name('contact.store');
+
+// Doctor Registration (Public)
+Route::get('/register-doctor', [RegistrationController::class, 'create'])->name('doctor.register');
+Route::post('/register-doctor', [RegistrationController::class, 'store'])->name('doctor.register.store');
 
 Route::get('/dashboard', function () {
     $user = auth()->user();
@@ -49,19 +60,29 @@ Route::middleware('auth')->group(function () {
 // Admin Routes
 Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
-    // Add more admin routes here
+    
+    // Doctor Management
+    Route::resource('doctors', DoctorManagementController::class);
+    Route::post('/doctors/{doctor}/toggle-verification', [DoctorManagementController::class, 'toggleVerification'])->name('doctors.toggle-verification');
+    Route::post('/doctors/{doctor}/toggle-active', [DoctorManagementController::class, 'toggleActive'])->name('doctors.toggle-active');
+    
+    // Advertisement Management
+    Route::resource('advertisements', AdvertisementController::class);
 });
 
 // Doctor Routes
 Route::middleware(['auth', 'role:doctor'])->prefix('doctor')->name('doctor.')->group(function () {
     Route::get('/dashboard', [DoctorDashboardController::class, 'index'])->name('dashboard');
-    // Add more doctor routes here
+    
+    // Profile Management
+    Route::get('/profile', [DoctorProfileController::class, 'show'])->name('profile.show');
+    Route::get('/profile/edit', [DoctorProfileController::class, 'edit'])->name('profile.edit');
+    Route::put('/profile', [DoctorProfileController::class, 'update'])->name('profile.update');
 });
 
 // Patient Routes
 Route::middleware(['auth', 'role:patient'])->prefix('patient')->name('patient.')->group(function () {
     Route::get('/dashboard', [PatientDashboardController::class, 'index'])->name('dashboard');
-    // Add more patient routes here
 });
 
 require __DIR__.'/auth.php';

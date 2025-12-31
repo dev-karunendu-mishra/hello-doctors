@@ -1,129 +1,147 @@
-import { Card, Row, Col, Statistic, Calendar, Badge, List, Avatar } from 'antd';
-import {
-    CalendarOutlined,
-    UserOutlined,
-    ClockCircleOutlined,
-    CheckCircleOutlined,
-} from '@ant-design/icons';
-import AdminLayout from '@/Layouts/AdminLayout';
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { Head, Link } from '@inertiajs/react';
+import { Card, Row, Col, Typography, Statistic, Tag, Descriptions, Avatar } from 'antd';
+import { UserOutlined, CheckCircleOutlined, ClockCircleOutlined, MedicineBoxOutlined, EnvironmentOutlined } from '@ant-design/icons';
 
-export default function Dashboard({ stats, todayAppointments, upcomingAppointments }) {
-    const getListData = (value) => {
-        // This would be populated with actual appointment data
-        return [];
-    };
+const { Title, Paragraph } = Typography;
 
-    const dateCellRender = (value) => {
-        const listData = getListData(value);
-        return (
-            <ul style={{ listStyle: 'none', padding: 0 }}>
-                {listData.map((item) => (
-                    <li key={item.content}>
-                        <Badge status={item.type} text={item.content} />
-                    </li>
-                ))}
-            </ul>
-        );
-    };
-
+export default function Dashboard({ profile, stats }) {
     return (
-        <AdminLayout>
-            <div>
-                <h1 style={{ marginBottom: 24 }}>Doctor Dashboard</h1>
+        <AuthenticatedLayout
+            header={
+                <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                    Doctor Dashboard
+                </h2>
+            }
+        >
+            <Head title="Doctor Dashboard" />
 
-                <Row gutter={[16, 16]}>
-                    <Col xs={24} sm={12} lg={6}>
-                        <Card>
-                            <Statistic
-                                title="Today's Appointments"
-                                value={stats?.todayAppointments || 0}
-                                prefix={<CalendarOutlined />}
-                                valueStyle={{ color: '#3f8600' }}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={24} sm={12} lg={6}>
-                        <Card>
-                            <Statistic
-                                title="Total Patients"
-                                value={stats?.totalPatients || 0}
-                                prefix={<UserOutlined />}
-                                valueStyle={{ color: '#1890ff' }}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={24} sm={12} lg={6}>
-                        <Card>
-                            <Statistic
-                                title="Pending"
-                                value={stats?.pendingAppointments || 0}
-                                prefix={<ClockCircleOutlined />}
-                                valueStyle={{ color: '#cf1322' }}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={24} sm={12} lg={6}>
-                        <Card>
-                            <Statistic
-                                title="Completed"
-                                value={stats?.completedAppointments || 0}
-                                prefix={<CheckCircleOutlined />}
-                                valueStyle={{ color: '#52c41a' }}
-                            />
-                        </Card>
-                    </Col>
-                </Row>
-
-                <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-                    <Col xs={24} lg={14}>
-                        <Card title="Calendar">
-                            <Calendar
-                                dateCellRender={dateCellRender}
-                                style={{ border: 'none' }}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={24} lg={10}>
-                        <Card title="Today's Appointments" style={{ marginBottom: 16 }}>
-                            <List
-                                itemLayout="horizontal"
-                                dataSource={todayAppointments || []}
-                                locale={{ emptyText: 'No appointments today' }}
-                                renderItem={(item) => (
-                                    <List.Item>
-                                        <List.Item.Meta
-                                            avatar={<Avatar icon={<UserOutlined />} />}
-                                            title={item.patient_name || 'Patient Name'}
-                                            description={`${item.time || '00:00'} - ${
-                                                item.reason || 'General Checkup'
-                                            }`}
-                                        />
-                                    </List.Item>
+            <div className="py-12">
+                <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
+                    {/* Profile Summary */}
+                    <Card className="mb-6">
+                        <Row gutter={24}>
+                            <Col xs={24} md={6} className="text-center">
+                                {profile.profile_image_url ? (
+                                    <Avatar size={150} src={profile.profile_image_url} />
+                                ) : (
+                                    <Avatar size={150} icon={<UserOutlined />} />
                                 )}
-                            />
-                        </Card>
+                            </Col>
+                            <Col xs={24} md={18}>
+                                <Title level={3}>{profile.name}</Title>
+                                <div className="mb-4">
+                                    <Tag color="blue" icon={<MedicineBoxOutlined />} className="text-base py-1 px-3">
+                                        {profile.specialty?.name}
+                                    </Tag>
+                                    {profile.is_verified ? (
+                                        <Tag color="green" icon={<CheckCircleOutlined />} className="text-base py-1 px-3">
+                                            Verified
+                                        </Tag>
+                                    ) : (
+                                        <Tag color="orange" icon={<ClockCircleOutlined />} className="text-base py-1 px-3">
+                                            Pending Verification
+                                        </Tag>
+                                    )}
+                                    {profile.is_active ? (
+                                        <Tag color="green">Active</Tag>
+                                    ) : (
+                                        <Tag color="red">Inactive</Tag>
+                                    )}
+                                </div>
 
-                        <Card title="Upcoming Appointments">
-                            <List
-                                itemLayout="horizontal"
-                                dataSource={upcomingAppointments || []}
-                                locale={{ emptyText: 'No upcoming appointments' }}
-                                renderItem={(item) => (
-                                    <List.Item>
-                                        <List.Item.Meta
-                                            avatar={<Avatar icon={<UserOutlined />} />}
-                                            title={item.patient_name || 'Patient Name'}
-                                            description={`${item.date || 'TBD'} at ${
-                                                item.time || '00:00'
-                                            }`}
-                                        />
-                                    </List.Item>
+                                <Descriptions column={{ xs: 1, sm: 2 }}>
+                                    <Descriptions.Item label="Email">{profile.user?.email}</Descriptions.Item>
+                                    <Descriptions.Item label="Phone">{profile.phone || 'Not provided'}</Descriptions.Item>
+                                    <Descriptions.Item label="Experience">{profile.experience_years} years</Descriptions.Item>
+                                    <Descriptions.Item label="Consultation Fee">₹{profile.consultation_fee}</Descriptions.Item>
+                                </Descriptions>
+
+                                {profile.cities?.length > 0 && (
+                                    <div className="mt-4">
+                                        <EnvironmentOutlined /> Practice Locations: {' '}
+                                        {profile.cities.map(c => c.name).join(', ')}
+                                    </div>
                                 )}
-                            />
+                            </Col>
+                        </Row>
+                    </Card>
+
+                    {/* Statistics */}
+                    <Row gutter={[16, 16]} className="mb-6">
+                        <Col xs={24} sm={12} md={6}>
+                            <Card>
+                                <Statistic 
+                                    title="Profile Views" 
+                                    value={stats.profile_views}
+                                />
+                            </Card>
+                        </Col>
+                        <Col xs={24} sm={12} md={6}>
+                            <Card>
+                                <Statistic 
+                                    title="Total Cities" 
+                                    value={profile.cities?.length || 0}
+                                />
+                            </Card>
+                        </Col>
+                        <Col xs={24} sm={12} md={6}>
+                            <Card>
+                                <Statistic 
+                                    title="Working Hours Set" 
+                                    value={profile.working_hours?.length || 0}
+                                />
+                            </Card>
+                        </Col>
+                        <Col xs={24} sm={12} md={6}>
+                            <Card>
+                                <Statistic 
+                                    title="Profile Completion" 
+                                    value={stats.profile_completion}
+                                    suffix="%"
+                                />
+                            </Card>
+                        </Col>
+                    </Row>
+
+                    {/* Quick Actions */}
+                    <Card title="Quick Actions">
+                        <Row gutter={16}>
+                            <Col xs={24} sm={8}>
+                                <Link href="/doctor/profile/edit">
+                                    <button className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg">
+                                        Edit Profile
+                                    </button>
+                                </Link>
+                            </Col>
+                            <Col xs={24} sm={8}>
+                                <Link href="/doctor/profile">
+                                    <button className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg">
+                                        View Public Profile
+                                    </button>
+                                </Link>
+                            </Col>
+                            <Col xs={24} sm={8}>
+                                <Link href="/doctor/settings">
+                                    <button className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-3 rounded-lg">
+                                        Settings
+                                    </button>
+                                </Link>
+                            </Col>
+                        </Row>
+                    </Card>
+
+                    {/* Alerts */}
+                    {!profile.is_verified && (
+                        <Card className="mt-6 bg-yellow-50 border-yellow-200">
+                            <Paragraph>
+                                <ClockCircleOutlined className="text-yellow-600 mr-2" />
+                                Your profile is pending verification. Our team will review and verify your profile soon.
+                            </Paragraph>
                         </Card>
-                    </Col>
-                </Row>
+                    )}
+                </div>
             </div>
-        </AdminLayout>
+        </AuthenticatedLayout>
     );
 }
