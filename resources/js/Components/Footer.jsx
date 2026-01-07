@@ -187,7 +187,7 @@ export default function Footer() {
                 <div className="container mx-auto px-4">
                     <div className="text-center text-gray-400">
                         <Text className="text-gray-400">
-                            powered by <span className="text-white font-semibold">Networkid</span>
+                            powered by <span className="text-white font-semibold">DayDreams</span>
                             [An ISO Certified company]. All rights reserved.
                         </Text>
                     </div>
