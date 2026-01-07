@@ -88,10 +88,17 @@ class DoctorProfile extends Model
             return null;
         }
 
+        // If it's already a full URL
         if (filter_var($this->profile_image, FILTER_VALIDATE_URL)) {
             return $this->profile_image;
         }
 
+        // If path starts with 'images/' (public folder)
+        if (str_starts_with($this->profile_image, 'images/')) {
+            return asset($this->profile_image);
+        }
+
+        // Otherwise use Laravel storage
         return Storage::disk('public')->url($this->profile_image);
     }
 

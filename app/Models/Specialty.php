@@ -14,6 +14,7 @@ class Specialty extends Model
         'name',
         'slug',
         'icon',
+        'image_path',
         'description',
         'is_active',
         'sort_order',
@@ -38,13 +39,5 @@ class Specialty extends Model
     public function scopeActive($query)
     {
         return $query->where('is_active', true)->orderBy('sort_order');
-    }
-
-    /**
-     * Get the route key name
-     */
-    public function getRouteKeyName(): string
-    {
-        return 'slug';
     }
 }

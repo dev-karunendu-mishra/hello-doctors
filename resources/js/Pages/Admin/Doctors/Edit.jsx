@@ -1,4 +1,4 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import AdminLayout from '@/Layouts/AdminLayout';
 import { Head, useForm, Link } from '@inertiajs/react';
 import { Card, Form, Input, Button, Select, Upload, Row, Col, Checkbox, Typography, Alert } from 'antd';
 import { UploadOutlined, UserOutlined, PhoneOutlined, MailOutlined, GlobalOutlined, ArrowLeftOutlined } from '@ant-design/icons';
@@ -12,7 +12,7 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
         name: doctor.name || '',
         email: doctor.user?.email || '',
         phone: doctor.phone || '',
-        specialty_id: doctor.specialty_id || null,
+        specialization_id: doctor.specialization_id || null,
         qualification: doctor.qualification || '',
         experience_years: doctor.experience_years || '',
         bio: doctor.bio || '',
@@ -53,21 +53,13 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
     };
 
     return (
-        <AuthenticatedLayout
-            header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Edit Doctor
-                </h2>
-            }
-        >
+        <AdminLayout>
             <Head title={`Edit ${doctor.name}`} />
 
-            <div className="py-12">
-                <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                    <div className="mb-4">
-                        <Link href="/admin/doctors">
-                            <Button icon={<ArrowLeftOutlined />}>Back to List</Button>
-                        </Link>
+            <div className="mb-4">
+                <Link href="/admin/doctors">
+                    <Button icon={<ArrowLeftOutlined />}>Back to List</Button>
+                </Link>
                     </div>
 
                     {flash?.success && (
@@ -200,15 +192,15 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                                 <Col xs={24} md={12}>
                                     <Form.Item 
                                         label="Specialty" 
-                                        validateStatus={errors.specialty_id ? 'error' : ''}
-                                        help={errors.specialty_id}
+                                        validateStatus={errors.specialization_id ? 'error' : ''}
+                                        help={errors.specialization_id}
                                         required
                                     >
                                         <Select
                                             size="large"
                                             placeholder="Select specialty"
-                                            value={data.specialty_id}
-                                            onChange={(value) => setData('specialty_id', value)}
+                                            value={data.specialization_id}
+                                            onChange={(value) => setData('specialization_id', value)}
                                         >
                                             {specialties.map(spec => (
                                                 <Select.Option key={spec.id} value={spec.id}>
@@ -360,8 +352,6 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                             </Form.Item>
                         </form>
                     </Card>
-                </div>
-            </div>
-        </AuthenticatedLayout>
+        </AdminLayout>
     );
 }

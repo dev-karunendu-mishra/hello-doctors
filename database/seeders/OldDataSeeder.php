@@ -33,7 +33,7 @@ class OldDataSeeder extends Seeder
         // Define database to city mapping from old app
         $databases = [
             'hellodoc_agra' => 'Agra',
-            'hellodoc_allahabad' => 'Allahabad',
+            'hellodoc_tutorial' => 'Allahabad', // Allahabad uses tutorial database
             'hellodoc_deoria' => 'Deoria',
             'hellodoc_gorakhpur' => 'Gorakhpur',
             'hellodoc_kanpur' => 'Kanpur',

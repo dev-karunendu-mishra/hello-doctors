@@ -2,6 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import { Card, Row, Col, Typography, Button, Input, Select, Statistic } from 'antd';
 import { SearchOutlined, MedicineBoxOutlined, EnvironmentOutlined, UserOutlined } from '@ant-design/icons';
 import { useState } from 'react';
+import Footer from '@/Components/Footer';
 
 const { Title, Paragraph } = Typography;
 const { Search } = Input;
@@ -128,7 +129,24 @@ export default function Home({ cities, specialties, featuredDoctors, stats }) {
                                             className="text-center"
                                             bodyStyle={{ padding: '20px 10px' }}
                                         >
-                                            <MedicineBoxOutlined style={{ fontSize: 32, color: '#1890ff' }} />
+                                            {specialty.image_url ? (
+                                                <img 
+                                                    src={specialty.image_url} 
+                                                    alt={specialty.name}
+                                                    style={{ width: 48, height: 48, margin: '0 auto', objectFit: 'contain' }}
+                                                    onError={(e) => {
+                                                        e.target.style.display = 'none';
+                                                        e.target.nextElementSibling.style.display = 'block';
+                                                    }}
+                                                />
+                                            ) : null}
+                                            <div style={{ display: specialty.image_url ? 'none' : 'block' }}>
+                                                {specialty.icon ? (
+                                                    <span style={{ fontSize: 32 }}>{specialty.icon}</span>
+                                                ) : (
+                                                    <MedicineBoxOutlined style={{ fontSize: 32, color: '#1890ff' }} />
+                                                )}
+                                            </div>
                                             <div className="mt-2 font-medium">{specialty.name}</div>
                                             <div className="text-gray-500 text-sm">{specialty.doctors_count} doctors</div>
                                         </Card>
@@ -222,6 +240,9 @@ export default function Home({ cities, specialties, featuredDoctors, stats }) {
                         </Link>
                     </div>
                 </div>
+
+                {/* Footer */}
+                <Footer />
             </div>
         </>
     );

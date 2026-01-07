@@ -26,8 +26,16 @@ class HomeController extends Controller
         // Get active specialties
         $specialties = Specialty::active()
             ->withCount('doctors')
-            ->take(12)
-            ->get();
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get()
+            ->map(fn($specialty) => [
+                'id' => $specialty->id,
+                'name' => $specialty->name,
+                'icon' => $specialty->icon,
+                'image_url' => $specialty->image_path ? asset($specialty->image_path) : null,
+                'doctors_count' => $specialty->doctors_count,
+            ]);
 
         // Get featured doctors (verified and active)
         $featuredDoctors = DoctorProfile::with(['user', 'specialty', 'cities'])

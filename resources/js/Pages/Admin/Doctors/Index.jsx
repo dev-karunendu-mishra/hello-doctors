@@ -1,4 +1,4 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import AdminLayout from '@/Layouts/AdminLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { Card, Table, Button, Input, Select, Tag, Space, Avatar, Popconfirm } from 'antd';
 import { SearchOutlined, EditOutlined, DeleteOutlined, EyeOutlined, CheckCircleOutlined, CloseCircleOutlined, UserOutlined } from '@ant-design/icons';
@@ -138,96 +138,86 @@ export default function DoctorsIndex({ doctors, cities, specialties, filters }) 
     ];
 
     return (
-        <AuthenticatedLayout
-            header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Manage Doctors
-                </h2>
-            }
-        >
+        <AdminLayout>
             <Head title="Manage Doctors" />
 
-            <div className="py-12">
-                <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                    <Card>
-                        {/* Filters */}
-                        <div className="mb-6">
-                            <Space className="w-full" direction="vertical" size="middle">
-                                <Space wrap>
-                                    <Search
-                                        placeholder="Search by name, email..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        onSearch={handleSearch}
-                                        style={{ width: 300 }}
-                                    />
-                                    <Select
-                                        placeholder="Filter by City"
-                                        style={{ width: 200 }}
-                                        value={selectedCity}
-                                        onChange={setSelectedCity}
-                                        allowClear
-                                    >
-                                        {cities.map(city => (
-                                            <Select.Option key={city.id} value={city.id}>
-                                                {city.name}
-                                            </Select.Option>
-                                        ))}
-                                    </Select>
-                                    <Select
-                                        placeholder="Filter by Specialty"
-                                        style={{ width: 200 }}
-                                        value={selectedSpecialty}
-                                        onChange={setSelectedSpecialty}
-                                        allowClear
-                                    >
-                                        {specialties.map(spec => (
-                                            <Select.Option key={spec.id} value={spec.id}>
-                                                {spec.name}
-                                            </Select.Option>
-                                        ))}
-                                    </Select>
-                                    <Select
-                                        placeholder="Filter by Status"
-                                        style={{ width: 150 }}
-                                        value={selectedStatus}
-                                        onChange={setSelectedStatus}
-                                        allowClear
-                                    >
-                                        <Select.Option value="verified">Verified</Select.Option>
-                                        <Select.Option value="pending">Pending</Select.Option>
-                                        <Select.Option value="active">Active</Select.Option>
-                                        <Select.Option value="inactive">Inactive</Select.Option>
-                                    </Select>
-                                    <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
-                                        Search
-                                    </Button>
-                                </Space>
-                                <Link href="/admin/doctors/create">
-                                    <Button type="primary">Add New Doctor</Button>
-                                </Link>
-                            </Space>
-                        </div>
-
-                        {/* Table */}
-                        <Table
-                            columns={columns}
-                            dataSource={doctors.data}
-                            rowKey="id"
-                            pagination={{
-                                current: doctors.current_page,
-                                total: doctors.total,
-                                pageSize: doctors.per_page,
-                                onChange: (page) => {
-                                    const params = new URLSearchParams(window.location.search);
-                                    params.set('page', page);
-                                    router.get(`/admin/doctors?${params.toString()}`);
-                                },
-                            }}
-                        />
-                    </Card>
+            <Card>
+                {/* Filters */}
+                <div className="mb-6">
+                    <Space className="w-full" direction="vertical" size="middle">
+                        <Space wrap>
+                            <Search
+                                placeholder="Search by name, email..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onSearch={handleSearch}
+                                style={{ width: 300 }}
+                            />
+                            <Select
+                                placeholder="Filter by City"
+                                style={{ width: 200 }}
+                                value={selectedCity}
+                                onChange={setSelectedCity}
+                                allowClear
+                            >
+                                {cities.map(city => (
+                                    <Select.Option key={city.id} value={city.id}>
+                                        {city.name}
+                                    </Select.Option>
+                                ))}
+                            </Select>
+                            <Select
+                                placeholder="Filter by Specialty"
+                                style={{ width: 200 }}
+                                value={selectedSpecialty}
+                                onChange={setSelectedSpecialty}
+                                allowClear
+                            >
+                                {specialties.map(spec => (
+                                    <Select.Option key={spec.id} value={spec.id}>
+                                        {spec.name}
+                                    </Select.Option>
+                                ))}
+                            </Select>
+                            <Select
+                                placeholder="Filter by Status"
+                                style={{ width: 150 }}
+                                value={selectedStatus}
+                                onChange={setSelectedStatus}
+                                allowClear
+                            >
+                                <Select.Option value="verified">Verified</Select.Option>
+                                <Select.Option value="pending">Pending</Select.Option>
+                                <Select.Option value="active">Active</Select.Option>
+                                <Select.Option value="inactive">Inactive</Select.Option>
+                            </Select>
+                            <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
+                                Search
+                            </Button>
+                        </Space>
+                        <Link href="/admin/doctors/create">
+                            <Button type="primary">Add New Doctor</Button>
+                        </Link>
+                    </Space>
                 </div>
-            </div>
-        </AuthenticatedLayout>
+
+                {/* Table */}
+                <Table
+                    columns={columns}
+                    dataSource={doctors.data}
+                    rowKey="id"
+                    pagination={{
+                        current: doctors.current_page,
+                        total: doctors.total,
+                        pageSize: doctors.per_page,
+                        onChange: (page) => {
+                            const params = new URLSearchParams(window.location.search);
+                            params.set('page', page);
+                            router.get(`/admin/doctors?${params.toString()}`);
+                        },
+                    }}
+                />
+            </Card>
+        </AdminLayout>
     );
 }

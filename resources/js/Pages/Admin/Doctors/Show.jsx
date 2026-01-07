@@ -1,23 +1,15 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import AdminLayout from '@/Layouts/AdminLayout';
 import { Head, Link } from '@inertiajs/react';
 import { Card, Descriptions, Tag, Avatar, Button, Row, Col } from 'antd';
 import { UserOutlined, EditOutlined, ArrowLeftOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 
 export default function DoctorShow({ doctor }) {
     return (
-        <AuthenticatedLayout
-            header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Doctor Details
-                </h2>
-            }
-        >
+        <AdminLayout>
             <Head title={`${doctor.name} - Details`} />
 
-            <div className="py-12">
-                <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                    <div className="mb-4">
-                        <Link href="/admin/doctors">
+            <div className="mb-4">
+                <Link href="/admin/doctors">
                             <Button icon={<ArrowLeftOutlined />}>Back to List</Button>
                         </Link>
                     </div>
@@ -106,12 +98,9 @@ export default function DoctorShow({ doctor }) {
                                             )}
                                         </Card>
                                     </Col>
-                                ))}
-                            </Row>
+                                ))}n                            </Row>
                         </Card>
                     )}
-                </div>
-            </div>
-        </AuthenticatedLayout>
+        </AdminLayout>
     );
 }

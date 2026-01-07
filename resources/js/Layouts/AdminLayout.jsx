@@ -12,13 +12,51 @@ import {
     MenuUnfoldOutlined,
 } from '@ant-design/icons';
 import { Link, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const { Header, Sider, Content } = Layout;
 
 export default function AdminLayout({ children }) {
-    const { auth } = usePage().props;
+    const { auth, url } = usePage().props;
     const [collapsed, setCollapsed] = useState(false);
+    const [selectedKeys, setSelectedKeys] = useState(['dashboard']);
+    const [openKeys, setOpenKeys] = useState([]);
+
+    // Determine selected menu based on current URL
+    useEffect(() => {
+        const currentPath = window.location.pathname;
+        
+        if (currentPath.includes('/admin/dashboard')) {
+            setSelectedKeys(['dashboard']);
+        } else if (currentPath.includes('/admin/users')) {
+            setSelectedKeys(['all-users']);
+            setOpenKeys(['users']);
+        } else if (currentPath.includes('/admin/doctors')) {
+            setSelectedKeys(['doctors']);
+            setOpenKeys(['users']);
+        } else if (currentPath.includes('/admin/patients')) {
+            setSelectedKeys(['patients']);
+            setOpenKeys(['users']);
+        } else if (currentPath.includes('/admin/specialties')) {
+            setSelectedKeys(['specialties']);
+        } else if (currentPath.includes('/admin/appointments')) {
+            setSelectedKeys(['appointments']);
+        } else if (currentPath.includes('/admin/settings')) {
+            setSelectedKeys(['settings']);
+        } else if (currentPath.includes('/doctor/appointments')) {
+            setSelectedKeys(['my-appointments']);
+        } else if (currentPath.includes('/doctor/patients')) {
+            setSelectedKeys(['my-patients']);
+        } else if (currentPath.includes('/doctor/schedule')) {
+            setSelectedKeys(['schedule']);
+        } else if (currentPath.includes('/patient/find-doctors')) {
+            setSelectedKeys(['find-doctors']);
+        } else if (currentPath.includes('/patient/appointments')) {
+            setSelectedKeys(['my-appointments']);
+        } else if (currentPath.includes('/patient/medical-records')) {
+            setSelectedKeys(['medical-records']);
+        }
+    }, [url]);
 
     // Menu items based on user role
     const getMenuItems = () => {
@@ -53,6 +91,11 @@ export default function AdminLayout({ children }) {
                             label: <Link href="/admin/patients">Patients</Link>,
                         },
                     ],
+                },
+                {
+                    key: 'specialties',
+                    icon: <MedicineBoxOutlined />,
+                    label: <Link href="/admin/specialties">Specialties</Link>,
                 },
                 {
                     key: 'appointments',
@@ -165,7 +208,9 @@ export default function AdminLayout({ children }) {
                 <Menu
                     theme="dark"
                     mode="inline"
-                    defaultSelectedKeys={['dashboard']}
+                    selectedKeys={selectedKeys}
+                    openKeys={openKeys}
+                    onOpenChange={setOpenKeys}
                     items={getMenuItems()}
                 />
             </Sider>

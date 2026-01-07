@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -67,7 +68,11 @@ class DoctorManagementController extends Controller
             'email' => $doctor->user->email,
             'phone' => $doctor->user->phone,
             'specialty' => $doctor->specialty?->name,
-            'cities' => $doctor->cities->pluck('name')->join(', '),
+            'profile_image_url' => $doctor->profile_image_url,
+            'cities' => $doctor->cities->map(fn($city) => [
+                'id' => $city->id,
+                'name' => $city->name,
+            ]),
             'is_verified' => $doctor->is_verified,
             'is_active' => $doctor->user->is_active,
             'created_at' => $doctor->created_at->format('Y-m-d'),
@@ -85,6 +90,28 @@ class DoctorManagementController extends Controller
     }
 
     /**
+     * Get existing images from images/doctors folder
+     */
+    public function getExistingImages()
+    {
+        $imagesPath = public_path('images/doctors');
+        $images = [];
+
+        if (\File::exists($imagesPath)) {
+            $files = \File::files($imagesPath);
+            foreach ($files as $file) {
+                $images[] = [
+                    'path' => 'images/doctors/' . $file->getFilename(),
+                    'url' => asset('images/doctors/' . $file->getFilename()),
+                    'name' => $file->getFilename(),
+                ];
+            }
+        }
+
+        return response()->json($images);
+    }
+
+    /**
      * Show create form
      */
     public function create(): Response
@@ -92,9 +119,24 @@ class DoctorManagementController extends Controller
         $cities = City::active()->orderBy('name')->get();
         $specialties = Specialty::active()->get();
 
+        // Get existing images
+        $imagesPath = public_path('images/doctors');
+        $existingImages = [];
+        if (\File::exists($imagesPath)) {
+            $files = \File::files($imagesPath);
+            foreach ($files as $file) {
+                $existingImages[] = [
+                    'path' => 'images/doctors/' . $file->getFilename(),
+                    'url' => asset('images/doctors/' . $file->getFilename()),
+                    'name' => $file->getFilename(),
+                ];
+            }
+        }
+
         return Inertia::render('Admin/Doctors/Create', [
             'cities' => $cities,
             'specialties' => $specialties,
+            'existingImages' => $existingImages,
         ]);
     }
 
@@ -115,6 +157,8 @@ class DoctorManagementController extends Controller
             'consultation_fee' => 'nullable|numeric|min:0',
             'bio' => 'nullable|string',
             'website' => 'nullable|url',
+            'profile_image' => 'nullable|string',
+            'profile_image_file' => 'nullable|image|mimes:jpeg,jpg,png,gif|max:2048',
             'cities' => 'array',
             'cities.*.city_id' => 'required|exists:cities,id',
             'cities.*.address' => 'nullable|string',
@@ -123,6 +167,17 @@ class DoctorManagementController extends Controller
         DB::beginTransaction();
 
         try {
+            // Handle image upload or selection
+            $profileImagePath = null;
+            if ($request->hasFile('profile_image_file')) {
+                $file = $request->file('profile_image_file');
+                $filename = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $file->getClientOriginalName());
+                $file->move(public_path('images/doctors'), $filename);
+                $profileImagePath = 'images/doctors/' . $filename;
+            } elseif ($request->filled('profile_image')) {
+                $profileImagePath = $validated['profile_image'];
+            }
+
             // Create user
             $user = User::create([
                 'name' => $validated['name'],
@@ -143,6 +198,7 @@ class DoctorManagementController extends Controller
                 'consultation_fee' => $validated['consultation_fee'] ?? null,
                 'bio' => $validated['bio'] ?? null,
                 'website' => $validated['website'] ?? null,
+                'profile_image' => $profileImagePath,
                 'is_verified' => true,
             ]);
 
@@ -208,6 +264,20 @@ class DoctorManagementController extends Controller
         $cities = City::active()->orderBy('name')->get();
         $specialties = Specialty::active()->get();
 
+        // Get existing images
+        $imagesPath = public_path('images/doctors');
+        $existingImages = [];
+        if (\File::exists($imagesPath)) {
+            $files = \File::files($imagesPath);
+            foreach ($files as $file) {
+                $existingImages[] = [
+                    'path' => 'images/doctors/' . $file->getFilename(),
+                    'url' => asset('images/doctors/' . $file->getFilename()),
+                    'name' => $file->getFilename(),
+                ];
+            }
+        }
+
         return Inertia::render('Admin/Doctors/Edit', [
             'doctor' => [
                 'id' => $doctor->id,
@@ -222,6 +292,8 @@ class DoctorManagementController extends Controller
                 'consultation_fee' => $doctor->consultation_fee,
                 'bio' => $doctor->bio,
                 'website' => $doctor->website,
+                'profile_image' => $doctor->profile_image,
+                'profile_image_url' => $doctor->profile_image_url,
                 'is_verified' => $doctor->is_verified,
                 'is_active' => $doctor->user->is_active,
                 'is_available_online' => $doctor->is_available_online,
@@ -233,6 +305,7 @@ class DoctorManagementController extends Controller
             ],
             'cities' => $cities,
             'specialties' => $specialties,
+            'existingImages' => $existingImages,
         ]);
     }
 
@@ -252,6 +325,8 @@ class DoctorManagementController extends Controller
             'consultation_fee' => 'nullable|numeric|min:0',
             'bio' => 'nullable|string',
             'website' => 'nullable|url',
+            'profile_image' => 'nullable|string',
+            'profile_image_file' => 'nullable|image|mimes:jpeg,jpg,png,gif|max:2048',
             'is_verified' => 'boolean',
             'is_active' => 'boolean',
             'is_available_online' => 'boolean',
@@ -263,6 +338,25 @@ class DoctorManagementController extends Controller
         DB::beginTransaction();
 
         try {
+            // Handle image upload or selection
+            $profileImagePath = $doctor->profile_image;
+            if ($request->hasFile('profile_image_file')) {
+                // Delete old custom uploaded image (not seeded ones)
+                if ($doctor->profile_image && str_starts_with($doctor->profile_image, 'images/doctors/') && str_contains($doctor->profile_image, '_')) {
+                    $oldImagePath = public_path($doctor->profile_image);
+                    if (\File::exists($oldImagePath)) {
+                        \File::delete($oldImagePath);
+                    }
+                }
+                
+                $file = $request->file('profile_image_file');
+                $filename = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $file->getClientOriginalName());
+                $file->move(public_path('images/doctors'), $filename);
+                $profileImagePath = 'images/doctors/' . $filename;
+            } elseif ($request->filled('profile_image')) {
+                $profileImagePath = $validated['profile_image'];
+            }
+
             // Update user
             $doctor->user->update([
                 'name' => $validated['name'],
@@ -280,6 +374,7 @@ class DoctorManagementController extends Controller
                 'consultation_fee' => $validated['consultation_fee'] ?? null,
                 'bio' => $validated['bio'] ?? null,
                 'website' => $validated['website'] ?? null,
+                'profile_image' => $profileImagePath,
                 'is_verified' => $validated['is_verified'] ?? false,
                 'is_available_online' => $validated['is_available_online'] ?? false,
             ]);
