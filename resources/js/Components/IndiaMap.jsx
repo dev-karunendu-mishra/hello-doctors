@@ -1,15 +1,7 @@
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useEffect } from 'react';
-
-// Fix for default marker icon
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+import { useEffect, useState } from 'react';
 
 // City coordinates for Uttar Pradesh cities
 const cityCoordinates = {
@@ -73,8 +65,19 @@ function FitBounds({ cities }) {
     return null;
 }
 
-export default function IndiaMap({ cities }) {
+// Separate map component to avoid SSR issues
+function MapComponent({ cities }) {
     const center = [26.8467, 80.9462]; // Center of UP (Lucknow)
+
+    // Fix for default marker icon - only run on client
+    useEffect(() => {
+        delete L.Icon.Default.prototype._getIconUrl;
+        L.Icon.Default.mergeOptions({
+            iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+            iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+        });
+    }, []);
 
     return (
         <div style={{ height: '500px', width: '100%', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
@@ -132,4 +135,34 @@ export default function IndiaMap({ cities }) {
             </MapContainer>
         </div>
     );
+}
+
+// Main component with SSR check
+export default function IndiaMap({ cities }) {
+    const [isClient, setIsClient] = useState(false);
+
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
+
+    // Don't render map on server-side
+    if (!isClient) {
+        return (
+            <div style={{ 
+                height: '500px', 
+                width: '100%', 
+                borderRadius: '8px', 
+                overflow: 'hidden', 
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: '#f0f0f0'
+            }}>
+                <div style={{ fontSize: '16px', color: '#666' }}>Loading map...</div>
+            </div>
+        );
+    }
+
+    return <MapComponent cities={cities} />;
 }
