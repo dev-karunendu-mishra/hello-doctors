@@ -1,3 +1,13 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Leaflet Map Styles */
+.leaflet-container {
+    font-family: inherit;
+}
+
+.custom-marker {
+    background: none !important;
+    border: none !important;
+}

@@ -4,6 +4,7 @@ import { SearchOutlined, MedicineBoxOutlined, EnvironmentOutlined, UserOutlined,
 import { useState, useEffect } from 'react';
 import Header from '@/Components/Header';
 import Footer from '@/Components/Footer';
+import IndiaMap from '@/Components/IndiaMap';
 
 const { Title, Paragraph } = Typography;
 const { Search } = Input;
@@ -343,6 +344,13 @@ export default function Home({ auth, cities, specialties, featuredDoctors, stats
                         <Title level={2} className="text-center mb-8">
                             Find Doctors by City
                         </Title>
+                        
+                        {/* Map View */}
+                        <div className="mb-8">
+                            <IndiaMap cities={cities} />
+                        </div>
+
+                        {/* Grid View */}
                         <Row gutter={[16, 16]}>
                             {cities.map(city => (
                                 <Col xs={12} sm={8} md={6} key={city.id}>
