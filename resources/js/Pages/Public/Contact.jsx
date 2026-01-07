@@ -1,11 +1,13 @@
 import { Head, useForm } from '@inertiajs/react';
 import { Card, Form, Input, Button, Typography, Alert } from 'antd';
 import { MailOutlined, PhoneOutlined, UserOutlined } from '@ant-design/icons';
+import Header from '@/Components/Header';
+import Footer from '@/Components/Footer';
 
 const { Title, Paragraph } = Typography;
 const { TextArea } = Input;
 
-export default function Contact({ flash }) {
+export default function Contact({ auth, flash }) {
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         email: '',
@@ -21,6 +23,8 @@ export default function Contact({ flash }) {
     return (
         <>
             <Head title="Contact Us - Hello Doctors" />
+            
+            <Header auth={auth} />
             
             <div className="min-h-screen bg-gray-50 py-8">
                 <div className="container mx-auto px-4 max-w-4xl">
@@ -127,6 +131,8 @@ export default function Contact({ flash }) {
                     </div>
                 </div>
             </div>
+            
+            <Footer />
         </>
     );
 }

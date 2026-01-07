@@ -1,13 +1,17 @@
 import { Head, Link } from '@inertiajs/react';
 import { Card, Row, Col, Typography, Descriptions, Tag, Avatar, Divider, Button } from 'antd';
 import { UserOutlined, PhoneOutlined, MailOutlined, GlobalOutlined, EnvironmentOutlined, MedicineBoxOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import Header from '@/Components/Header';
+import Footer from '@/Components/Footer';
 
 const { Title, Paragraph } = Typography;
 
-export default function DoctorProfile({ doctor }) {
+export default function DoctorProfile({ auth, doctor }) {
     return (
         <>
             <Head title={`${doctor.name} - Doctor Profile`} />
+            
+            <Header auth={auth} />
             
             <div className="min-h-screen bg-gray-50 py-8">
                 <div className="container mx-auto px-4">
@@ -156,6 +160,8 @@ export default function DoctorProfile({ doctor }) {
                     </Card>
                 </div>
             </div>
+            
+            <Footer />
         </>
     );
 }

@@ -1,26 +1,128 @@
 import { Head, Link } from '@inertiajs/react';
-import { Card, Row, Col, Typography, Button, Input, Select, Statistic } from 'antd';
-import { SearchOutlined, MedicineBoxOutlined, EnvironmentOutlined, UserOutlined } from '@ant-design/icons';
-import { useState } from 'react';
+import { Card, Row, Col, Typography, Button, Input, Select, Statistic, message } from 'antd';
+import { SearchOutlined, MedicineBoxOutlined, EnvironmentOutlined, UserOutlined, AimOutlined } from '@ant-design/icons';
+import { useState, useEffect } from 'react';
+import Header from '@/Components/Header';
 import Footer from '@/Components/Footer';
 
 const { Title, Paragraph } = Typography;
 const { Search } = Input;
 
-export default function Home({ cities, specialties, featuredDoctors, stats }) {
+export default function Home({ auth, cities, specialties, featuredDoctors, stats }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCity, setSelectedCity] = useState(null);
+    const [citySearchText, setCitySearchText] = useState('');
+    const [detectingLocation, setDetectingLocation] = useState(false);
+
+    // Auto-detect user location on component mount
+    useEffect(() => {
+        detectUserLocation();
+    }, []);
+
+    const detectUserLocation = async () => {
+        setDetectingLocation(true);
+        
+        if (!navigator.geolocation) {
+            message.info('Geolocation is not supported by your browser');
+            setDetectingLocation(false);
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                try {
+                    const { latitude, longitude } = position.coords;
+                    
+                    // Use reverse geocoding to get city name
+                    const response = await fetch(
+                        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+                    );
+                    const data = await response.json();
+                    
+                    const detectedCity = data.address?.city || 
+                                       data.address?.town || 
+                                       data.address?.village || 
+                                       data.address?.state_district;
+                    
+                    if (detectedCity) {
+                        // Try to match with database cities
+                        const matchedCity = cities.find(
+                            city => city.name.toLowerCase() === detectedCity.toLowerCase()
+                        );
+                        
+                        if (matchedCity) {
+                            setSelectedCity(matchedCity.id);
+                            setCitySearchText(''); // Clear custom text for DB cities
+                            message.success(`Location detected: ${matchedCity.name}`);
+                        } else {
+                            // If not in database, set as custom text
+                            setSelectedCity(null);
+                            setCitySearchText(detectedCity);
+                            message.success(`Location detected: ${detectedCity}`);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error getting location name:', error);
+                    message.error('Could not detect your city');
+                } finally {
+                    setDetectingLocation(false);
+                }
+            },
+            (error) => {
+                console.error('Geolocation error:', error);
+                if (error.code === error.PERMISSION_DENIED) {
+                    message.warning('Location access denied. Please select city manually.');
+                } else {
+                    message.error('Could not detect your location');
+                }
+                setDetectingLocation(false);
+            }
+        );
+    };
+
+    const handleCityChange = (value, option) => {
+        setSelectedCity(value);
+        setCitySearchText(''); // Clear custom text when selecting from dropdown
+    };
+
+    const handleCitySearch = (value) => {
+        setCitySearchText(value);
+        // If the text matches a city from database, select it
+        const matchedCity = cities.find(
+            city => city.name.toLowerCase() === value.toLowerCase()
+        );
+        if (matchedCity) {
+            setSelectedCity(matchedCity.id);
+        } else {
+            setSelectedCity(null);
+        }
+    };
 
     const handleSearch = () => {
         const params = new URLSearchParams();
         if (searchQuery) params.append('search', searchQuery);
-        if (selectedCity) params.append('city', selectedCity);
+        
+        // Use city name instead of ID for better URL readability
+        if (selectedCity) {
+            // Get city name from the selected ID
+            const selectedCityObj = cities.find(c => c.id === selectedCity);
+            if (selectedCityObj) {
+                params.append('city_name', selectedCityObj.name);
+            }
+        } else if (citySearchText) {
+            // Use custom typed city name
+            params.append('city_name', citySearchText);
+        }
+        
         window.location.href = `/search?${params.toString()}`;
     };
 
     return (
         <>
             <Head title="Hello Doctors - Find Best Doctors" />
+            
+            {/* Header */}
+            <Header auth={auth} />
             
             <div className="min-h-screen bg-gray-50">
                 {/* Hero Section */}
@@ -50,10 +152,43 @@ export default function Home({ cities, specialties, featuredDoctors, stats }) {
                                     <Col xs={24} md={8}>
                                         <Select
                                             size="large"
-                                            placeholder="Select City"
+                                            showSearch
+                                            placeholder={
+                                                <span>
+                                                    <EnvironmentOutlined /> {detectingLocation ? 'Detecting...' : 'Select or type city'}
+                                                </span>
+                                            }
                                             className="w-full"
-                                            onChange={setSelectedCity}
+                                            value={selectedCity}
+                                            onChange={handleCityChange}
+                                            onSearch={handleCitySearch}
+                                            searchValue={!selectedCity ? citySearchText : undefined}
                                             allowClear
+                                            filterOption={(input, option) =>
+                                                (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
+                                            }
+                                            notFoundContent={
+                                                <div className="text-center py-2">
+                                                    <p>City not in list?</p>
+                                                    <p className="text-xs text-gray-500">Just type and press Enter</p>
+                                                </div>
+                                            }
+                                            suffixIcon={
+                                                detectingLocation ? (
+                                                    <AimOutlined spin />
+                                                ) : (
+                                                    <Button
+                                                        type="link"
+                                                        size="small"
+                                                        icon={<AimOutlined />}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            detectUserLocation();
+                                                        }}
+                                                        title="Detect my location"
+                                                    />
+                                                )
+                                            }
                                         >
                                             {cities.map(city => (
                                                 <Select.Option key={city.id} value={city.id}>
@@ -211,7 +346,7 @@ export default function Home({ cities, specialties, featuredDoctors, stats }) {
                         <Row gutter={[16, 16]}>
                             {cities.map(city => (
                                 <Col xs={12} sm={8} md={6} key={city.id}>
-                                    <Link href={`/search?city=${city.id}`}>
+                                    <Link href={`/search?city_name=${city.name}`}>
                                         <Card hoverable className="text-center">
                                             <EnvironmentOutlined style={{ fontSize: 32, color: '#52c41a' }} />
                                             <div className="mt-2 font-medium">{city.name}</div>

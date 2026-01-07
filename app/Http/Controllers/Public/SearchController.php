@@ -44,6 +44,14 @@ class SearchController extends Controller
             $query->byCity($request->city);
         }
 
+        // Filter by city name (for custom city input or detected location)
+        if ($request->filled('city_name') && !$request->filled('city')) {
+            $city = City::where('name', 'LIKE', "%{$request->city_name}%")->first();
+            if ($city) {
+                $query->byCity($city->id);
+            }
+        }
+
         // Filter by specialty
         if ($request->filled('specialty')) {
             $query->bySpecialty($request->specialty);
@@ -104,6 +112,7 @@ class SearchController extends Controller
             'filters' => [
                 'search' => $request->search,
                 'city' => $request->city,
+                'city_name' => $request->city_name,
                 'specialty' => $request->specialty,
                 'available_online' => $request->available_online,
                 'sort' => $sortBy,

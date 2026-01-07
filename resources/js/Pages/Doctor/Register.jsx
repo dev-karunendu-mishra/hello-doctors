@@ -2,11 +2,13 @@ import { Head, useForm } from '@inertiajs/react';
 import { Card, Form, Input, Button, Select, Upload, Typography, Alert, Row, Col, Checkbox } from 'antd';
 import { UploadOutlined, UserOutlined, MailOutlined, PhoneOutlined, GlobalOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import { useState } from 'react';
+import Header from '@/Components/Header';
+import Footer from '@/Components/Footer';
 
 const { Title, Paragraph } = Typography;
 const { TextArea } = Input;
 
-export default function Register({ cities, specialties, flash, errors: serverErrors }) {
+export default function Register({ auth, cities, specialties, flash, errors: serverErrors }) {
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         email: '',
@@ -51,6 +53,8 @@ export default function Register({ cities, specialties, flash, errors: serverErr
     return (
         <>
             <Head title="Doctor Registration - Hello Doctors" />
+            
+            <Header auth={auth} />
             
             <div className="min-h-screen bg-gray-50 py-8">
                 <div className="container mx-auto px-4 max-w-4xl">
@@ -332,6 +336,8 @@ export default function Register({ cities, specialties, flash, errors: serverErr
                     </div>
                 </div>
             </div>
+            
+            <Footer />
         </>
     );
 }

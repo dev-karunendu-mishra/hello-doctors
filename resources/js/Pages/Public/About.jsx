@@ -1,13 +1,17 @@
 import { Head } from '@inertiajs/react';
 import { Card, Row, Col, Typography, Statistic } from 'antd';
 import { UserOutlined, EnvironmentOutlined, MedicineBoxOutlined, TrophyOutlined } from '@ant-design/icons';
+import Header from '@/Components/Header';
+import Footer from '@/Components/Footer';
 
 const { Title, Paragraph } = Typography;
 
-export default function About({ stats }) {
+export default function About({ auth, stats }) {
     return (
         <>
             <Head title="About Us - Hello Doctors" />
+            
+            <Header auth={auth} />
             
             <div className="min-h-screen bg-gray-50">
                 {/* Hero Section */}
@@ -177,6 +181,8 @@ export default function About({ stats }) {
                     </div>
                 </div>
             </div>
+            
+            <Footer />
         </>
     );
 }
