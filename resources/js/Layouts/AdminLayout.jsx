@@ -41,6 +41,10 @@ export default function AdminLayout({ children }) {
             setSelectedKeys(['specialties']);
         } else if (currentPath.includes('/admin/appointments')) {
             setSelectedKeys(['appointments']);
+        } else if (currentPath.includes('/admin/site-customization')) {
+            setSelectedKeys(['site-customization']);
+        } else if (currentPath.includes('/admin/seo')) {
+            setSelectedKeys(['seo']);
         } else if (currentPath.includes('/admin/settings')) {
             setSelectedKeys(['settings']);
         } else if (currentPath.includes('/doctor/appointments')) {
@@ -101,6 +105,16 @@ export default function AdminLayout({ children }) {
                     key: 'appointments',
                     icon: <CalendarOutlined />,
                     label: <Link href="/admin/appointments">Appointments</Link>,
+                },
+                {
+                    key: 'site-customization',
+                    icon: <SettingOutlined />,
+                    label: <Link href="/admin/site-customization">Site Customization</Link>,
+                },
+                {
+                    key: 'seo',
+                    icon: <SettingOutlined />,
+                    label: <Link href="/admin/seo">SEO Settings</Link>,
                 },
                 {
                     key: 'settings',

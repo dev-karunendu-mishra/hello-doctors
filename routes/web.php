@@ -86,6 +86,15 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     // Advertisement Management
     Route::resource('advertisements', AdvertisementController::class);
     
+    // Site Customization
+    Route::get('/site-customization', [App\Http\Controllers\Admin\SiteCustomizationController::class, 'index'])->name('site-customization');
+    Route::post('/site-customization', [App\Http\Controllers\Admin\SiteCustomizationController::class, 'update'])->name('site-customization.update');
+    Route::post('/site-customization/upload-image', [App\Http\Controllers\Admin\SiteCustomizationController::class, 'uploadImage'])->name('site-customization.upload-image');
+    
+    // SEO Settings
+    Route::get('/seo', [App\Http\Controllers\Admin\SeoController::class, 'index'])->name('seo');
+    Route::post('/seo', [App\Http\Controllers\Admin\SeoController::class, 'update'])->name('seo.update');
+    
     // Settings
     Route::get('/settings', [App\Http\Controllers\Admin\SettingsController::class, 'index'])->name('settings');
 });
