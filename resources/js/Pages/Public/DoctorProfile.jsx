@@ -41,25 +41,30 @@ export default function DoctorProfile({ auth, doctor }) {
         structuredData.priceRange = `₹${doctor.consultation_fee}`;
     }
 
-    const metaDescription = doctor.bio 
-        ? `${doctor.bio.substring(0, 155)}...` 
-        : `${doctor.name} - ${doctor.specialty} with ${doctor.experience_years || 0} years of experience. Find contact details, qualifications, and consultation fees.`;
+    // Use entity-specific SEO if available, otherwise generate dynamically
+    const metaTitle = doctor.meta_title || `${doctor.name} - ${doctor.specialty} Doctor Profile`;
+    const metaDescription = doctor.meta_description || (
+        doctor.bio 
+            ? `${doctor.bio.substring(0, 155)}...` 
+            : `${doctor.name} - ${doctor.specialty} with ${doctor.experience_years || 0} years of experience. Find contact details, qualifications, and consultation fees.`
+    );
+    const metaKeywords = doctor.meta_keywords || `${doctor.name}, ${doctor.specialty}, doctor, healthcare, medical, ${doctor.cities.map(c => c.name).join(', ')}`;
 
     return (
         <>
-            <Head title={`${doctor.name} - ${doctor.specialty} Doctor Profile`}>
+            <Head title={metaTitle}>
                 <meta name="description" content={metaDescription} />
-                <meta name="keywords" content={`${doctor.name}, ${doctor.specialty}, doctor, healthcare, medical, ${doctor.cities.map(c => c.name).join(', ')}`} />
+                <meta name="keywords" content={metaKeywords} />
                 
                 {/* Open Graph */}
-                <meta property="og:title" content={`${doctor.name} - ${doctor.specialty}`} />
+                <meta property="og:title" content={metaTitle} />
                 <meta property="og:description" content={metaDescription} />
                 <meta property="og:type" content="profile" />
                 {doctor.image && <meta property="og:image" content={doctor.image} />}
                 
                 {/* Twitter Card */}
                 <meta name="twitter:card" content="summary_large_image" />
-                <meta name="twitter:title" content={`${doctor.name} - ${doctor.specialty}`} />
+                <meta name="twitter:title" content={metaTitle} />
                 <meta name="twitter:description" content={metaDescription} />
                 {doctor.image && <meta name="twitter:image" content={doctor.image} />}
                 

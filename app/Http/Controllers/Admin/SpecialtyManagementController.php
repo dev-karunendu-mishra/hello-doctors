@@ -86,6 +86,9 @@ class SpecialtyManagementController extends Controller
             'description' => 'nullable|string',
             'is_active' => 'boolean',
             'sort_order' => 'nullable|integer|min:0',
+            'meta_title' => 'nullable|string|max:60',
+            'meta_description' => 'nullable|string|max:160',
+            'meta_keywords' => 'nullable|string|max:255',
         ]);
 
         // Handle file upload
@@ -169,6 +172,9 @@ class SpecialtyManagementController extends Controller
             'description' => 'nullable|string',
             'is_active' => 'boolean',
             'sort_order' => 'nullable|integer|min:0',
+            'meta_title' => 'nullable|string|max:60',
+            'meta_description' => 'nullable|string|max:160',
+            'meta_keywords' => 'nullable|string|max:255',
         ]);
 
         // Handle file upload

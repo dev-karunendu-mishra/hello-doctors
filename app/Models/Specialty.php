@@ -18,6 +18,9 @@ class Specialty extends Model
         'description',
         'is_active',
         'sort_order',
+        'meta_title',
+        'meta_description',
+        'meta_keywords',
     ];
 
     protected $casts = [

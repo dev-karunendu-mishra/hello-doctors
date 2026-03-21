@@ -28,6 +28,9 @@ class DoctorProfile extends Model
         'website',
         'is_verified',
         'is_available_online',
+        'meta_title',
+        'meta_description',
+        'meta_keywords',
     ];
 
     protected $casts = [

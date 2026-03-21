@@ -162,6 +162,9 @@ class DoctorManagementController extends Controller
             'cities' => 'array',
             'cities.*.city_id' => 'required|exists:cities,id',
             'cities.*.address' => 'nullable|string',
+            'meta_title' => 'nullable|string|max:60',
+            'meta_description' => 'nullable|string|max:160',
+            'meta_keywords' => 'nullable|string|max:255',
         ]);
 
         DB::beginTransaction();
@@ -200,6 +203,9 @@ class DoctorManagementController extends Controller
                 'website' => $validated['website'] ?? null,
                 'profile_image' => $profileImagePath,
                 'is_verified' => true,
+                'meta_title' => $validated['meta_title'] ?? null,
+                'meta_description' => $validated['meta_description'] ?? null,
+                'meta_keywords' => $validated['meta_keywords'] ?? null,
             ]);
 
             // Associate cities
@@ -333,6 +339,9 @@ class DoctorManagementController extends Controller
             'cities' => 'array',
             'cities.*.city_id' => 'required|exists:cities,id',
             'cities.*.address' => 'nullable|string',
+            'meta_title' => 'nullable|string|max:60',
+            'meta_description' => 'nullable|string|max:160',
+            'meta_keywords' => 'nullable|string|max:255',
         ]);
 
         DB::beginTransaction();
@@ -377,6 +386,9 @@ class DoctorManagementController extends Controller
                 'profile_image' => $profileImagePath,
                 'is_verified' => $validated['is_verified'] ?? false,
                 'is_available_online' => $validated['is_available_online'] ?? false,
+                'meta_title' => $validated['meta_title'] ?? null,
+                'meta_description' => $validated['meta_description'] ?? null,
+                'meta_keywords' => $validated['meta_keywords'] ?? null,
             ]);
 
             // Update cities

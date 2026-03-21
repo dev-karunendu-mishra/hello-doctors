@@ -15,6 +15,9 @@ export default function SpecialtyEdit({ specialty, existingImages }) {
         description: specialty.description || '',
         is_active: specialty.is_active ?? true,
         sort_order: specialty.sort_order || 0,
+        meta_title: specialty.meta_title || '',
+        meta_description: specialty.meta_description || '',
+        meta_keywords: specialty.meta_keywords || '',
         _method: 'PUT',
     });
 
@@ -32,6 +35,9 @@ export default function SpecialtyEdit({ specialty, existingImages }) {
         formData.append('description', data.description || '');
         formData.append('is_active', data.is_active ? '1' : '0');
         formData.append('sort_order', data.sort_order);
+        formData.append('meta_title', data.meta_title || '');
+        formData.append('meta_description', data.meta_description || '');
+        formData.append('meta_keywords', data.meta_keywords || '');
         
         if (imageSource === 'upload' && data.image_file) {
             formData.append('image_file', data.image_file);
@@ -277,6 +283,56 @@ export default function SpecialtyEdit({ specialty, existingImages }) {
                             onChange={(checked) => setData('is_active', checked)}
                             checkedChildren="Active"
                             unCheckedChildren="Inactive"
+                        />
+                    </Form.Item>
+
+                    <Alert 
+                        message="SEO Settings - These fields help optimize this specialty page for search engines. If left empty, global site SEO settings will be used." 
+                        type="info" 
+                        showIcon 
+                        className="mb-4 mt-6"
+                    />
+
+                    <Form.Item 
+                        label="Meta Title (60 characters max)" 
+                        validateStatus={errors.meta_title ? 'error' : ''}
+                        help={errors.meta_title}
+                    >
+                        <Input
+                            size="large"
+                            placeholder={`${data.name} Specialists | Site Name`}
+                            value={data.meta_title}
+                            onChange={(e) => setData('meta_title', e.target.value)}
+                            maxLength={60}
+                            showCount
+                        />
+                    </Form.Item>
+
+                    <Form.Item 
+                        label="Meta Description (160 characters max)" 
+                        validateStatus={errors.meta_description ? 'error' : ''}
+                        help={errors.meta_description}
+                    >
+                        <TextArea
+                            rows={3}
+                            placeholder="SEO-friendly description of this medical specialty"
+                            value={data.meta_description}
+                            onChange={(e) => setData('meta_description', e.target.value)}
+                            maxLength={160}
+                            showCount
+                        />
+                    </Form.Item>
+
+                    <Form.Item 
+                        label="Meta Keywords (comma-separated)" 
+                        validateStatus={errors.meta_keywords ? 'error' : ''}
+                        help={errors.meta_keywords}
+                    >
+                        <Input
+                            size="large"
+                            placeholder="specialty name, doctors, treatment, healthcare"
+                            value={data.meta_keywords}
+                            onChange={(e) => setData('meta_keywords', e.target.value)}
                         />
                     </Form.Item>
 

@@ -25,6 +25,9 @@ export default function DoctorCreate({ cities, specialties, flash }) {
         is_active: true,
         cities: [],
         profile_image: null,
+        meta_title: '',
+        meta_description: '',
+        meta_keywords: '',
     });
 
     const [fileList, setFileList] = useState([]);
@@ -330,6 +333,57 @@ export default function DoctorCreate({ cities, specialties, flash }) {
                                 >
                                     Active
                                 </Checkbox>
+                            </Form.Item>
+
+                            <Title level={4} className="mt-6">SEO Settings</Title>
+                            <Alert 
+                                message="These fields help optimize this doctor's profile page for search engines. If left empty, global site SEO settings will be used." 
+                                type="info" 
+                                showIcon 
+                                className="mb-4"
+                            />
+                            
+                            <Form.Item 
+                                label="Meta Title (60 characters max)" 
+                                validateStatus={errors.meta_title ? 'error' : ''}
+                                help={errors.meta_title}
+                            >
+                                <Input
+                                    size="large"
+                                    placeholder="Doctor Name - Specialty | Site Name"
+                                    value={data.meta_title}
+                                    onChange={(e) => setData('meta_title', e.target.value)}
+                                    maxLength={60}
+                                    showCount
+                                />
+                            </Form.Item>
+
+                            <Form.Item 
+                                label="Meta Description (160 characters max)" 
+                                validateStatus={errors.meta_description ? 'error' : ''}
+                                help={errors.meta_description}
+                            >
+                                <TextArea
+                                    rows={3}
+                                    placeholder="Brief SEO-friendly description of the doctor's expertise and services"
+                                    value={data.meta_description}
+                                    onChange={(e) => setData('meta_description', e.target.value)}
+                                    maxLength={160}
+                                    showCount
+                                />
+                            </Form.Item>
+
+                            <Form.Item 
+                                label="Meta Keywords (comma-separated)" 
+                                validateStatus={errors.meta_keywords ? 'error' : ''}
+                                help={errors.meta_keywords}
+                            >
+                                <Input
+                                    size="large"
+                                    placeholder="doctor name, specialty, city, expertise"
+                                    value={data.meta_keywords}
+                                    onChange={(e) => setData('meta_keywords', e.target.value)}
+                                />
                             </Form.Item>
 
                             <Form.Item>

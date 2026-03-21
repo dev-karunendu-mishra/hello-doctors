@@ -153,6 +153,9 @@ class SearchController extends Controller
                 'consultation_fee' => $doctor->consultation_fee,
                 'website' => $doctor->website,
                 'is_available_online' => $doctor->is_available_online,
+                'meta_title' => $doctor->meta_title,
+                'meta_description' => $doctor->meta_description,
+                'meta_keywords' => $doctor->meta_keywords,
                 'cities' => $doctor->cities->map(fn($city) => [
                     'id' => $city->id,
                     'name' => $city->name,
