@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class DoctorProfile extends Model
 {
@@ -16,6 +17,7 @@ class DoctorProfile extends Model
 
     protected $fillable = [
         'user_id',
+        'slug',
         'specialization_id',
         'license_number',
         'qualification',
@@ -36,6 +38,65 @@ class DoctorProfile extends Model
     ];
 
     protected $appends = ['profile_image_url'];
+
+    /**
+     * Boot the model
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($doctor) {
+            if (empty($doctor->slug) && $doctor->user) {
+                $doctor->slug = static::generateUniqueSlug($doctor->user->name);
+            }
+        });
+
+        static::updating(function ($doctor) {
+            if (empty($doctor->slug) && $doctor->user) {
+                $doctor->slug = static::generateUniqueSlug($doctor->user->name, $doctor->id);
+            }
+        });
+    }
+
+    /**
+     * Generate a unique slug for the doctor
+     */
+    public static function generateUniqueSlug($name, $ignoreId = null)
+    {
+        $slug = Str::slug($name);
+        $originalSlug = $slug;
+        $count = 1;
+
+        while (static::slugExists($slug, $ignoreId)) {
+            $slug = $originalSlug . '-' . $count;
+            $count++;
+        }
+
+        return $slug;
+    }
+
+    /**
+     * Check if slug exists
+     */
+    protected static function slugExists($slug, $ignoreId = null)
+    {
+        $query = static::where('slug', $slug);
+        
+        if ($ignoreId) {
+            $query->where('id', '!=', $ignoreId);
+        }
+        
+        return $query->exists();
+    }
+
+    /**
+     * Get the route key for the model
+     */
+    public function getRouteKeyName()
+    {
+        return 'slug';
+    }
 
     /**
      * Get the user that owns the doctor profile

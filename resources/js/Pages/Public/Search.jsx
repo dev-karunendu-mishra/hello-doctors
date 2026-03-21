@@ -188,7 +188,11 @@ export default function Search({ auth, doctors, cities, specialties, filters }) 
 
     return (
         <>
-            <Head title="Search Doctors" />
+            <Head title="Search Doctors">
+                <meta name="description" content="Search and find qualified doctors by specialty, location, or name. Browse verified medical professionals across Uttar Pradesh." />
+                <meta name="keywords" content="search doctors, find doctors, medical professionals, healthcare providers, doctor search, specialty search" />
+                <link rel="canonical" href={`${window.location.origin}/search`} />
+            </Head>
             
             <Header auth={auth} />
             

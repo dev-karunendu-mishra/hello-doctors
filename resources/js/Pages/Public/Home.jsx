@@ -120,7 +120,11 @@ export default function Home({ auth, cities, specialties, featuredDoctors, stats
 
     return (
         <>
-            <Head title="Hello Doctors - Find Best Doctors" />
+            <Head title="Hello Doctors - Find Best Doctors">
+                <meta name="description" content="Find and connect with verified healthcare professionals across Uttar Pradesh. Search by specialty, city, or doctor name. Book appointments with experienced doctors." />
+                <meta name="keywords" content="doctors, healthcare, medical professionals, find doctors, appointments, Uttar Pradesh, specialties, verified doctors" />
+                <link rel="canonical" href={window.location.origin} />
+            </Head>
             
             {/* Header */}
             <Header auth={auth} />

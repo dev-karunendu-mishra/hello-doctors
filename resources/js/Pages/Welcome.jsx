@@ -73,7 +73,11 @@ export default function Welcome({ auth }) {
 
     return (
         <>
-            <Head title="Find Best Doctors & Healthcare Services" />
+            <Head title="Find Best Doctors & Healthcare Services">
+                <meta name="description" content="Connect with verified healthcare professionals across multiple cities in Uttar Pradesh. Find the best doctors, specialties, and book appointments easily." />
+                <meta name="keywords" content="doctors, healthcare, medical professionals, find doctors, appointments, Uttar Pradesh, medical services" />
+                <link rel="canonical" href={window.location.origin} />
+            </Head>
             <div className="min-h-screen bg-gray-50">
                 {/* Header */}
                 <header className="bg-white shadow-sm">

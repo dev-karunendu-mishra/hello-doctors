@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\SiteSetting;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Tighten\Ziggy\Ziggy;
@@ -30,6 +31,12 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        // Get SEO settings from database
+        $seoSettings = SiteSetting::where('group', 'seo')
+            ->get()
+            ->pluck('value', 'key')
+            ->toArray();
+
         return [
             ...parent::share($request),
             'auth' => [
@@ -38,6 +45,18 @@ class HandleInertiaRequests extends Middleware
             'ziggy' => fn () => [
                 ...(new Ziggy)->toArray(),
                 'location' => $request->url(),
+            ],
+            'seo' => [
+                'meta_title' => $seoSettings['meta_title'] ?? config('app.name', 'Hello Doctors'),
+                'meta_description' => $seoSettings['meta_description'] ?? 'Find the best doctors and healthcare professionals',
+                'meta_keywords' => $seoSettings['meta_keywords'] ?? 'doctors, healthcare, medical',
+                'meta_author' => $seoSettings['meta_author'] ?? config('app.name'),
+                'og_title' => $seoSettings['og_title'] ?? config('app.name'),
+                'og_description' => $seoSettings['og_description'] ?? 'Find the best doctors',
+                'og_image' => $seoSettings['og_image'] ?? null,
+                'twitter_card' => $seoSettings['twitter_card'] ?? 'summary_large_image',
+                'twitter_site' => $seoSettings['twitter_site'] ?? '',
+                'app_url' => config('app.url'),
             ],
         ];
     }

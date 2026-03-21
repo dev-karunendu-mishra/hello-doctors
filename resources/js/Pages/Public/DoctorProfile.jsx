@@ -7,9 +7,67 @@ import Footer from '@/Components/Footer';
 const { Title, Paragraph } = Typography;
 
 export default function DoctorProfile({ auth, doctor }) {
+    // Generate Schema.org structured data for SEO
+    const structuredData = {
+        "@context": "https://schema.org",
+        "@type": "Physician",
+        "name": doctor.name,
+        "description": doctor.bio || `${doctor.name} - ${doctor.specialty}`,
+        "jobTitle": doctor.specialty,
+        "image": doctor.image,
+        "telephone": doctor.phone,
+        "email": doctor.email,
+        "url": window.location.href,
+        "hasCredential": doctor.qualification,
+        "worksFor": {
+            "@type": "MedicalOrganization",
+            "name": "Hello Doctors"
+        }
+    };
+
+    // Add address if available
+    if (doctor.cities && doctor.cities.length > 0) {
+        structuredData.address = doctor.cities.map(city => ({
+            "@type": "PostalAddress",
+            "addressLocality": city.name,
+            "addressRegion": "Uttar Pradesh",
+            "addressCountry": "IN",
+            "streetAddress": city.address || ""
+        }));
+    }
+
+    // Add price range if available
+    if (doctor.consultation_fee) {
+        structuredData.priceRange = `₹${doctor.consultation_fee}`;
+    }
+
+    const metaDescription = doctor.bio 
+        ? `${doctor.bio.substring(0, 155)}...` 
+        : `${doctor.name} - ${doctor.specialty} with ${doctor.experience_years || 0} years of experience. Find contact details, qualifications, and consultation fees.`;
+
     return (
         <>
-            <Head title={`${doctor.name} - Doctor Profile`} />
+            <Head title={`${doctor.name} - ${doctor.specialty} Doctor Profile`}>
+                <meta name="description" content={metaDescription} />
+                <meta name="keywords" content={`${doctor.name}, ${doctor.specialty}, doctor, healthcare, medical, ${doctor.cities.map(c => c.name).join(', ')}`} />
+                
+                {/* Open Graph */}
+                <meta property="og:title" content={`${doctor.name} - ${doctor.specialty}`} />
+                <meta property="og:description" content={metaDescription} />
+                <meta property="og:type" content="profile" />
+                {doctor.image && <meta property="og:image" content={doctor.image} />}
+                
+                {/* Twitter Card */}
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:title" content={`${doctor.name} - ${doctor.specialty}`} />
+                <meta name="twitter:description" content={metaDescription} />
+                {doctor.image && <meta name="twitter:image" content={doctor.image} />}
+                
+                {/* Structured Data */}
+                <script type="application/ld+json">
+                    {JSON.stringify(structuredData)}
+                </script>
+            </Head>
             
             <Header auth={auth} />
             

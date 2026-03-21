@@ -123,21 +123,25 @@ class SearchController extends Controller
     /**
      * Display doctor profile
      */
-    public function show(int $id): Response
+    public function show(DoctorProfile $doctor): Response
     {
-        $doctor = DoctorProfile::with([
+        $doctor->load([
             'user',
             'specialty',
             'cities',
             'workingHours.city',
             'searchTag',
-        ])
-        ->verified()
-        ->findOrFail($id);
+        ]);
+
+        // Only show verified doctors to the public
+        if (!$doctor->is_verified) {
+            abort(404);
+        }
 
         return Inertia::render('Public/DoctorProfile', [
             'doctor' => [
                 'id' => $doctor->id,
+                'slug' => $doctor->slug,
                 'name' => $doctor->user->name,
                 'email' => $doctor->user->email,
                 'phone' => $doctor->user->phone,

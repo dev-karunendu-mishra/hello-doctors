@@ -13,6 +13,8 @@ use App\Http\Controllers\Public\SearchController;
 use App\Http\Controllers\Public\AboutController;
 use App\Http\Controllers\Public\ContactController;
 use App\Http\Controllers\SubscriptionController;
+use App\Http\Controllers\SitemapController;
+use App\Http\Controllers\RobotsController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -20,13 +22,17 @@ use Inertia\Inertia;
 // Public Routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/search', [SearchController::class, 'index'])->name('search');
-Route::get('/doctors/{id}', [SearchController::class, 'show'])->name('doctors.show');
+Route::get('/doctors/{doctor:slug}', [SearchController::class, 'show'])->name('doctors.show');
 Route::get('/about', [AboutController::class, 'index'])->name('about');
 Route::get('/contact', [ContactController::class, 'index'])->name('contact');
 Route::post('/contact', [ContactController::class, 'store'])->name('contact.store');
 
 // Newsletter Subscription
 Route::post('/subscribe', [SubscriptionController::class, 'store'])->name('subscribe');
+
+// SEO Routes
+Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
+Route::get('/robots.txt', [RobotsController::class, 'index'])->name('robots');
 
 // Doctor Registration (Public)
 Route::get('/register-doctor', [RegistrationController::class, 'create'])->name('doctor.register');
