@@ -85,6 +85,7 @@ class SearchController extends Controller
             ->paginate(20)
             ->through(fn($doctor) => [
                 'id' => $doctor->id,
+                'slug' => $doctor->slug,
                 'name' => $doctor->user->name,
                 'specialty' => $doctor->specialty?->name,
                 'specialty_id' => $doctor->specialty?->id,

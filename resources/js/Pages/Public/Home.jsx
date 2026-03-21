@@ -9,7 +9,7 @@ import IndiaMap from '@/Components/IndiaMap';
 const { Title, Paragraph } = Typography;
 const { Search } = Input;
 
-export default function Home({ auth, cities, specialties, featuredDoctors, stats }) {
+export default function Home({ auth, site, seo, cities, specialties, featuredDoctors, stats }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCity, setSelectedCity] = useState(null);
     const [citySearchText, setCitySearchText] = useState('');
@@ -118,12 +118,36 @@ export default function Home({ auth, cities, specialties, featuredDoctors, stats
         window.location.href = `/search?${params.toString()}`;
     };
 
+    // Priority: meta_title > (site_name + site_tagline) > default
+    const pageTitle = seo?.meta_title || (site?.name && site?.tagline ? `${site.name} - ${site.tagline}` : "Hello Doctors - Find Best Doctors");
+    const pageDescription = seo?.meta_description || "Find and connect with verified healthcare professionals across Uttar Pradesh. Search by specialty, city, or doctor name. Book appointments with experienced doctors.";
+    const pageKeywords = seo?.meta_keywords || "doctors, healthcare, medical professionals, find doctors, appointments, Uttar Pradesh, specialties, verified doctors";
+    const ogTitle = seo?.og_title || pageTitle;
+    const ogDescription = seo?.og_description || pageDescription;
+
     return (
         <>
-            <Head title="Hello Doctors - Find Best Doctors">
-                <meta name="description" content="Find and connect with verified healthcare professionals across Uttar Pradesh. Search by specialty, city, or doctor name. Book appointments with experienced doctors." />
-                <meta name="keywords" content="doctors, healthcare, medical professionals, find doctors, appointments, Uttar Pradesh, specialties, verified doctors" />
-                <link rel="canonical" href={window.location.origin} />
+            <Head title={pageTitle}>
+                <meta name="description" content={pageDescription} />
+                <meta name="keywords" content={pageKeywords} />
+                <meta name="author" content={seo?.meta_author || site?.name || "Hello Doctors"} />
+                
+                {/* Open Graph / Facebook */}
+                <meta property="og:type" content="website" />
+                <meta property="og:url" content={seo?.app_url || window.location.href} />
+                <meta property="og:title" content={ogTitle} />
+                <meta property="og:description" content={ogDescription} />
+                {seo?.og_image && <meta property="og:image" content={seo.og_image} />}
+                
+                {/* Twitter */}
+                <meta name="twitter:card" content={seo?.twitter_card || "summary_large_image"} />
+                <meta name="twitter:url" content={seo?.app_url || window.location.href} />
+                <meta name="twitter:title" content={ogTitle} />
+                <meta name="twitter:description" content={ogDescription} />
+                {seo?.twitter_site && <meta name="twitter:site" content={seo.twitter_site} />}
+                {seo?.og_image && <meta name="twitter:image" content={seo.og_image} />}
+                
+                <link rel="canonical" href={seo?.app_url || window.location.origin} />
             </Head>
             
             {/* Header */}
@@ -329,7 +353,7 @@ export default function Home({ auth, cities, specialties, featuredDoctors, stats
                                                     </>
                                                 }
                                             />
-                                            <Link href={`/doctors/${doctor.id}`}>
+                                            <Link href={`/doctors/${doctor.slug}`}>
                                                 <Button type="primary" block className="mt-4">
                                                     View Profile
                                                 </Button>

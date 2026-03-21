@@ -2,7 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import { useLocation } from '@/Contexts/LocationContext';
 
-export default function Welcome({ auth }) {
+export default function Welcome({ auth, site, seo }) {
     const [searchQuery, setSearchQuery] = useState('');
     const { location, setLocation, isLoadingLocation, detectLocation } = useLocation();
 
@@ -10,6 +10,7 @@ export default function Welcome({ auth }) {
     useEffect(() => {
         // Only run in browser
         if (typeof window === 'undefined') return;
+        console.log(site, seo);
         
         console.log('Welcome page mounted, current location:', location);
         
@@ -71,12 +72,36 @@ export default function Welcome({ auth }) {
         console.log('Searching for:', searchQuery, 'in', location);
     };
 
+    // Priority: meta_title > (site_name + site_tagline) > default
+    const pageTitle = seo?.meta_title || (site?.name && site?.tagline ? `${site.name} - ${site.tagline}` : "Find Best Doctors & Healthcare Services");
+    const pageDescription = seo?.meta_description || "Connect with verified healthcare professionals across multiple cities in Uttar Pradesh. Find the best doctors, specialties, and book appointments easily.";
+    const pageKeywords = seo?.meta_keywords || "doctors, healthcare, medical professionals, find doctors, appointments, Uttar Pradesh, medical services";
+    const ogTitle = seo?.og_title || pageTitle;
+    const ogDescription = seo?.og_description || pageDescription;
+
     return (
         <>
-            <Head title="Find Best Doctors & Healthcare Services">
-                <meta name="description" content="Connect with verified healthcare professionals across multiple cities in Uttar Pradesh. Find the best doctors, specialties, and book appointments easily." />
-                <meta name="keywords" content="doctors, healthcare, medical professionals, find doctors, appointments, Uttar Pradesh, medical services" />
-                <link rel="canonical" href={window.location.origin} />
+            <Head title={pageTitle}>
+                <meta name="description" content={pageDescription} />
+                <meta name="keywords" content={pageKeywords} />
+                <meta name="author" content={seo?.meta_author || site?.name || "Hello Doctors"} />
+                
+                {/* Open Graph / Facebook */}
+                <meta property="og:type" content="website" />
+                <meta property="og:url" content={seo?.app_url || window.location.href} />
+                <meta property="og:title" content={ogTitle} />
+                <meta property="og:description" content={ogDescription} />
+                {seo?.og_image && <meta property="og:image" content={seo.og_image} />}
+                
+                {/* Twitter */}
+                <meta name="twitter:card" content={seo?.twitter_card || "summary_large_image"} />
+                <meta name="twitter:url" content={seo?.app_url || window.location.href} />
+                <meta name="twitter:title" content={ogTitle} />
+                <meta name="twitter:description" content={ogDescription} />
+                {seo?.twitter_site && <meta name="twitter:site" content={seo.twitter_site} />}
+                {seo?.og_image && <meta name="twitter:image" content={seo.og_image} />}
+                
+                <link rel="canonical" href={seo?.app_url || window.location.origin} />
             </Head>
             <div className="min-h-screen bg-gray-50">
                 {/* Header */}

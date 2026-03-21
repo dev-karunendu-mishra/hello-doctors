@@ -388,7 +388,7 @@ export default function Search({ auth, doctors, cities, specialties, filters }) 
                                                         </div>
                                                     </div>
                                                     <div className="flex gap-2">
-                                                        <Link href={`/doctors/${doctor.id}`}>
+                                                        <Link href={`/doctors/${doctor.slug}`}>
                                                             <Button type="primary">View Full Profile</Button>
                                                         </Link>
                                                         {doctor.website && (

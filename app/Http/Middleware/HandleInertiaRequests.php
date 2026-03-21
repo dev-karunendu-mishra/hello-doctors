@@ -39,6 +39,14 @@ class HandleInertiaRequests extends Middleware
                 ->toArray();
         });
 
+        // Get general site settings (with caching)
+        $generalSettings = cache()->remember('general_settings', 3600, function () {
+            return SiteSetting::where('group', 'general')
+                ->get()
+                ->pluck('value', 'key')
+                ->toArray();
+        });
+
         return [
             ...parent::share($request),
             'auth' => [
@@ -48,12 +56,16 @@ class HandleInertiaRequests extends Middleware
                 ...(new Ziggy)->toArray(),
                 'location' => $request->url(),
             ],
+            'site' => [
+                'name' => $generalSettings['site_name'] ?? $seoSettings['site_name'] ?? config('app.name', 'Hello Doctors'),
+                'tagline' => $generalSettings['site_tagline'] ?? $seoSettings['site_tagline'] ?? 'Find the Best Healthcare Services',
+            ],
             'seo' => [
-                'meta_title' => $seoSettings['meta_title'] ?? config('app.name', 'Hello Doctors'),
+                'meta_title' => $seoSettings['meta_title'] ?? null,
                 'meta_description' => $seoSettings['meta_description'] ?? 'Find the best doctors and healthcare professionals',
                 'meta_keywords' => $seoSettings['meta_keywords'] ?? 'doctors, healthcare, medical',
                 'meta_author' => $seoSettings['meta_author'] ?? config('app.name'),
-                'og_title' => $seoSettings['og_title'] ?? config('app.name'),
+                'og_title' => $seoSettings['og_title'] ?? null,
                 'og_description' => $seoSettings['og_description'] ?? 'Find the best doctors',
                 'og_image' => $seoSettings['og_image'] ?? null,
                 'twitter_card' => $seoSettings['twitter_card'] ?? 'summary_large_image',

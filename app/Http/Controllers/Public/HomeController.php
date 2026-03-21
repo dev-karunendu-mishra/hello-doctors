@@ -46,6 +46,7 @@ class HomeController extends Controller
             ->get()
             ->map(fn($doctor) => [
                 'id' => $doctor->id,
+                'slug' => $doctor->slug,
                 'name' => $doctor->user->name,
                 'specialty' => $doctor->specialty?->name,
                 'image' => $doctor->profile_image_url,
