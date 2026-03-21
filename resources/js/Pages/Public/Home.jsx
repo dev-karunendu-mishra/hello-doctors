@@ -4,7 +4,6 @@ import { SearchOutlined, MedicineBoxOutlined, EnvironmentOutlined, UserOutlined,
 import { useState, useEffect } from 'react';
 import Header from '@/Components/Header';
 import Footer from '@/Components/Footer';
-import IndiaMap from '@/Components/IndiaMap';
 
 const { Title, Paragraph } = Typography;
 const { Search } = Input;
@@ -153,41 +152,62 @@ export default function Home({ auth, site, seo, cities, specialties, featuredDoc
             {/* Header */}
             <Header auth={auth} />
             
-            <div className="min-h-screen bg-gray-50">
-                {/* Hero Section */}
-                <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-20">
-                    <div className="container mx-auto px-4">
-                        <div className="max-w-4xl mx-auto text-center">
-                            <Title level={1} className="text-white mb-4">
-                                Find the Best Doctors Near You
-                            </Title>
-                            <Paragraph className="text-xl text-blue-100 mb-8">
-                                Connect with verified healthcare professionals across multiple cities
-                            </Paragraph>
+            <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+                {/* Hero Section - Modern Design */}
+                <div className="relative bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white overflow-hidden">
+                    {/* Animated Background Shapes */}
+                    <div className="absolute inset-0 overflow-hidden">
+                        <div className="absolute -top-24 -right-24 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
+                        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-indigo-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
+                        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
+                    </div>
 
-                            {/* Search Bar */}
-                            <Card className="shadow-2xl">
-                                <Row gutter={16}>
-                                    <Col xs={24} md={12}>
-                                        <Input
-                                            size="large"
-                                            placeholder="Search by doctor name, specialty..."
-                                            prefix={<SearchOutlined />}
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                            onPressEnter={handleSearch}
-                                        />
+                    <div className="relative container mx-auto px-4 py-24 lg:py-32">
+                        <div className="max-w-5xl mx-auto">
+                            {/* Hero Content */}
+                            <div className="text-center mb-12 animate-fade-in">
+                                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
+                                    Find the Best Doctors
+                                    <span className="block bg-gradient-to-r from-blue-200 to-cyan-200 bg-clip-text text-transparent mt-2">
+                                        Near You
+                                    </span>
+                                </h1>
+                                <p className="text-xl md:text-2xl text-blue-100 mb-8 max-w-3xl mx-auto font-light">
+                                    Connect with verified healthcare professionals across multiple cities
+                                </p>
+                            </div>
+
+                            {/* Enhanced Search Bar */}
+                            <Card 
+                                className="shadow-2xl backdrop-blur-sm bg-white/95 border-0 rounded-2xl overflow-hidden"
+                                bodyStyle={{ padding: '32px' }}
+                            >
+                                <Row gutter={[16, 16]}>
+                                    <Col xs={24} md={11}>
+                                        <div className="relative">
+                                            <Input
+                                                size="large"
+                                                placeholder="Search doctor name, specialty..."
+                                                prefix={<SearchOutlined className="text-blue-500 text-lg" />}
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                onPressEnter={handleSearch}
+                                                className="rounded-xl border-2 border-gray-200 hover:border-blue-400 focus:border-blue-500 transition-all"
+                                                style={{ height: '52px', fontSize: '16px' }}
+                                            />
+                                        </div>
                                     </Col>
-                                    <Col xs={24} md={8}>
+                                    <Col xs={24} md={9}>
                                         <Select
                                             size="large"
                                             showSearch
                                             placeholder={
-                                                <span>
-                                                    <EnvironmentOutlined /> {detectingLocation ? 'Detecting...' : 'Select or type city'}
+                                                <span className="flex items-center gap-2">
+                                                    <EnvironmentOutlined className="text-green-500" /> 
+                                                    {detectingLocation ? 'Detecting location...' : 'Select or type city'}
                                                 </span>
                                             }
-                                            className="w-full"
+                                            className="w-full rounded-xl"
                                             value={selectedCity}
                                             onChange={handleCityChange}
                                             onSearch={handleCitySearch}
@@ -197,14 +217,14 @@ export default function Home({ auth, site, seo, cities, specialties, featuredDoc
                                                 (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
                                             }
                                             notFoundContent={
-                                                <div className="text-center py-2">
-                                                    <p>City not in list?</p>
-                                                    <p className="text-xs text-gray-500">Just type and press Enter</p>
+                                                <div className="text-center py-4">
+                                                    <p className="text-gray-600 font-medium">City not in list?</p>
+                                                    <p className="text-xs text-gray-400 mt-1">Just type and press Enter</p>
                                                 </div>
                                             }
                                             suffixIcon={
                                                 detectingLocation ? (
-                                                    <AimOutlined spin />
+                                                    <AimOutlined spin className="text-blue-500" />
                                                 ) : (
                                                     <Button
                                                         type="link"
@@ -215,9 +235,11 @@ export default function Home({ auth, site, seo, cities, specialties, featuredDoc
                                                             detectUserLocation();
                                                         }}
                                                         title="Detect my location"
+                                                        className="text-blue-500 hover:text-blue-600"
                                                     />
                                                 )
                                             }
+                                            style={{ height: '52px' }}
                                         >
                                             {cities.map(city => (
                                                 <Select.Option key={city.id} value={city.id}>
@@ -233,6 +255,7 @@ export default function Home({ auth, site, seo, cities, specialties, featuredDoc
                                             block
                                             onClick={handleSearch}
                                             icon={<SearchOutlined />}
+                                            className="h-[52px] rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 border-0 shadow-lg hover:shadow-xl transition-all font-semibold text-base"
                                         >
                                             Search
                                         </Button>
@@ -241,78 +264,124 @@ export default function Home({ auth, site, seo, cities, specialties, featuredDoc
                             </Card>
                         </div>
                     </div>
+
+                    {/* Wave Separator */}
+                    <div className="absolute bottom-0 left-0 right-0">
+                        <svg viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 0L60 10C120 20 240 40 360 46.7C480 53 600 47 720 43.3C840 40 960 40 1080 46.7C1200 53 1320 67 1380 73.3L1440 80V120H1380C1320 120 1200 120 1080 120C960 120 840 120 720 120C600 120 480 120 360 120C240 120 120 120 60 120H0V0Z" fill="currentColor" className="text-gray-50"/>
+                        </svg>
+                    </div>
                 </div>
 
-                {/* Statistics */}
-                <div className="py-12 bg-white">
+                {/* Statistics - Modern Design */}
+                <div className="py-16 bg-white">
                     <div className="container mx-auto px-4">
-                        <Row gutter={24} justify="center">
-                            <Col xs={24} sm={8} md={6}>
-                                <Card>
-                                    <Statistic 
-                                        title="Verified Doctors" 
-                                        value={stats.total_doctors}
-                                        prefix={<UserOutlined />}
-                                    />
+                        <Row gutter={[32, 32]} justify="center">
+                            <Col xs={24} sm={8} md={8}>
+                                <Card 
+                                    className="text-center border-0 shadow-lg hover:shadow-2xl transition-all duration-300 rounded-2xl group hover:-translate-y-2"
+                                    bodyStyle={{ padding: '40px 24px' }}
+                                >
+                                    <div className="mb-4">
+                                        <div className="w-16 h-16 mx-auto bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform duration-300">
+                                            <UserOutlined className="text-white text-3xl" />
+                                        </div>
+                                    </div>
+                                    <div className="text-4xl font-bold text-gray-800 mb-2">
+                                        {stats.total_doctors.toLocaleString()}
+                                    </div>
+                                    <div className="text-gray-600 font-medium text-lg">Verified Doctors</div>
+                                    <div className="mt-3 text-sm text-blue-600 font-medium">Ready to help you</div>
                                 </Card>
                             </Col>
-                            <Col xs={24} sm={8} md={6}>
-                                <Card>
-                                    <Statistic 
-                                        title="Cities Covered" 
-                                        value={stats.total_cities}
-                                        prefix={<EnvironmentOutlined />}
-                                    />
+                            <Col xs={24} sm={8} md={8}>
+                                <Card 
+                                    className="text-center border-0 shadow-lg hover:shadow-2xl transition-all duration-300 rounded-2xl group hover:-translate-y-2"
+                                    bodyStyle={{ padding: '40px 24px' }}
+                                >
+                                    <div className="mb-4">
+                                        <div className="w-16 h-16 mx-auto bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform duration-300">
+                                            <EnvironmentOutlined className="text-white text-3xl" />
+                                        </div>
+                                    </div>
+                                    <div className="text-4xl font-bold text-gray-800 mb-2">
+                                        {stats.total_cities.toLocaleString()}
+                                    </div>
+                                    <div className="text-gray-600 font-medium text-lg">Cities Covered</div>
+                                    <div className="mt-3 text-sm text-green-600 font-medium">Across India</div>
                                 </Card>
                             </Col>
-                            <Col xs={24} sm={8} md={6}>
-                                <Card>
-                                    <Statistic 
-                                        title="Specialties" 
-                                        value={stats.total_specialties}
-                                        prefix={<MedicineBoxOutlined />}
-                                    />
+                            <Col xs={24} sm={8} md={8}>
+                                <Card 
+                                    className="text-center border-0 shadow-lg hover:shadow-2xl transition-all duration-300 rounded-2xl group hover:-translate-y-2"
+                                    bodyStyle={{ padding: '40px 24px' }}
+                                >
+                                    <div className="mb-4">
+                                        <div className="w-16 h-16 mx-auto bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform duration-300">
+                                            <MedicineBoxOutlined className="text-white text-3xl" />
+                                        </div>
+                                    </div>
+                                    <div className="text-4xl font-bold text-gray-800 mb-2">
+                                        {stats.total_specialties.toLocaleString()}
+                                    </div>
+                                    <div className="text-gray-600 font-medium text-lg">Specialties</div>
+                                    <div className="mt-3 text-sm text-purple-600 font-medium">Expert care</div>
                                 </Card>
                             </Col>
                         </Row>
                     </div>
                 </div>
 
-                {/* Specialties */}
-                <div className="py-12">
+                {/* Specialties - Modern Design */}
+                <div className="py-20 bg-gradient-to-b from-gray-50 to-white">
                     <div className="container mx-auto px-4">
-                        <Title level={2} className="text-center mb-8">
-                            Browse by Specialty
-                        </Title>
-                        <Row gutter={[16, 16]}>
+                        <div className="text-center mb-12">
+                            <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
+                                Browse by Specialty
+                            </h2>
+                            <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+                                Find the right specialist for your healthcare needs
+                            </p>
+                        </div>
+                        <Row gutter={[24, 24]}>
                             {specialties.map(specialty => (
                                 <Col xs={12} sm={8} md={6} lg={4} key={specialty.id}>
                                     <Link href={`/search?specialty=${specialty.id}`}>
                                         <Card 
                                             hoverable 
-                                            className="text-center"
-                                            bodyStyle={{ padding: '20px 10px' }}
+                                            className="text-center border-0 shadow-md hover:shadow-xl rounded-2xl transition-all duration-300 group hover:-translate-y-1 bg-white"
+                                            bodyStyle={{ padding: '28px 16px' }}
                                         >
-                                            {specialty.image_url ? (
-                                                <img 
-                                                    src={specialty.image_url} 
-                                                    alt={specialty.name}
-                                                    style={{ width: 48, height: 48, margin: '0 auto', objectFit: 'contain' }}
-                                                    onError={(e) => {
-                                                        e.target.style.display = 'none';
-                                                        e.target.nextElementSibling.style.display = 'block';
-                                                    }}
-                                                />
-                                            ) : null}
-                                            <div style={{ display: specialty.image_url ? 'none' : 'block' }}>
-                                                {specialty.icon ? (
-                                                    <span style={{ fontSize: 32 }}>{specialty.icon}</span>
-                                                ) : (
-                                                    <MedicineBoxOutlined style={{ fontSize: 32, color: '#1890ff' }} />
-                                                )}
+                                            <div className="mb-3">
+                                                {specialty.image_url ? (
+                                                    <img 
+                                                        src={specialty.image_url} 
+                                                        alt={specialty.name}
+                                                        className="w-14 h-14 mx-auto object-contain group-hover:scale-110 transition-transform duration-300"
+                                                        onError={(e) => {
+                                                            e.target.style.display = 'none';
+                                                            e.target.nextElementSibling.style.display = 'block';
+                                                        }}
+                                                    />
+                                                ) : null}
+                                                <div style={{ display: specialty.image_url ? 'none' : 'block' }}>
+                                                    {specialty.icon ? (
+                                                        <span className="text-4xl group-hover:scale-110 transition-transform duration-300 inline-block">
+                                                            {specialty.icon}
+                                                        </span>
+                                                    ) : (
+                                                        <div className="w-14 h-14 mx-auto bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                                                            <MedicineBoxOutlined className="text-white text-2xl" />
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div className="mt-2 font-medium">{specialty.name}</div>
-                                            <div className="text-gray-500 text-sm">{specialty.doctors_count} doctors</div>
+                                            <div className="font-semibold text-gray-800 mb-1 text-sm group-hover:text-blue-600 transition-colors">
+                                                {specialty.name}
+                                            </div>
+                                            <div className="text-gray-500 text-xs">
+                                                {specialty.doctors_count} doctors
+                                            </div>
                                         </Card>
                                     </Link>
                                 </Col>
@@ -321,43 +390,69 @@ export default function Home({ auth, site, seo, cities, specialties, featuredDoc
                     </div>
                 </div>
 
-                {/* Featured Doctors */}
+                {/* Featured Doctors - Modern Design */}
                 {featuredDoctors.length > 0 && (
-                    <div className="py-12 bg-white">
+                    <div className="py-20 bg-white">
                         <div className="container mx-auto px-4">
-                            <Title level={2} className="text-center mb-8">
-                                Featured Doctors
-                            </Title>
-                            <Row gutter={[16, 16]}>
+                            <div className="text-center mb-12">
+                                <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
+                                    Featured Doctors
+                                </h2>
+                                <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+                                    Meet our highly qualified and experienced healthcare professionals
+                                </p>
+                            </div>
+                            <Row gutter={[24, 24]}>
                                 {featuredDoctors.map(doctor => (
                                     <Col xs={24} sm={12} md={8} lg={6} key={doctor.id}>
                                         <Card
                                             hoverable
-                                            cover={
-                                                doctor.image ? (
-                                                    <img alt={doctor.name} src={doctor.image} className="h-48 object-cover" />
-                                                ) : (
-                                                    <div className="h-48 bg-gray-200 flex items-center justify-center">
-                                                        <UserOutlined style={{ fontSize: 48, color: '#ccc' }} />
-                                                    </div>
-                                                )
-                                            }
+                                            className="border-0 shadow-md hover:shadow-2xl rounded-2xl transition-all duration-300 overflow-hidden group hover:-translate-y-2"
+                                            bodyStyle={{ padding: 0 }}
                                         >
-                                            <Card.Meta
-                                                title={doctor.name}
-                                                description={
-                                                    <>
-                                                        <div className="text-blue-600 font-medium">{doctor.specialty}</div>
-                                                        <div className="text-gray-500 text-sm mt-1">{doctor.cities}</div>
-                                                        <div className="text-gray-600 text-sm mt-2">{doctor.bio}</div>
-                                                    </>
-                                                }
-                                            />
-                                            <Link href={`/doctors/${doctor.slug}`}>
-                                                <Button type="primary" block className="mt-4">
-                                                    View Profile
-                                                </Button>
-                                            </Link>
+                                            {/* Doctor Image */}
+                                            <div className="relative h-56 overflow-hidden bg-gradient-to-br from-blue-100 to-blue-200">
+                                                {doctor.image ? (
+                                                    <img 
+                                                        alt={doctor.name} 
+                                                        src={doctor.image} 
+                                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center">
+                                                        <UserOutlined className="text-6xl text-blue-300" />
+                                                    </div>
+                                                )}
+                                                {/* Overlay gradient */}
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                            </div>
+
+                                            {/* Doctor Info */}
+                                            <div className="p-5">
+                                                <h3 className="font-bold text-lg text-gray-800 mb-2 line-clamp-1">
+                                                    {doctor.name}
+                                                </h3>
+                                                <div className="flex items-center gap-2 text-blue-600 font-medium mb-2">
+                                                    <MedicineBoxOutlined />
+                                                    <span className="text-sm">{doctor.specialty}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-gray-500 mb-3">
+                                                    <EnvironmentOutlined />
+                                                    <span className="text-xs line-clamp-1">{doctor.cities}</span>
+                                                </div>
+                                                <p className="text-gray-600 text-sm line-clamp-2 mb-4 min-h-[40px]">
+                                                    {doctor.bio}
+                                                </p>
+                                                <Link href={`/doctors/${doctor.slug}`}>
+                                                    <Button 
+                                                        type="primary" 
+                                                        block 
+                                                        className="rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 border-0 font-semibold h-10"
+                                                    >
+                                                        View Profile
+                                                    </Button>
+                                                </Link>
+                                            </div>
                                         </Card>
                                     </Col>
                                 ))}
@@ -366,27 +461,39 @@ export default function Home({ auth, site, seo, cities, specialties, featuredDoc
                     </div>
                 )}
 
-                {/* Cities */}
-                <div className="py-12">
+                {/* Cities - Modern Design */}
+                <div className="py-20 bg-gradient-to-b from-gray-50 to-white">
                     <div className="container mx-auto px-4">
-                        <Title level={2} className="text-center mb-8">
-                            Find Doctors by City
-                        </Title>
-                        
-                        {/* Map View */}
-                        <div className="mb-8">
-                            <IndiaMap cities={cities} />
+                        <div className="text-center mb-12">
+                            <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
+                                Find Doctors by City
+                            </h2>
+                            <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+                                Choose your city and discover top healthcare professionals near you
+                            </p>
                         </div>
 
                         {/* Grid View */}
-                        <Row gutter={[16, 16]}>
+                        <Row gutter={[20, 20]}>
                             {cities.map(city => (
-                                <Col xs={12} sm={8} md={6} key={city.id}>
+                                <Col xs={12} sm={8} md={6} lg={4} key={city.id}>
                                     <Link href={`/search?city_name=${city.name}`}>
-                                        <Card hoverable className="text-center">
-                                            <EnvironmentOutlined style={{ fontSize: 32, color: '#52c41a' }} />
-                                            <div className="mt-2 font-medium">{city.name}</div>
-                                            <div className="text-gray-500 text-sm">{city.doctors_count} doctors</div>
+                                        <Card 
+                                            hoverable 
+                                            className="text-center border-0 shadow-md hover:shadow-xl rounded-2xl transition-all duration-300 group hover:-translate-y-1 bg-white"
+                                            bodyStyle={{ padding: '24px 16px' }}
+                                        >
+                                            <div className="mb-3">
+                                                <div className="w-12 h-12 mx-auto bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-md">
+                                                    <EnvironmentOutlined className="text-white text-2xl" />
+                                                </div>
+                                            </div>
+                                            <div className="font-semibold text-gray-800 mb-1 group-hover:text-green-600 transition-colors">
+                                                {city.name}
+                                            </div>
+                                            <div className="text-gray-500 text-xs">
+                                                {city.doctors_count} doctors
+                                            </div>
                                         </Card>
                                     </Link>
                                 </Col>
@@ -395,20 +502,42 @@ export default function Home({ auth, site, seo, cities, specialties, featuredDoc
                     </div>
                 </div>
 
-                {/* CTA Section */}
-                <div className="bg-blue-600 text-white py-16">
-                    <div className="container mx-auto px-4 text-center">
-                        <Title level={2} className="text-white mb-4">
-                            Are you a doctor?
-                        </Title>
-                        <Paragraph className="text-xl text-blue-100 mb-6">
-                            Join our network and connect with patients across multiple cities
-                        </Paragraph>
-                        <Link href="/register-doctor">
-                            <Button type="default" size="large">
-                                Register as Doctor
-                            </Button>
-                        </Link>
+                {/* CTA Section - Modern Design */}
+                <div className="relative bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white py-20 overflow-hidden">
+                    {/* Background Pattern */}
+                    <div className="absolute inset-0 opacity-10">
+                        <div className="absolute inset-0" style={{ 
+                            backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)',
+                            backgroundSize: '32px 32px'
+                        }}></div>
+                    </div>
+
+                    <div className="relative container mx-auto px-4 text-center">
+                        <div className="max-w-3xl mx-auto">
+                            <div className="mb-6">
+                                <div className="w-20 h-20 mx-auto bg-white/20 backdrop-blur-sm rounded-3xl flex items-center justify-center mb-6">
+                                    <UserOutlined className="text-5xl text-white" />
+                                </div>
+                            </div>
+                            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                                Are you a doctor?
+                            </h2>
+                            <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto leading-relaxed">
+                                Join our network and connect with patients across multiple cities. 
+                                Expand your practice and help more people find quality healthcare.
+                            </p>
+                            <Link href="/register-doctor">
+                                <Button 
+                                    size="large" 
+                                    className="h-14 px-10 rounded-xl bg-white text-blue-600 hover:bg-blue-50 border-0 shadow-xl hover:shadow-2xl font-bold text-lg transition-all hover:scale-105"
+                                >
+                                    Register as Doctor
+                                </Button>
+                            </Link>
+                            <p className="mt-6 text-blue-200 text-sm">
+                                Already registered? <Link href="/login" className="text-white underline hover:text-blue-100">Sign in here</Link>
+                            </p>
+                        </div>
                     </div>
                 </div>
 
