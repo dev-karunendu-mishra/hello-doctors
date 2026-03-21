@@ -1,25 +1,27 @@
-import { useForm } from '@inertiajs/react';
-import { Card, Form, Input, Button, message, Space, Divider } from 'antd';
+import { Head, useForm } from '@inertiajs/react';
+import { Card, Form, Input, Button, message, Space, Divider, Alert } from 'antd';
 import { SaveOutlined, GlobalOutlined, GoogleOutlined, FacebookOutlined, TwitterOutlined } from '@ant-design/icons';
 import AdminLayout from '@/Layouts/AdminLayout';
 
 const { TextArea } = Input;
 
-export default function SeoSettings({ settings }) {
+export default function SeoSettings({ settings, flash }) {
     const form = useForm({
         settings: settings,
     });
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
+    const handleSubmit = () => {
+        console.log('Submitting SEO settings:', form.data.settings);
+        
         form.post(route('admin.seo.update'), {
             preserveScroll: true,
             onSuccess: () => {
                 message.success('SEO settings updated successfully');
+                console.log('SEO settings saved successfully!');
             },
             onError: (errors) => {
                 message.error('Failed to update SEO settings');
-                console.error(errors);
+                console.error('SEO update errors:', errors);
             },
         });
     };
@@ -33,8 +35,30 @@ export default function SeoSettings({ settings }) {
 
     return (
         <AdminLayout>
+            <Head title="SEO Settings" />
+            
             <div style={{ padding: '24px' }}>
                 <h1 style={{ marginBottom: 24 }}>SEO Settings</h1>
+
+                {flash?.success && (
+                    <Alert 
+                        message={flash.success} 
+                        type="success" 
+                        showIcon 
+                        closable 
+                        style={{ marginBottom: 16 }}
+                    />
+                )}
+
+                {flash?.error && (
+                    <Alert 
+                        message={flash.error} 
+                        type="error" 
+                        showIcon 
+                        closable 
+                        style={{ marginBottom: 16 }}
+                    />
+                )}
 
                 <Card>
                     <Form layout="vertical" onFinish={handleSubmit}>

@@ -31,11 +31,13 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        // Get SEO settings from database
-        $seoSettings = SiteSetting::where('group', 'seo')
-            ->get()
-            ->pluck('value', 'key')
-            ->toArray();
+        // Get SEO settings from database (with caching)
+        $seoSettings = cache()->remember('seo_settings', 3600, function () {
+            return SiteSetting::where('group', 'seo')
+                ->get()
+                ->pluck('value', 'key')
+                ->toArray();
+        });
 
         return [
             ...parent::share($request),
@@ -57,6 +59,10 @@ class HandleInertiaRequests extends Middleware
                 'twitter_card' => $seoSettings['twitter_card'] ?? 'summary_large_image',
                 'twitter_site' => $seoSettings['twitter_site'] ?? '',
                 'app_url' => config('app.url'),
+            ],
+            'flash' => [
+                'success' => $request->session()->get('success'),
+                'error' => $request->session()->get('error'),
             ],
         ];
     }
