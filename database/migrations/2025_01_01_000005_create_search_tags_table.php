@@ -8,13 +8,18 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('search_tags', function (Blueprint $table) {
+        $driver = Schema::getConnection()->getDriverName();
+
+        Schema::create('search_tags', function (Blueprint $table) use ($driver) {
             $table->id();
             $table->morphs('taggable'); // polymorphic relationship (automatically creates index)
             $table->text('tags'); // searchable keywords
             $table->timestamps();
 
-            $table->fullText('tags'); // for full-text search
+            // SQLite used in tests does not support fulltext index creation via schema grammar.
+            if ($driver !== 'sqlite') {
+                $table->fullText('tags'); // for full-text search
+            }
         });
     }
 

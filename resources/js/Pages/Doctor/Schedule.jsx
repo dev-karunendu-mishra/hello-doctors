@@ -254,22 +254,38 @@ export default function Schedule() {
                                                                 </Form.Item>
                                                             </Col>
                                                             <Col xs={12} md={5}>
-                                                                <Form.Item name={[field.name, 'opening_time']} label="Open">
+                                                                <Form.Item
+                                                                    name={[field.name, 'opening_time']}
+                                                                    label="Open"
+                                                                    rules={[{ pattern: /^([01]\d|2[0-3]):([0-5]\d)$/, message: 'Use HH:MM format.' }]}
+                                                                >
                                                                     <Input placeholder="09:00" />
                                                                 </Form.Item>
                                                             </Col>
                                                             <Col xs={12} md={5}>
-                                                                <Form.Item name={[field.name, 'closing_time']} label="Close">
+                                                                <Form.Item
+                                                                    name={[field.name, 'closing_time']}
+                                                                    label="Close"
+                                                                    rules={[{ pattern: /^([01]\d|2[0-3]):([0-5]\d)$/, message: 'Use HH:MM format.' }]}
+                                                                >
                                                                     <Input placeholder="17:00" />
                                                                 </Form.Item>
                                                             </Col>
                                                             <Col xs={12} md={5}>
-                                                                <Form.Item name={[field.name, 'break_start_time']} label="Break Start">
+                                                                <Form.Item
+                                                                    name={[field.name, 'break_start_time']}
+                                                                    label="Break Start"
+                                                                    rules={[{ pattern: /^$|^([01]\d|2[0-3]):([0-5]\d)$/, message: 'Use HH:MM format.' }]}
+                                                                >
                                                                     <Input placeholder="13:00" />
                                                                 </Form.Item>
                                                             </Col>
                                                             <Col xs={12} md={5}>
-                                                                <Form.Item name={[field.name, 'break_end_time']} label="Break End">
+                                                                <Form.Item
+                                                                    name={[field.name, 'break_end_time']}
+                                                                    label="Break End"
+                                                                    rules={[{ pattern: /^$|^([01]\d|2[0-3]):([0-5]\d)$/, message: 'Use HH:MM format.' }]}
+                                                                >
                                                                     <Input placeholder="14:00" />
                                                                 </Form.Item>
                                                             </Col>
@@ -309,10 +325,18 @@ export default function Schedule() {
                 destroyOnClose
             >
                 <Form form={clinicForm} layout="vertical">
-                    <Form.Item name="hospital_clinic_name" label="Hospital/Clinic Name" rules={[{ required: true }]}>
+                    <Form.Item
+                        name="hospital_clinic_name"
+                        label="Hospital/Clinic Name"
+                        rules={[
+                            { required: true, message: 'Please enter clinic name.' },
+                            { min: 3, message: 'Clinic name should be at least 3 characters.' },
+                        ]}
+                        extra="Use a clear unique name so patients can identify your location quickly."
+                    >
                         <Input />
                     </Form.Item>
-                    <Form.Item name="city_id" label="City" rules={[{ required: true }]}>
+                    <Form.Item name="city_id" label="City" rules={[{ required: true, message: 'Select city.' }]}>
                         <Select
                             options={cities.map((city) => ({
                                 value: city.id,
@@ -320,7 +344,7 @@ export default function Schedule() {
                             }))}
                         />
                     </Form.Item>
-                    <Form.Item name="address" label="Address" rules={[{ required: true }]}>
+                    <Form.Item name="address" label="Address" rules={[{ required: true, message: 'Address is required.' }]}>
                         <Input.TextArea rows={3} />
                     </Form.Item>
                     <Form.Item name="landmarks" label="Landmarks">
@@ -328,7 +352,11 @@ export default function Schedule() {
                     </Form.Item>
                     <Row gutter={12}>
                         <Col span={12}>
-                            <Form.Item name="phone" label="Phone">
+                            <Form.Item
+                                name="phone"
+                                label="Phone"
+                                rules={[{ pattern: /^[0-9+\-()\s]{7,20}$/, message: 'Enter valid phone number.' }]}
+                            >
                                 <Input />
                             </Form.Item>
                         </Col>
@@ -340,7 +368,11 @@ export default function Schedule() {
                     </Row>
                     <Row gutter={12}>
                         <Col span={12}>
-                            <Form.Item name="consultation_fee" label="Consultation Fee">
+                            <Form.Item
+                                name="consultation_fee"
+                                label="Consultation Fee"
+                                extra="Leave empty to fallback to your default profile fee."
+                            >
                                 <InputNumber min={0} style={{ width: '100%' }} />
                             </Form.Item>
                         </Col>

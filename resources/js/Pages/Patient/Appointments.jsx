@@ -27,19 +27,26 @@ const statusColor = {
 export default function Appointments() {
     const [loading, setLoading] = useState(true);
     const [appointments, setAppointments] = useState([]);
+    const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
     const [status, setStatus] = useState('upcoming');
     const [cancelModalOpen, setCancelModalOpen] = useState(false);
     const [selectedAppointment, setSelectedAppointment] = useState(null);
     const [cancelling, setCancelling] = useState(false);
     const [cancelForm] = Form.useForm();
 
-    const loadAppointments = async (nextStatus = status) => {
+    const loadAppointments = async (nextStatus = status, page = 1) => {
         setLoading(true);
         try {
             const response = await window.axios.get('/api/patient/appointments', {
-                params: { status: nextStatus },
+                params: { status: nextStatus, page },
             });
-            setAppointments(response.data.data?.data || []);
+            const paginated = response.data.data || {};
+            setAppointments(paginated.data || []);
+            setPagination({
+                current: paginated.current_page || 1,
+                pageSize: paginated.per_page || 20,
+                total: paginated.total || 0,
+            });
         } catch (error) {
             message.error(error?.response?.data?.message || 'Failed to load appointments.');
         } finally {
@@ -121,7 +128,13 @@ export default function Appointments() {
                     rowKey="id"
                     loading={loading}
                     dataSource={appointments}
-                    pagination={false}
+                    pagination={{
+                        current: pagination.current,
+                        pageSize: pagination.pageSize,
+                        total: pagination.total,
+                        onChange: (page) => loadAppointments(status, page),
+                        showSizeChanger: false,
+                    }}
                     columns={[
                         { title: 'No.', dataIndex: 'appointment_number', key: 'appointment_number' },
                         {
@@ -172,7 +185,12 @@ export default function Appointments() {
                 destroyOnClose
             >
                 <Form form={cancelForm} layout="vertical">
-                    <Form.Item name="reason" label="Reason for cancellation" rules={[{ required: true, message: 'Please provide reason.' }]}>
+                    <Form.Item
+                        name="reason"
+                        label="Reason for cancellation"
+                        rules={[{ required: true, message: 'Please provide reason.' }, { max: 1000, message: 'Keep reason under 1000 characters.' }]}
+                        extra="This reason is shared with the clinic and doctor."
+                    >
                         <Input.TextArea rows={4} />
                     </Form.Item>
                 </Form>

@@ -28,6 +28,7 @@ export default function Appointments() {
     const [loading, setLoading] = useState(true);
     const [clinics, setClinics] = useState([]);
     const [appointments, setAppointments] = useState([]);
+    const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
     const [filters, setFilters] = useState({ clinic_id: null, status: null });
     const [statusModalOpen, setStatusModalOpen] = useState(false);
     const [selectedAppointment, setSelectedAppointment] = useState(null);
@@ -39,16 +40,23 @@ export default function Appointments() {
         setClinics(clinicRes.data.data || []);
     };
 
-    const loadAppointments = async (nextFilters = filters) => {
+    const loadAppointments = async (nextFilters = filters, page = 1) => {
         setLoading(true);
         try {
             const response = await window.axios.get('/api/doctor/appointments', {
                 params: {
                     clinic_id: nextFilters.clinic_id || undefined,
                     status: nextFilters.status || undefined,
+                    page,
                 },
             });
-            setAppointments(response.data.data?.data || []);
+            const paginated = response.data.data || {};
+            setAppointments(paginated.data || []);
+            setPagination({
+                current: paginated.current_page || 1,
+                pageSize: paginated.per_page || 20,
+                total: paginated.total || 0,
+            });
         } catch (error) {
             message.error(error?.response?.data?.message || 'Failed to load appointments.');
         } finally {
@@ -151,7 +159,13 @@ export default function Appointments() {
                     rowKey="id"
                     loading={loading}
                     dataSource={appointments}
-                    pagination={false}
+                    pagination={{
+                        current: pagination.current,
+                        pageSize: pagination.pageSize,
+                        total: pagination.total,
+                        onChange: (page) => loadAppointments(filters, page),
+                        showSizeChanger: false,
+                    }}
                     columns={[
                         { title: 'No.', dataIndex: 'appointment_number', key: 'appointment_number' },
                         {
@@ -210,7 +224,7 @@ export default function Appointments() {
                     <Form.Item name="cancellation_reason" label="Cancellation Reason">
                         <Input.TextArea rows={3} />
                     </Form.Item>
-                    <Form.Item name="notes" label="Notes">
+                    <Form.Item name="notes" label="Notes" extra="Optional note visible to the care team for this appointment.">
                         <Input.TextArea rows={3} />
                     </Form.Item>
                 </Form>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Patient;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\DoctorHospitalClinic;
+use App\Services\AppointmentNotificationService;
 use Carbon\Carbon;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -14,6 +15,10 @@ use Illuminate\Support\Facades\Auth;
 
 class AppointmentController extends Controller
 {
+    public function __construct(private readonly AppointmentNotificationService $appointmentNotifications)
+    {
+    }
+
     public function index(Request $request): JsonResponse
     {
         $request->validate([
@@ -80,6 +85,19 @@ class AppointmentController extends Controller
             ], 422);
         }
 
+        $patientAlreadyBooked = Appointment::query()
+            ->where('patient_id', Auth::id())
+            ->whereDate('appointment_date', $appointmentDate->toDateString())
+            ->where('appointment_time', $appointmentTime)
+            ->whereIn('status', [Appointment::STATUS_PENDING, Appointment::STATUS_CONFIRMED])
+            ->exists();
+
+        if ($patientAlreadyBooked) {
+            return response()->json([
+                'message' => 'You already have an appointment at this time.',
+            ], 422);
+        }
+
         try {
             $appointment = DB::transaction(function () use ($validated, $appointmentDate, $appointmentTime) {
                 return Appointment::create([
@@ -103,6 +121,8 @@ class AppointmentController extends Controller
             throw $e;
         }
 
+        $this->appointmentNotifications->sendBookingNotifications($appointment);
+
         return response()->json([
             'message' => 'Appointment booked successfully.',
             'data' => $appointment->load(['doctorHospitalClinic.city', 'doctorHospitalClinic.doctorProfile.user']),
@@ -124,6 +144,12 @@ class AppointmentController extends Controller
         }
 
         $appointment->cancel($validated['reason'] ?? null);
+
+        $this->appointmentNotifications->sendCancellationNotifications(
+            $appointment,
+            $validated['reason'] ?? null,
+            'patient'
+        );
 
         return response()->json([
             'message' => 'Appointment cancelled successfully.',

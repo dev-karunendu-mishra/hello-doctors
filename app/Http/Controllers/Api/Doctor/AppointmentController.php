@@ -4,12 +4,17 @@ namespace App\Http\Controllers\Api\Doctor;
 
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
+use App\Services\AppointmentNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class AppointmentController extends Controller
 {
+    public function __construct(private readonly AppointmentNotificationService $appointmentNotifications)
+    {
+    }
+
     public function index(Request $request): JsonResponse
     {
         $doctorProfile = Auth::user()?->doctorProfile;
@@ -98,6 +103,18 @@ class AppointmentController extends Controller
         }
 
         $appointment->update($update);
+
+        if ($validated['status'] === 'cancelled') {
+            $this->appointmentNotifications->sendCancellationNotifications(
+                $appointment,
+                $validated['cancellation_reason'] ?? null,
+                'doctor'
+            );
+        }
+
+        if ($validated['status'] === 'completed') {
+            $this->appointmentNotifications->sendCompletionNotifications($appointment);
+        }
 
         return response()->json([
             'message' => 'Appointment status updated successfully.',

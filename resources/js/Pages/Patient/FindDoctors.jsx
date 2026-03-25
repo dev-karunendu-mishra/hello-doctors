@@ -4,6 +4,7 @@ import {
     Alert,
     Button,
     Card,
+    Collapse,
     Col,
     Form,
     Input,
@@ -12,6 +13,7 @@ import {
     Select,
     Space,
     Tag,
+    Typography,
     message,
 } from 'antd';
 import { MedicineBoxOutlined } from '@ant-design/icons';
@@ -22,6 +24,28 @@ const consultationTypes = [
     { value: 'online', label: 'Online' },
     { value: 'phone', label: 'Phone' },
 ];
+
+const groupSlots = (slots) => {
+    const groups = {
+        Morning: [],
+        Afternoon: [],
+        Evening: [],
+    };
+
+    slots.forEach((slot) => {
+        const hour = parseInt(slot.time.split(':')[0], 10);
+
+        if (hour < 12) {
+            groups.Morning.push(slot);
+        } else if (hour < 17) {
+            groups.Afternoon.push(slot);
+        } else {
+            groups.Evening.push(slot);
+        }
+    });
+
+    return groups;
+};
 
 export default function FindDoctors() {
     const [loading, setLoading] = useState(false);
@@ -189,17 +213,27 @@ export default function FindDoctors() {
                                 {entry.available_dates.slice(0, 3).map((day) => (
                                     <div key={day.date}>
                                         <Tag>{day.date}</Tag>
-                                        <Space wrap>
-                                            {day.slots.slice(0, 6).map((slot) => (
-                                                <Button
-                                                    key={`${day.date}-${slot.time}`}
-                                                    size="small"
-                                                    onClick={() => openBooking(entry.doctor, entry.clinic, day.date, slot)}
-                                                >
-                                                    {slot.time}
-                                                </Button>
-                                            ))}
-                                        </Space>
+                                        <Collapse
+                                            size="small"
+                                            items={Object.entries(groupSlots(day.slots)).map(([label, slots]) => ({
+                                                key: `${day.date}-${label}`,
+                                                label: `${label} (${slots.length})`,
+                                                children: (
+                                                    <Space wrap>
+                                                        {slots.length === 0 && <Typography.Text type="secondary">No slots</Typography.Text>}
+                                                        {slots.map((slot) => (
+                                                            <Button
+                                                                key={`${day.date}-${slot.time}`}
+                                                                size="small"
+                                                                onClick={() => openBooking(entry.doctor, entry.clinic, day.date, slot)}
+                                                            >
+                                                                {slot.time}
+                                                            </Button>
+                                                        ))}
+                                                    </Space>
+                                                ),
+                                            }))}
+                                        />
                                     </div>
                                 ))}
                             </Space>
@@ -229,7 +263,12 @@ export default function FindDoctors() {
                     <Form.Item name="consultation_type" label="Consultation Type" rules={[{ required: true }]}>
                         <Select options={consultationTypes} />
                     </Form.Item>
-                    <Form.Item name="reason_for_visit" label="Reason for Visit">
+                    <Form.Item
+                        name="reason_for_visit"
+                        label="Reason for Visit"
+                        extra="Brief notes help doctor prepare before consultation."
+                        rules={[{ max: 1000, message: 'Keep reason under 1000 characters.' }]}
+                    >
                         <Input.TextArea rows={3} />
                     </Form.Item>
                 </Form>

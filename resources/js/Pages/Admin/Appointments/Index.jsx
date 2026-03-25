@@ -56,6 +56,7 @@ export default function Index() {
     const [clinics, setClinics] = useState([]);
     const [clinicId, setClinicId] = useState(null);
     const [appointments, setAppointments] = useState([]);
+    const [appointmentPagination, setAppointmentPagination] = useState({ current: 1, pageSize: 20, total: 0 });
     const [scheduleRows, setScheduleRows] = useState([]);
     const [clinicModalOpen, setClinicModalOpen] = useState(false);
     const [editingClinic, setEditingClinic] = useState(null);
@@ -112,10 +113,11 @@ export default function Index() {
         }
     };
 
-    const loadClinicData = async (newDoctorId, newClinicId) => {
+    const loadClinicData = async (newDoctorId, newClinicId, page = 1) => {
         if (!newDoctorId || !newClinicId) {
             setScheduleRows([]);
             setAppointments([]);
+            setAppointmentPagination({ current: 1, pageSize: 20, total: 0 });
             return;
         }
 
@@ -123,12 +125,18 @@ export default function Index() {
             const [scheduleRes, appointmentRes] = await Promise.all([
                 api.get(`/api/admin/doctors/${newDoctorId}/hospital-clinics/${newClinicId}/schedules`),
                 api.get(`/api/admin/doctors/${newDoctorId}/appointments`, {
-                    params: { clinic_id: newClinicId },
+                    params: { clinic_id: newClinicId, page },
                 }),
             ]);
 
             setScheduleRows(scheduleRes.data.data || []);
-            setAppointments(appointmentRes.data.data?.data || []);
+            const paginated = appointmentRes.data.data || {};
+            setAppointments(paginated.data || []);
+            setAppointmentPagination({
+                current: paginated.current_page || 1,
+                pageSize: paginated.per_page || 20,
+                total: paginated.total || 0,
+            });
         } catch (error) {
             message.error(error?.response?.data?.message || 'Failed to load clinic data.');
         }
@@ -341,22 +349,38 @@ export default function Index() {
                                                                 </Form.Item>
                                                             </Col>
                                                             <Col xs={12} md={5}>
-                                                                <Form.Item name={[field.name, 'opening_time']} label="Open">
+                                                                <Form.Item
+                                                                    name={[field.name, 'opening_time']}
+                                                                    label="Open"
+                                                                    rules={[{ pattern: /^([01]\d|2[0-3]):([0-5]\d)$/, message: 'Use HH:MM format.' }]}
+                                                                >
                                                                     <Input placeholder="09:00" />
                                                                 </Form.Item>
                                                             </Col>
                                                             <Col xs={12} md={5}>
-                                                                <Form.Item name={[field.name, 'closing_time']} label="Close">
+                                                                <Form.Item
+                                                                    name={[field.name, 'closing_time']}
+                                                                    label="Close"
+                                                                    rules={[{ pattern: /^([01]\d|2[0-3]):([0-5]\d)$/, message: 'Use HH:MM format.' }]}
+                                                                >
                                                                     <Input placeholder="17:00" />
                                                                 </Form.Item>
                                                             </Col>
                                                             <Col xs={12} md={5}>
-                                                                <Form.Item name={[field.name, 'break_start_time']} label="Break Start">
+                                                                <Form.Item
+                                                                    name={[field.name, 'break_start_time']}
+                                                                    label="Break Start"
+                                                                    rules={[{ pattern: /^$|^([01]\d|2[0-3]):([0-5]\d)$/, message: 'Use HH:MM format.' }]}
+                                                                >
                                                                     <Input placeholder="13:00" />
                                                                 </Form.Item>
                                                             </Col>
                                                             <Col xs={12} md={5}>
-                                                                <Form.Item name={[field.name, 'break_end_time']} label="Break End">
+                                                                <Form.Item
+                                                                    name={[field.name, 'break_end_time']}
+                                                                    label="Break End"
+                                                                    rules={[{ pattern: /^$|^([01]\d|2[0-3]):([0-5]\d)$/, message: 'Use HH:MM format.' }]}
+                                                                >
                                                                     <Input placeholder="14:00" />
                                                                 </Form.Item>
                                                             </Col>
@@ -387,7 +411,13 @@ export default function Index() {
                             <Table
                                 rowKey="id"
                                 dataSource={appointments}
-                                pagination={false}
+                                pagination={{
+                                    current: appointmentPagination.current,
+                                    pageSize: appointmentPagination.pageSize,
+                                    total: appointmentPagination.total,
+                                    onChange: (page) => loadClinicData(doctorId, clinicId, page),
+                                    showSizeChanger: false,
+                                }}
                                 columns={[
                                     { title: 'No.', dataIndex: 'appointment_number', key: 'appointment_number' },
                                     {
@@ -423,10 +453,18 @@ export default function Index() {
                 destroyOnClose
             >
                 <Form form={clinicForm} layout="vertical">
-                    <Form.Item name="hospital_clinic_name" label="Hospital/Clinic Name" rules={[{ required: true }]}>
+                    <Form.Item
+                        name="hospital_clinic_name"
+                        label="Hospital/Clinic Name"
+                        rules={[
+                            { required: true, message: 'Please enter clinic name.' },
+                            { min: 3, message: 'Clinic name should be at least 3 characters.' },
+                        ]}
+                        extra="Use a clear unique name for this city (e.g., CityCare Noida Sector 18)."
+                    >
                         <Input />
                     </Form.Item>
-                    <Form.Item name="city_id" label="City" rules={[{ required: true }]}>
+                    <Form.Item name="city_id" label="City" rules={[{ required: true, message: 'Select a city.' }]}>
                         <Select
                             options={cities.map((city) => ({
                                 value: city.id,
@@ -434,7 +472,11 @@ export default function Index() {
                             }))}
                         />
                     </Form.Item>
-                    <Form.Item name="address" label="Address" rules={[{ required: true }]}>
+                    <Form.Item
+                        name="address"
+                        label="Address"
+                        rules={[{ required: true, message: 'Please enter full clinic address.' }]}
+                    >
                         <Input.TextArea rows={3} />
                     </Form.Item>
                     <Form.Item name="landmarks" label="Landmarks">
@@ -442,7 +484,11 @@ export default function Index() {
                     </Form.Item>
                     <Row gutter={12}>
                         <Col span={12}>
-                            <Form.Item name="phone" label="Phone">
+                            <Form.Item
+                                name="phone"
+                                label="Phone"
+                                rules={[{ pattern: /^[0-9+\-()\s]{7,20}$/, message: 'Enter valid phone number.' }]}
+                            >
                                 <Input />
                             </Form.Item>
                         </Col>
@@ -454,7 +500,11 @@ export default function Index() {
                     </Row>
                     <Row gutter={12}>
                         <Col span={12}>
-                            <Form.Item name="consultation_fee" label="Consultation Fee">
+                            <Form.Item
+                                name="consultation_fee"
+                                label="Consultation Fee"
+                                extra="Leave empty to fallback to doctor default consultation fee."
+                            >
                                 <InputNumber min={0} style={{ width: '100%' }} />
                             </Form.Item>
                         </Col>
