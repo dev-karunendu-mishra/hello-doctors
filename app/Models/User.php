@@ -4,6 +4,8 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -88,8 +90,39 @@ class User extends Authenticatable
     /**
      * Get the doctor profile for the user
      */
-    public function doctorProfile()
+    public function doctorProfile(): HasOne
     {
         return $this->hasOne(DoctorProfile::class);
+    }
+
+    /**
+     * Get all appointments for this patient
+     */
+    public function appointments(): HasMany
+    {
+        return $this->hasMany(Appointment::class, 'patient_id');
+    }
+
+    /**
+     * Get upcoming appointments for this patient
+     */
+    public function upcomingAppointments()
+    {
+        return $this->appointments()
+            ->where('appointment_date', '>=', today())
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->orderBy('appointment_date')
+            ->orderBy('appointment_time');
+    }
+
+    /**
+     * Get past appointments for this patient
+     */
+    public function pastAppointments()
+    {
+        return $this->appointments()
+            ->where('appointment_date', '<', today())
+            ->orderByDesc('appointment_date')
+            ->orderByDesc('appointment_time');
     }
 }
