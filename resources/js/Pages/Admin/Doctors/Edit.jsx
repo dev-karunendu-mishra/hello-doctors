@@ -1,6 +1,6 @@
 import AdminLayout from '@/Layouts/AdminLayout';
 import { Head, useForm, Link } from '@inertiajs/react';
-import { Card, Form, Input, Button, Select, Upload, Row, Col, Checkbox, Typography, Alert, Divider, Space } from 'antd';
+import { Card, Form, Input, Button, Select, Upload, Row, Col, Checkbox, Typography, Alert, Divider, Space, Tabs } from 'antd';
 import { UploadOutlined, UserOutlined, PhoneOutlined, MailOutlined, GlobalOutlined, ArrowLeftOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 
@@ -47,6 +47,7 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
     });
 
     const [fileList, setFileList] = useState([]);
+    const [activeTab, setActiveTab] = useState('profile');
 
     const addClinic = () => {
         setData('clinics', [
@@ -135,6 +136,21 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
 
                     <Card>
                         <form onSubmit={handleSubmit}>
+                            <Tabs
+                                className="mb-6"
+                                activeKey={activeTab}
+                                onChange={setActiveTab}
+                                items={[
+                                    { key: 'profile', label: 'Profile' },
+                                    { key: 'clinics', label: 'Clinics / Hospitals' },
+                                    { key: 'media', label: 'Media' },
+                                    { key: 'status', label: 'Status' },
+                                    { key: 'seo', label: 'SEO' },
+                                ]}
+                            />
+
+                            {activeTab === 'profile' && (
+                                <>
                             <Title level={4}>Account Information</Title>
                             <Row gutter={16}>
                                 <Col xs={24} md={12}>
@@ -344,7 +360,11 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                                     </Form.Item>
                                 </Col>
                             </Row>
+                                </>
+                            )}
 
+                            {activeTab === 'clinics' && (
+                                <>
                             <Divider />
                             <div className="flex items-center justify-between mb-3">
                                 <Title level={4} className="!mb-0">Clinic / Hospital Addresses</Title>
@@ -539,7 +559,10 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                                     </Space>
                                 </Card>
                             ))}
+                                </>
+                            )}
 
+                            {activeTab === 'media' && (
                             <Form.Item 
                                 label="Profile Image" 
                                 validateStatus={errors.profile_image ? 'error' : ''}
@@ -556,7 +579,10 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                                     </Button>
                                 </Upload>
                             </Form.Item>
+                            )}
 
+                            {activeTab === 'status' && (
+                                <>
                             <Title level={4} className="mt-6">Status Settings</Title>
                             <Form.Item>
                                 <Checkbox
@@ -584,7 +610,11 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                                     Active
                                 </Checkbox>
                             </Form.Item>
+                                </>
+                            )}
 
+                            {activeTab === 'seo' && (
+                                <>
                             <Title level={4} className="mt-6">SEO Settings</Title>
                             <Alert 
                                 message="These fields help optimize this doctor's profile page for search engines. If left empty, global site SEO settings will be used." 
@@ -635,6 +665,8 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                                     onChange={(e) => setData('meta_keywords', e.target.value)}
                                 />
                             </Form.Item>
+                                </>
+                            )}
 
                             <Form.Item>
                                 <Button 
