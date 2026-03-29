@@ -1,20 +1,29 @@
 import InputError from '@/Components/InputError';
-import InputLabel from '@/Components/InputLabel';
-import PrimaryButton from '@/Components/PrimaryButton';
-import TextInput from '@/Components/TextInput';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
 
 export default function Register() {
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { data, setData, post, processing, errors, reset, transform } = useForm({
+        first_name: '',
+        last_name: '',
         name: '',
         email: '',
+        phone: '',
+        registration_state: '',
+        registration_number: '',
+        agree_terms: false,
         password: '',
         password_confirmation: '',
     });
 
     const submit = (e) => {
         e.preventDefault();
+
+        const fullName = `${data.first_name} ${data.last_name}`.trim();
+        transform((formData) => ({
+            ...formData,
+            name: fullName,
+        }));
 
         post(route('register'), {
             onFinish: () => reset('password', 'password_confirmation'),
@@ -25,94 +34,165 @@ export default function Register() {
         <GuestLayout>
             <Head title="Register" />
 
-            <form onSubmit={submit}>
+            <div className="auth-top-row">
                 <div>
-                    <InputLabel htmlFor="name" value="Name" />
+                    <h2 className="auth-form-title">Register</h2>
+                    <p className="auth-form-subtitle">Create your account to book doctors and manage appointments online.</p>
+                </div>
+                <Link href={route('login')} className="auth-link auth-top-link">
+                    Already have an account? Login
+                </Link>
+            </div>
 
-                    <TextInput
-                        id="name"
-                        name="name"
-                        value={data.name}
-                        className="mt-1 block w-full"
-                        autoComplete="name"
-                        isFocused={true}
-                        onChange={(e) => setData('name', e.target.value)}
-                        required
-                    />
+            <form onSubmit={submit} className="auth-grid">
+                <div className="auth-section-title">Your Basic Information</div>
 
-                    <InputError message={errors.name} className="mt-2" />
+                <div className="auth-grid auth-grid-two auth-grid-compact">
+                    <div className="auth-field">
+                        <label htmlFor="first_name">First Name</label>
+                        <input
+                            id="first_name"
+                            name="first_name"
+                            value={data.first_name}
+                            className="auth-input"
+                            autoComplete="given-name"
+                            autoFocus
+                            onChange={(e) => setData('first_name', e.target.value)}
+                            required
+                        />
+                    </div>
+
+                    <div className="auth-field">
+                        <label htmlFor="last_name">Last Name</label>
+                        <input
+                            id="last_name"
+                            name="last_name"
+                            value={data.last_name}
+                            className="auth-input"
+                            autoComplete="family-name"
+                            onChange={(e) => setData('last_name', e.target.value)}
+                            required
+                        />
+                    </div>
+                </div>
+                <InputError message={errors.name} className="-mt-2" />
+
+                <div className="auth-grid auth-grid-two auth-grid-compact">
+                    <div className="auth-field">
+                        <label htmlFor="email">Email</label>
+                        <input
+                            id="email"
+                            type="email"
+                            name="email"
+                            value={data.email}
+                            className="auth-input"
+                            autoComplete="username"
+                            onChange={(e) => setData('email', e.target.value)}
+                            required
+                        />
+                        <InputError message={errors.email} className="mt-2" />
+                    </div>
+
+                    <div className="auth-field">
+                        <label htmlFor="phone">Phone Number</label>
+                        <input
+                            id="phone"
+                            type="text"
+                            name="phone"
+                            value={data.phone}
+                            className="auth-input"
+                            autoComplete="tel"
+                            onChange={(e) => setData('phone', e.target.value)}
+                        />
+                    </div>
                 </div>
 
-                <div className="mt-4">
-                    <InputLabel htmlFor="email" value="Email" />
+                <div className="auth-grid auth-grid-two auth-grid-compact">
+                    <div className="auth-field">
+                        <label htmlFor="registration_state">Registered State</label>
+                        <select
+                            id="registration_state"
+                            name="registration_state"
+                            value={data.registration_state}
+                            className="auth-input"
+                            onChange={(e) => setData('registration_state', e.target.value)}
+                        >
+                            <option value="">Select state</option>
+                            <option value="UP">UP</option>
+                            <option value="Delhi">Delhi</option>
+                            <option value="Maharashtra">Maharashtra</option>
+                        </select>
+                    </div>
 
-                    <TextInput
-                        id="email"
-                        type="email"
-                        name="email"
-                        value={data.email}
-                        className="mt-1 block w-full"
-                        autoComplete="username"
-                        onChange={(e) => setData('email', e.target.value)}
-                        required
-                    />
-
-                    <InputError message={errors.email} className="mt-2" />
+                    <div className="auth-field">
+                        <label htmlFor="registration_number">Registration Number</label>
+                        <input
+                            id="registration_number"
+                            type="text"
+                            name="registration_number"
+                            value={data.registration_number}
+                            className="auth-input"
+                            onChange={(e) => setData('registration_number', e.target.value)}
+                        />
+                    </div>
                 </div>
 
-                <div className="mt-4">
-                    <InputLabel htmlFor="password" value="Password" />
+                <div className="auth-section-title">Choose Your Password</div>
 
-                    <TextInput
-                        id="password"
-                        type="password"
-                        name="password"
-                        value={data.password}
-                        className="mt-1 block w-full"
-                        autoComplete="new-password"
-                        onChange={(e) => setData('password', e.target.value)}
-                        required
-                    />
+                <div className="auth-grid auth-grid-two auth-grid-compact">
+                    <div className="auth-field">
+                        <label htmlFor="password">Password</label>
+                        <input
+                            id="password"
+                            type="password"
+                            name="password"
+                            value={data.password}
+                            className="auth-input"
+                            autoComplete="new-password"
+                            onChange={(e) => setData('password', e.target.value)}
+                            required
+                        />
+                        <InputError message={errors.password} className="mt-2" />
+                    </div>
 
-                    <InputError message={errors.password} className="mt-2" />
+                    <div className="auth-field">
+                        <label htmlFor="password_confirmation">Confirm Password</label>
+                        <input
+                            id="password_confirmation"
+                            type="password"
+                            name="password_confirmation"
+                            value={data.password_confirmation}
+                            className="auth-input"
+                            autoComplete="new-password"
+                            onChange={(e) => setData('password_confirmation', e.target.value)}
+                            required
+                        />
+                        <InputError message={errors.password_confirmation} className="mt-2" />
+                    </div>
                 </div>
 
-                <div className="mt-4">
-                    <InputLabel
-                        htmlFor="password_confirmation"
-                        value="Confirm Password"
-                    />
-
-                    <TextInput
-                        id="password_confirmation"
-                        type="password"
-                        name="password_confirmation"
-                        value={data.password_confirmation}
-                        className="mt-1 block w-full"
-                        autoComplete="new-password"
-                        onChange={(e) =>
-                            setData('password_confirmation', e.target.value)
-                        }
-                        required
-                    />
-
-                    <InputError
-                        message={errors.password_confirmation}
-                        className="mt-2"
-                    />
+                <div className="auth-password-hints">
+                    <span>At least 8 characters</span>
+                    <span>Include one uppercase letter</span>
+                    <span>Include one number</span>
                 </div>
 
-                <div className="mt-4 flex items-center justify-end">
-                    <Link
-                        href={route('login')}
-                        className="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                    >
-                        Already registered?
-                    </Link>
+                <label className="auth-inline">
+                    <input
+                        type="checkbox"
+                        checked={data.agree_terms}
+                        required
+                        onChange={(e) => setData('agree_terms', e.target.checked)}
+                    />
+                    I confirm that I have read and agree to the E-Sign disclosure.
+                </label>
 
-                    <PrimaryButton className="ms-4" disabled={processing}>
-                        Register
-                    </PrimaryButton>
+                <div className="auth-actions">
+                    <span className="auth-muted-note">You can update additional profile details after registration.</span>
+
+                    <button type="submit" className="auth-submit" disabled={processing}>
+                        {processing ? 'Creating account...' : 'Register'}
+                    </button>
                 </div>
             </form>
         </GuestLayout>
