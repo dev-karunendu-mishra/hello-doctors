@@ -37,7 +37,7 @@ export default function Appointments() {
     const loadAppointments = async (nextStatus = status, page = 1) => {
         setLoading(true);
         try {
-            const response = await window.axios.get('/api/patient/appointments', {
+            const response = await window.axios.get('/patient/data/appointments', {
                 params: { status: nextStatus, page },
             });
             const paginated = response.data.data || {};
@@ -74,7 +74,7 @@ export default function Appointments() {
         try {
             const values = await cancelForm.validateFields();
             setCancelling(true);
-            await window.axios.post(`/api/patient/appointments/${selectedAppointment.id}/cancel`, {
+            await window.axios.post(`/patient/data/appointments/${selectedAppointment.id}/cancel`, {
                 reason: values.reason,
             });
             message.success('Appointment cancelled successfully.');

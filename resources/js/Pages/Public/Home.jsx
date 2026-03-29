@@ -1,6 +1,15 @@
 import { Head, Link } from '@inertiajs/react';
 import { Card, Row, Col, Typography, Button, Input, Select, Statistic, message } from 'antd';
-import { SearchOutlined, MedicineBoxOutlined, EnvironmentOutlined, UserOutlined, AimOutlined } from '@ant-design/icons';
+import {
+    SearchOutlined,
+    MedicineBoxOutlined,
+    EnvironmentOutlined,
+    UserOutlined,
+    AimOutlined,
+    HomeOutlined,
+    ClockCircleOutlined,
+    CheckCircleOutlined,
+} from '@ant-design/icons';
 import { useState, useEffect } from 'react';
 import Header from '@/Components/Header';
 import Footer from '@/Components/Footer';
@@ -9,7 +18,7 @@ import IndiaMap from '@/Components/IndiaMap';
 const { Title, Paragraph } = Typography;
 const { Search } = Input;
 
-export default function Home({ auth, site, seo, cities, specialties, featuredDoctors, stats }) {
+export default function Home({ auth, site, seo, cities, specialties, featuredDoctors, stats, homeServices = [], homeServicesStats = {} }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCity, setSelectedCity] = useState(null);
     const [citySearchText, setCitySearchText] = useState('');
@@ -124,6 +133,9 @@ export default function Home({ auth, site, seo, cities, specialties, featuredDoc
     const pageKeywords = seo?.meta_keywords || "doctors, healthcare, medical professionals, find doctors, appointments, Uttar Pradesh, specialties, verified doctors";
     const ogTitle = seo?.og_title || pageTitle;
     const ogDescription = seo?.og_description || pageDescription;
+    const isPatient = auth?.user?.role === 'patient';
+    const homePrimaryHref = isPatient ? '/patient/home-services/book' : '/login';
+    const homeSecondaryHref = isPatient ? '/patient/home-services' : '/login';
 
     return (
         <>
@@ -318,6 +330,113 @@ export default function Home({ auth, site, seo, cities, specialties, featuredDoc
                                 </Col>
                             ))}
                         </Row>
+                    </div>
+                </div>
+
+                {/* Home Services Booking */}
+                <div className="py-14">
+                    <div className="container mx-auto px-4">
+                        <div className="rounded-3xl overflow-hidden shadow-2xl border border-slate-200">
+                            <div className="bg-gradient-to-br from-teal-700 via-cyan-700 to-blue-700 text-white px-6 md:px-10 py-10 relative">
+                                <div className="absolute -top-10 -right-10 w-44 h-44 rounded-full bg-white/10" />
+                                <div className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-white/5" />
+
+                                <Row gutter={[24, 24]} align="middle">
+                                    <Col xs={24} lg={14}>
+                                        <div className="relative z-10">
+                                            <div className="inline-flex items-center gap-2 bg-white/15 px-3 py-1 rounded-full mb-3">
+                                                <HomeOutlined />
+                                                <span className="text-sm font-medium">Home Care Services</span>
+                                            </div>
+
+                                            <Title level={2} className="!text-white !mb-3">
+                                                Book Day-Care and Diagnostics at Home
+                                            </Title>
+                                            <Paragraph className="!text-cyan-100 !text-base md:!text-lg !mb-6">
+                                                Schedule trusted at-home support like nursing visits, attendants, sample collection, and vitals checkups in minutes.
+                                            </Paragraph>
+
+                                            <Row gutter={[12, 12]} className="mb-6">
+                                                <Col xs={24} sm={8}>
+                                                    <Card className="!bg-white/10 !border-white/20" bodyStyle={{ padding: 12 }}>
+                                                        <Statistic
+                                                            title={<span style={{ color: 'rgba(255,255,255,0.8)' }}>Active Services</span>}
+                                                            value={homeServicesStats?.services_count || 0}
+                                                            valueStyle={{ color: '#fff' }}
+                                                        />
+                                                    </Card>
+                                                </Col>
+                                                <Col xs={24} sm={8}>
+                                                    <Card className="!bg-white/10 !border-white/20" bodyStyle={{ padding: 12 }}>
+                                                        <Statistic
+                                                            title={<span style={{ color: 'rgba(255,255,255,0.8)' }}>Verified Providers</span>}
+                                                            value={homeServicesStats?.providers_count || 0}
+                                                            valueStyle={{ color: '#fff' }}
+                                                        />
+                                                    </Card>
+                                                </Col>
+                                                <Col xs={24} sm={8}>
+                                                    <Card className="!bg-white/10 !border-white/20" bodyStyle={{ padding: 12 }}>
+                                                        <Statistic
+                                                            title={<span style={{ color: 'rgba(255,255,255,0.8)' }}>Starting From</span>}
+                                                            prefix={<span style={{ color: '#fff' }}>INR</span>}
+                                                            value={homeServicesStats?.starting_price || 0}
+                                                            precision={0}
+                                                            valueStyle={{ color: '#fff' }}
+                                                        />
+                                                    </Card>
+                                                </Col>
+                                            </Row>
+
+                                            <div className="flex flex-wrap gap-3">
+                                                <Link href={homePrimaryHref}>
+                                                    <Button type="primary" size="large" className="!bg-white !text-cyan-800 !border-white hover:!bg-cyan-50">
+                                                        Book Home Service
+                                                    </Button>
+                                                </Link>
+                                                <Link href={homeSecondaryHref}>
+                                                    <Button size="large" className="!bg-transparent !text-white !border-white/60 hover:!border-white hover:!text-white">
+                                                        Explore Services
+                                                    </Button>
+                                                </Link>
+                                            </div>
+                                        </div>
+                                    </Col>
+
+                                    <Col xs={24} lg={10}>
+                                        <div className="relative z-10">
+                                            <Card className="!bg-white !border-0" bodyStyle={{ padding: 18 }}>
+                                                <Title level={4} className="!mb-4">Popular Home Services</Title>
+                                                <div className="space-y-3">
+                                                    {(homeServices || []).slice(0, 4).map((service) => (
+                                                        <div key={service.id} className="flex items-center justify-between gap-3 border border-slate-200 rounded-xl px-3 py-2">
+                                                            <div>
+                                                                <div className="font-semibold text-slate-900">{service.name}</div>
+                                                                <div className="text-xs text-slate-500">
+                                                                    {service.category_name || 'Home Care'} · {service.providers_count || 0} providers
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <div className="text-cyan-700 font-bold">INR {service.base_price || 0}</div>
+                                                                <div className="text-xs text-slate-500 inline-flex items-center gap-1">
+                                                                    <ClockCircleOutlined />
+                                                                    {service.duration_minutes || 0} min
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                <div className="mt-4 bg-slate-50 rounded-xl px-3 py-2 text-slate-600 text-sm flex items-center gap-2">
+                                                    <CheckCircleOutlined style={{ color: '#0891b2' }} />
+                                                    Secure scheduling with verified professionals.
+                                                </div>
+                                            </Card>
+                                        </div>
+                                    </Col>
+                                </Row>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

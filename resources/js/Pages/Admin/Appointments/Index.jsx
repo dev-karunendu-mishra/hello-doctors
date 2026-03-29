@@ -77,8 +77,8 @@ export default function Index() {
         setLoading(true);
         try {
             const [doctorRes, cityRes] = await Promise.all([
-                api.get('/api/admin/doctors'),
-                api.get('/api/meta/cities'),
+                api.get('/admin/appointments-data/doctors'),
+                api.get('/admin/meta/cities'),
             ]);
 
             setDoctors(doctorRes.data.data || []);
@@ -103,7 +103,7 @@ export default function Index() {
         }
 
         try {
-            const clinicRes = await api.get(`/api/admin/doctors/${newDoctorId}/hospital-clinics`);
+            const clinicRes = await api.get(`/admin/appointments-data/doctors/${newDoctorId}/hospital-clinics`);
             const clinicList = clinicRes.data.data || [];
             setClinics(clinicList);
             const firstClinicId = clinicList[0]?.id ?? null;
@@ -123,8 +123,8 @@ export default function Index() {
 
         try {
             const [scheduleRes, appointmentRes] = await Promise.all([
-                api.get(`/api/admin/doctors/${newDoctorId}/hospital-clinics/${newClinicId}/schedules`),
-                api.get(`/api/admin/doctors/${newDoctorId}/appointments`, {
+                api.get(`/admin/appointments-data/doctors/${newDoctorId}/hospital-clinics/${newClinicId}/schedules`),
+                api.get(`/admin/appointments-data/doctors/${newDoctorId}/appointments`, {
                     params: { clinic_id: newClinicId, page },
                 }),
             ]);
@@ -188,10 +188,10 @@ export default function Index() {
             setSavingClinic(true);
 
             if (editingClinic) {
-                await api.put(`/api/admin/doctors/${doctorId}/hospital-clinics/${editingClinic.id}`, values);
+                await api.put(`/admin/appointments-data/doctors/${doctorId}/hospital-clinics/${editingClinic.id}`, values);
                 message.success('Clinic updated successfully.');
             } else {
-                await api.post(`/api/admin/doctors/${doctorId}/hospital-clinics`, values);
+                await api.post(`/admin/appointments-data/doctors/${doctorId}/hospital-clinics`, values);
                 message.success('Clinic created successfully.');
             }
 
@@ -209,7 +209,7 @@ export default function Index() {
         if (!selectedClinic || !doctorId) return;
 
         try {
-            await api.del(`/api/admin/doctors/${doctorId}/hospital-clinics/${selectedClinic.id}`);
+            await api.del(`/admin/appointments-data/doctors/${doctorId}/hospital-clinics/${selectedClinic.id}`);
             message.success('Clinic deleted successfully.');
             await loadDoctorClinics(doctorId);
         } catch (error) {
@@ -226,7 +226,7 @@ export default function Index() {
         try {
             const values = await scheduleForm.validateFields();
             setSavingSchedule(true);
-            await api.post(`/api/admin/doctors/${doctorId}/hospital-clinics/${clinicId}/schedules`, {
+            await api.post(`/admin/appointments-data/doctors/${doctorId}/hospital-clinics/${clinicId}/schedules`, {
                 schedules: values.schedules,
             });
             message.success('Schedule saved successfully.');

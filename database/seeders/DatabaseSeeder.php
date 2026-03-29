@@ -27,6 +27,8 @@ class DatabaseSeeder extends Seeder
         $this->seedAdmin();
         $this->seedCities();
         $this->seedSpecialties();
+        $this->call(\Database\Seeders\HomeServiceSeeder::class);
+        $this->call(\Database\Seeders\HomeServiceProviderSeeder::class);
         $this->seedSampleDoctorsWithClinics();
         $this->seedPatients();
 

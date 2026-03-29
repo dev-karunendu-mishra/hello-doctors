@@ -80,6 +80,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is home service provider
+     */
+    public function isHomeServiceProvider(): bool
+    {
+        return $this->role === 'home_service_provider';
+    }
+
+    /**
      * Check if user has specific role
      */
     public function hasRole(string $role): bool
@@ -101,6 +109,30 @@ class User extends Authenticatable
     public function appointments(): HasMany
     {
         return $this->hasMany(Appointment::class, 'patient_id');
+    }
+
+    /**
+     * Get the home service provider profile for this user
+     */
+    public function homeServiceProviderProfile(): HasOne
+    {
+        return $this->hasOne(HomeServiceProvider::class, 'user_id');
+    }
+
+    /**
+     * Get all home service addresses for this user
+     */
+    public function homeServiceAddresses(): HasMany
+    {
+        return $this->hasMany(HomeServiceAddress::class, 'user_id');
+    }
+
+    /**
+     * Get all home service bookings for this user
+     */
+    public function homeServiceBookings(): HasMany
+    {
+        return $this->hasMany(HomeServiceBooking::class, 'user_id');
     }
 
     /**

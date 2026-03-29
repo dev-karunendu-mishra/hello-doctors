@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class City extends Model
@@ -29,6 +30,22 @@ class City extends Model
         return $this->belongsToMany(DoctorProfile::class, 'doctor_cities')
             ->withPivot('address', 'landmarks', 'latitude', 'longitude')
             ->withTimestamps();
+    }
+
+    /**
+     * Get home service providers in this city
+     */
+    public function homeServiceProviders(): HasMany
+    {
+        return $this->hasMany(HomeServiceProvider::class, 'city_id');
+    }
+
+    /**
+     * Get user home service addresses in this city
+     */
+    public function homeServiceAddresses(): HasMany
+    {
+        return $this->hasMany(HomeServiceAddress::class, 'city_id');
     }
 
     /**

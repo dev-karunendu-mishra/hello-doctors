@@ -66,8 +66,8 @@ export default function FindDoctors() {
     const loadMeta = async () => {
         try {
             const [specialtyRes, cityRes] = await Promise.all([
-                window.axios.get('/api/meta/specialties'),
-                window.axios.get('/api/meta/cities'),
+                window.axios.get('/patient/data/meta/specialties'),
+                window.axios.get('/patient/data/meta/cities'),
             ]);
             setSpecialties(specialtyRes.data.data || []);
             setCities(cityRes.data.data || []);
@@ -79,7 +79,7 @@ export default function FindDoctors() {
     const search = async (nextFilters = filters) => {
         setLoading(true);
         try {
-            const response = await window.axios.get('/api/patient/available-appointments', {
+            const response = await window.axios.get('/patient/data/available-appointments', {
                 params: {
                     specialty_id: nextFilters.specialty_id || undefined,
                     city_id: nextFilters.city_id || undefined,
@@ -115,7 +115,7 @@ export default function FindDoctors() {
         try {
             const values = await bookingForm.validateFields();
             setBookingSaving(true);
-            await window.axios.post('/api/patient/appointments', {
+            await window.axios.post('/patient/data/appointments', {
                 doctor_hospital_clinic_id: bookingSelection.clinic.id,
                 appointment_date: bookingSelection.date,
                 appointment_time: bookingSelection.slot.time,

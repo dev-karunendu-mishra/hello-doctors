@@ -10,6 +10,7 @@ import {
     BellOutlined,
     MenuFoldOutlined,
     MenuUnfoldOutlined,
+    HomeOutlined,
 } from '@ant-design/icons';
 import { Link, usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
@@ -21,6 +22,15 @@ export default function AdminLayout({ children }) {
     const [collapsed, setCollapsed] = useState(false);
     const [selectedKeys, setSelectedKeys] = useState(['dashboard']);
     const [openKeys, setOpenKeys] = useState([]);
+
+    const getDashboardHref = () => {
+        const user = auth.user;
+        if (user.role === 'super_admin') return '/admin/dashboard';
+        if (user.role === 'doctor') return '/doctor/dashboard';
+        if (user.role === 'patient') return '/patient/dashboard';
+        if (user.role === 'home_service_provider') return '/provider/home-services/profile';
+        return '/dashboard';
+    };
 
     // Determine selected menu based on current URL
     useEffect(() => {
@@ -47,6 +57,12 @@ export default function AdminLayout({ children }) {
             setSelectedKeys(['seo']);
         } else if (currentPath.includes('/admin/settings')) {
             setSelectedKeys(['settings']);
+        } else if (currentPath.includes('/admin/home-services/providers')) {
+            setSelectedKeys(['home-service-providers']);
+        } else if (currentPath.includes('/admin/home-services/bookings')) {
+            setSelectedKeys(['home-service-bookings']);
+        } else if (currentPath.includes('/admin/home-services')) {
+            setSelectedKeys(['home-services']);
         } else if (currentPath.includes('/doctor/appointments')) {
             setSelectedKeys(['my-appointments']);
         } else if (currentPath.includes('/doctor/patients')) {
@@ -59,6 +75,20 @@ export default function AdminLayout({ children }) {
             setSelectedKeys(['my-appointments']);
         } else if (currentPath.includes('/patient/medical-records')) {
             setSelectedKeys(['medical-records']);
+        } else if (currentPath.includes('/patient/home-services/bookings')) {
+            setSelectedKeys(['home-service-bookings']);
+        } else if (currentPath.includes('/patient/home-services/addresses')) {
+            setSelectedKeys(['home-service-addresses']);
+        } else if (currentPath.includes('/patient/home-services/book')) {
+            setSelectedKeys(['home-services-book']);
+        } else if (currentPath.includes('/patient/home-services')) {
+            setSelectedKeys(['home-services']);
+        } else if (currentPath.includes('/provider/home-services/availability')) {
+            setSelectedKeys(['provider-home-availability']);
+        } else if (currentPath.includes('/provider/home-services/bookings')) {
+            setSelectedKeys(['provider-home-bookings']);
+        } else if (currentPath.includes('/provider/home-services/profile')) {
+            setSelectedKeys(['provider-home-profile']);
         }
     }, [url]);
 
@@ -70,7 +100,7 @@ export default function AdminLayout({ children }) {
             {
                 key: 'dashboard',
                 icon: <DashboardOutlined />,
-                label: <Link href="/admin/dashboard">Dashboard</Link>,
+                label: <Link href={getDashboardHref()}>Dashboard</Link>,
             },
         ];
 
@@ -105,6 +135,21 @@ export default function AdminLayout({ children }) {
                     key: 'appointments',
                     icon: <CalendarOutlined />,
                     label: <Link href="/admin/appointments">Appointments</Link>,
+                },
+                {
+                    key: 'home-services',
+                    icon: <HomeOutlined />,
+                    label: <Link href="/admin/home-services">Home Services</Link>,
+                },
+                {
+                    key: 'home-service-providers',
+                    icon: <TeamOutlined />,
+                    label: <Link href="/admin/home-services/providers">Home Providers</Link>,
+                },
+                {
+                    key: 'home-service-bookings',
+                    icon: <CalendarOutlined />,
+                    label: <Link href="/admin/home-services/bookings">Home Bookings</Link>,
                 },
                 {
                     key: 'site-customization',
@@ -162,6 +207,47 @@ export default function AdminLayout({ children }) {
                     key: 'medical-records',
                     icon: <MedicineBoxOutlined />,
                     label: <Link href="/patient/medical-records">Medical Records</Link>,
+                },
+                {
+                    key: 'home-services',
+                    icon: <HomeOutlined />,
+                    label: <Link href="/patient/home-services">Home Services</Link>,
+                },
+                {
+                    key: 'home-services-book',
+                    icon: <CalendarOutlined />,
+                    label: <Link href="/patient/home-services/book">Book Home Service</Link>,
+                },
+                {
+                    key: 'home-service-bookings',
+                    icon: <CalendarOutlined />,
+                    label: <Link href="/patient/home-services/bookings">Home Bookings</Link>,
+                },
+                {
+                    key: 'home-service-addresses',
+                    icon: <UserOutlined />,
+                    label: <Link href="/patient/home-services/addresses">Service Addresses</Link>,
+                },
+            ];
+        }
+
+        if (user.role === 'home_service_provider') {
+            return [
+                ...commonItems,
+                {
+                    key: 'provider-home-profile',
+                    icon: <UserOutlined />,
+                    label: <Link href="/provider/home-services/profile">My Service Profile</Link>,
+                },
+                {
+                    key: 'provider-home-availability',
+                    icon: <CalendarOutlined />,
+                    label: <Link href="/provider/home-services/availability">Weekly Availability</Link>,
+                },
+                {
+                    key: 'provider-home-bookings',
+                    icon: <HomeOutlined />,
+                    label: <Link href="/provider/home-services/bookings">Assigned Bookings</Link>,
                 },
             ];
         }
