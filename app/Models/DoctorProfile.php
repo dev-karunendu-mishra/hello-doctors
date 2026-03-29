@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class DoctorProfile extends Model
@@ -231,18 +230,26 @@ class DoctorProfile extends Model
             return null;
         }
 
+        $path = str_replace('\\', '/', trim((string) $this->profile_image));
+        $path = ltrim($path, '/');
+
         // If it's already a full URL
-        if (filter_var($this->profile_image, FILTER_VALIDATE_URL)) {
-            return $this->profile_image;
+        if (filter_var($path, FILTER_VALIDATE_URL)) {
+            return $path;
         }
 
-        // If path starts with 'images/' (public folder)
-        if (str_starts_with($this->profile_image, 'images/')) {
-            return asset($this->profile_image);
+        // Normalize legacy paths that may include leading public/
+        if (str_starts_with($path, 'public/')) {
+            $path = substr($path, 7);
         }
 
-        // Otherwise use Laravel storage
-        return Storage::disk('public')->url($this->profile_image);
+        // Keep already web-rooted assets as same-origin relative paths.
+        if (str_starts_with($path, 'images/') || str_starts_with($path, 'storage/')) {
+            return '/' . $path;
+        }
+
+        // Default to public storage for paths like doctors/filename.jpg
+        return '/storage/' . $path;
     }
 
     /**
