@@ -11,8 +11,10 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -99,8 +101,8 @@ class DoctorManagementController extends Controller
         $imagesPath = public_path('images/doctors');
         $images = [];
 
-        if (\File::exists($imagesPath)) {
-            $files = \File::files($imagesPath);
+        if (File::exists($imagesPath)) {
+            $files = File::files($imagesPath);
             foreach ($files as $file) {
                 $images[] = [
                     'path' => 'images/doctors/' . $file->getFilename(),
@@ -124,8 +126,8 @@ class DoctorManagementController extends Controller
         // Get existing images
         $imagesPath = public_path('images/doctors');
         $existingImages = [];
-        if (\File::exists($imagesPath)) {
-            $files = \File::files($imagesPath);
+        if (File::exists($imagesPath)) {
+            $files = File::files($imagesPath);
             foreach ($files as $file) {
                 $existingImages[] = [
                     'path' => 'images/doctors/' . $file->getFilename(),
@@ -168,6 +170,31 @@ class DoctorManagementController extends Controller
             'meta_description' => 'nullable|string|max:160',
             'meta_keywords' => 'nullable|string|max:255',
         ]);
+
+        foreach (($validated['clinics'] ?? []) as $clinicIndex => $clinicData) {
+            foreach (($clinicData['schedules'] ?? []) as $scheduleIndex => $scheduleData) {
+                $isAvailable = (bool) ($scheduleData['is_available'] ?? false);
+
+                if (!$isAvailable) {
+                    continue;
+                }
+
+                $opening = $scheduleData['opening_time'] ?? null;
+                $closing = $scheduleData['closing_time'] ?? null;
+
+                if (empty($opening) || empty($closing)) {
+                    throw ValidationException::withMessages([
+                        "clinics.{$clinicIndex}.schedules.{$scheduleIndex}.opening_time" => 'Opening and closing time are required when day is ON.',
+                    ]);
+                }
+
+                if (strtotime($opening) >= strtotime($closing)) {
+                    throw ValidationException::withMessages([
+                        "clinics.{$clinicIndex}.schedules.{$scheduleIndex}.closing_time" => 'Closing time must be after opening time.',
+                    ]);
+                }
+            }
+        }
 
         DB::beginTransaction();
 
@@ -235,7 +262,7 @@ class DoctorManagementController extends Controller
      */
     public function show(DoctorProfile $doctor): Response
     {
-        $doctor->load(['user', 'specialty', 'cities', 'workingHours']);
+        $doctor->load(['user', 'specialty', 'cities', 'hospitalClinics.city', 'hospitalClinics.scheduleSlots']);
 
         return Inertia::render('Admin/Doctors/Show', [
             'doctor' => [
@@ -251,14 +278,50 @@ class DoctorManagementController extends Controller
                 'experience_years' => $doctor->experience_years,
                 'consultation_fee' => $doctor->consultation_fee,
                 'bio' => $doctor->bio,
-                'profile_image' => $doctor->profile_image_url,
+                'profile_image' => $doctor->profile_image,
+                'profile_image_url' => $doctor->profile_image_url,
                 'website' => $doctor->website,
                 'is_verified' => $doctor->is_verified,
                 'is_active' => $doctor->user->is_active,
                 'is_available_online' => $doctor->is_available_online,
-                'cities' => $doctor->cities,
-                'working_hours' => $doctor->workingHours,
-                'created_at' => $doctor->created_at->format('Y-m-d H:i'),
+                'cities' => $doctor->cities->map(fn($city) => [
+                    'id' => $city->id,
+                    'name' => $city->name,
+                ])->values(),
+                'meta_title' => $doctor->meta_title,
+                'meta_description' => $doctor->meta_description,
+                'meta_keywords' => $doctor->meta_keywords,
+                'hospital_clinics' => $doctor->hospitalClinics->map(fn($clinic) => [
+                    'id' => $clinic->id,
+                    'hospital_clinic_name' => $clinic->hospital_clinic_name,
+                    'address' => $clinic->address,
+                    'latitude' => $clinic->latitude,
+                    'longitude' => $clinic->longitude,
+                    'landmarks' => $clinic->landmarks,
+                    'city' => $clinic->city ? [
+                        'id' => $clinic->city->id,
+                        'name' => $clinic->city->name,
+                    ] : null,
+                    'phone' => $clinic->phone,
+                    'email' => $clinic->email,
+                    'consultation_fee' => $clinic->consultation_fee,
+                    'is_active' => (bool) $clinic->is_active,
+                    'schedules' => $clinic->scheduleSlots
+                        ->sortBy('day_of_week')
+                        ->map(fn($schedule) => [
+                            'day_of_week' => $schedule->day_of_week,
+                            'opening_time' => $schedule->opening_time,
+                            'closing_time' => $schedule->closing_time,
+                            'break_start_time' => $schedule->break_start_time,
+                            'break_end_time' => $schedule->break_end_time,
+                            'slot_duration_minutes' => $schedule->slot_duration_minutes,
+                            'max_appointments_per_slot' => $schedule->max_appointments_per_slot,
+                            'is_available' => (bool) $schedule->is_available,
+                        ])
+                        ->values(),
+                ])->values(),
+                'created_at' => optional($doctor->created_at)?->toDateTimeString(),
+                'updated_at' => optional($doctor->updated_at)?->toDateTimeString(),
             ],
         ]);
     }
@@ -268,7 +331,7 @@ class DoctorManagementController extends Controller
      */
     public function edit(DoctorProfile $doctor): Response
     {
-        $doctor->load(['user', 'cities', 'hospitalClinics.city']);
+        $doctor->load(['user', 'cities', 'hospitalClinics.city', 'hospitalClinics.scheduleSlots']);
 
         $cities = City::active()->orderBy('name')->get();
         $specialties = Specialty::active()->get();
@@ -276,8 +339,8 @@ class DoctorManagementController extends Controller
         // Get existing images
         $imagesPath = public_path('images/doctors');
         $existingImages = [];
-        if (\File::exists($imagesPath)) {
-            $files = \File::files($imagesPath);
+        if (File::exists($imagesPath)) {
+            $files = File::files($imagesPath);
             foreach ($files as $file) {
                 $existingImages[] = [
                     'path' => 'images/doctors/' . $file->getFilename(),
@@ -323,6 +386,16 @@ class DoctorManagementController extends Controller
                     'email' => $clinic->email,
                     'consultation_fee' => $clinic->consultation_fee,
                     'is_active' => (bool) $clinic->is_active,
+                    'schedules' => $clinic->scheduleSlots->map(fn($schedule) => [
+                        'day_of_week' => $schedule->day_of_week,
+                        'opening_time' => $schedule->opening_time,
+                        'closing_time' => $schedule->closing_time,
+                        'break_start_time' => $schedule->break_start_time,
+                        'break_end_time' => $schedule->break_end_time,
+                        'slot_duration_minutes' => $schedule->slot_duration_minutes,
+                        'max_appointments_per_slot' => $schedule->max_appointments_per_slot,
+                        'is_available' => (bool) $schedule->is_available,
+                    ])->values(),
                 ]),
             ],
             'cities' => $cities,
@@ -366,6 +439,15 @@ class DoctorManagementController extends Controller
             'clinics.*.email' => 'nullable|email|max:100',
             'clinics.*.consultation_fee' => 'nullable|numeric|min:0|max:999999.99',
             'clinics.*.is_active' => 'boolean',
+            'clinics.*.schedules' => 'nullable|array',
+            'clinics.*.schedules.*.day_of_week' => 'required|integer|between:0,6',
+            'clinics.*.schedules.*.opening_time' => 'nullable|date_format:H:i',
+            'clinics.*.schedules.*.closing_time' => 'nullable|date_format:H:i|after:clinics.*.schedules.*.opening_time',
+            'clinics.*.schedules.*.break_start_time' => 'nullable|date_format:H:i',
+            'clinics.*.schedules.*.break_end_time' => 'nullable|date_format:H:i|after:clinics.*.schedules.*.break_start_time',
+            'clinics.*.schedules.*.slot_duration_minutes' => 'nullable|integer|min:5|max:180',
+            'clinics.*.schedules.*.max_appointments_per_slot' => 'nullable|integer|min:1|max:10',
+            'clinics.*.schedules.*.is_available' => 'boolean',
             'meta_title' => 'nullable|string|max:60',
             'meta_description' => 'nullable|string|max:160',
             'meta_keywords' => 'nullable|string|max:255',
@@ -380,8 +462,8 @@ class DoctorManagementController extends Controller
                 // Delete old custom uploaded image (not seeded ones)
                 if ($doctor->profile_image && str_starts_with($doctor->profile_image, 'images/doctors/') && str_contains($doctor->profile_image, '_')) {
                     $oldImagePath = public_path($doctor->profile_image);
-                    if (\File::exists($oldImagePath)) {
-                        \File::delete($oldImagePath);
+                    if (File::exists($oldImagePath)) {
+                        File::delete($oldImagePath);
                     }
                 }
                 
@@ -443,6 +525,7 @@ class DoctorManagementController extends Controller
 
                 foreach ($validated['clinics'] as $clinicData) {
                     $clinicId = $clinicData['id'] ?? null;
+                    $clinic = null;
 
                     if ($clinicId) {
                         $clinic = DoctorHospitalClinic::query()
@@ -463,24 +546,54 @@ class DoctorManagementController extends Controller
                                 'consultation_fee' => $clinicData['consultation_fee'] ?? null,
                                 'is_active' => $clinicData['is_active'] ?? true,
                             ]);
-
-                            continue;
                         }
                     }
 
-                    DoctorHospitalClinic::create([
-                        'doctor_profile_id' => $doctor->id,
-                        'hospital_clinic_name' => trim($clinicData['hospital_clinic_name']),
-                        'address' => $clinicData['address'],
-                        'latitude' => $clinicData['latitude'] ?? null,
-                        'longitude' => $clinicData['longitude'] ?? null,
-                        'landmarks' => $clinicData['landmarks'] ?? null,
-                        'city_id' => $clinicData['city_id'],
-                        'phone' => $clinicData['phone'] ?? null,
-                        'email' => $clinicData['email'] ?? null,
-                        'consultation_fee' => $clinicData['consultation_fee'] ?? null,
-                        'is_active' => $clinicData['is_active'] ?? true,
-                    ]);
+                    if (!$clinic) {
+                        $clinic = DoctorHospitalClinic::create([
+                            'doctor_profile_id' => $doctor->id,
+                            'hospital_clinic_name' => trim($clinicData['hospital_clinic_name']),
+                            'address' => $clinicData['address'],
+                            'latitude' => $clinicData['latitude'] ?? null,
+                            'longitude' => $clinicData['longitude'] ?? null,
+                            'landmarks' => $clinicData['landmarks'] ?? null,
+                            'city_id' => $clinicData['city_id'],
+                            'phone' => $clinicData['phone'] ?? null,
+                            'email' => $clinicData['email'] ?? null,
+                            'consultation_fee' => $clinicData['consultation_fee'] ?? null,
+                            'is_active' => $clinicData['is_active'] ?? true,
+                        ]);
+                    }
+
+                    $submittedSchedules = collect($clinicData['schedules'] ?? [])
+                        ->unique('day_of_week')
+                        ->values();
+
+                    $submittedDays = $submittedSchedules
+                        ->pluck('day_of_week')
+                        ->map(fn($day) => (int) $day)
+                        ->values();
+
+                    $clinic->scheduleSlots()
+                        ->whereNotIn('day_of_week', $submittedDays)
+                        ->delete();
+
+                    foreach ($submittedSchedules as $scheduleData) {
+                        $isAvailable = (bool) ($scheduleData['is_available'] ?? false);
+
+                        $clinic->scheduleSlots()->updateOrCreate(
+                            ['day_of_week' => (int) $scheduleData['day_of_week']],
+                            [
+                                'opening_time' => $isAvailable ? ($scheduleData['opening_time'] ?? null) : null,
+                                'closing_time' => $isAvailable ? ($scheduleData['closing_time'] ?? null) : null,
+                                'break_start_time' => $isAvailable ? ($scheduleData['break_start_time'] ?? null) : null,
+                                'break_end_time' => $isAvailable ? ($scheduleData['break_end_time'] ?? null) : null,
+                                'slot_duration_minutes' => (int) ($scheduleData['slot_duration_minutes'] ?? 30),
+                                'max_appointments_per_slot' => (int) ($scheduleData['max_appointments_per_slot'] ?? 1),
+                                'is_available' => $isAvailable,
+                            ]
+                        );
+                    }
                 }
             }
 

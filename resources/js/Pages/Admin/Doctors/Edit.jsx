@@ -1,11 +1,55 @@
 import AdminLayout from '@/Layouts/AdminLayout';
 import { Head, useForm, Link } from '@inertiajs/react';
-import { Card, Form, Input, Button, Select, Upload, Row, Col, Checkbox, Typography, Alert, Divider, Space, Tabs } from 'antd';
+import { Card, Form, Input, Button, Select, Upload, Row, Col, Checkbox, Typography, Alert, Divider, Space, Tabs, Switch, InputNumber } from 'antd';
 import { UploadOutlined, UserOutlined, PhoneOutlined, MailOutlined, GlobalOutlined, ArrowLeftOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 
 const { Title } = Typography;
 const { TextArea } = Input;
+
+const WEEK_DAYS = [
+    { value: 1, label: 'Monday' },
+    { value: 2, label: 'Tuesday' },
+    { value: 3, label: 'Wednesday' },
+    { value: 4, label: 'Thursday' },
+    { value: 5, label: 'Friday' },
+    { value: 6, label: 'Saturday' },
+    { value: 0, label: 'Sunday' },
+];
+
+const createDefaultSchedule = (dayOfWeek) => ({
+    day_of_week: dayOfWeek,
+    opening_time: '09:00',
+    closing_time: '17:00',
+    break_start_time: '',
+    break_end_time: '',
+    slot_duration_minutes: 30,
+    max_appointments_per_slot: 1,
+    is_available: false,
+});
+
+const normalizeClinicSchedules = (clinic) => {
+    const existingByDay = new Map((clinic.schedules || []).map((schedule) => [schedule.day_of_week, schedule]));
+
+    return WEEK_DAYS.map((day) => {
+        const existing = existingByDay.get(day.value);
+
+        if (!existing) {
+            return createDefaultSchedule(day.value);
+        }
+
+        return {
+            day_of_week: day.value,
+            opening_time: existing.opening_time || '09:00',
+            closing_time: existing.closing_time || '17:00',
+            break_start_time: existing.break_start_time || '',
+            break_end_time: existing.break_end_time || '',
+            slot_duration_minutes: existing.slot_duration_minutes || 30,
+            max_appointments_per_slot: existing.max_appointments_per_slot || 1,
+            is_available: !!existing.is_available,
+        };
+    });
+};
 
 export default function DoctorEdit({ doctor, cities, specialties, flash }) {
     const initialClinics = (doctor.hospital_clinics || []).map((clinic) => ({
@@ -20,6 +64,7 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
         email: clinic.email || '',
         consultation_fee: clinic.consultation_fee || '',
         is_active: clinic.is_active ?? true,
+        schedules: normalizeClinicSchedules(clinic),
     }));
 
     const { data, setData, post, processing, errors } = useForm({
@@ -64,6 +109,7 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                 email: '',
                 consultation_fee: '',
                 is_active: true,
+                schedules: WEEK_DAYS.map((day) => createDefaultSchedule(day.value)),
             },
         ]);
     };
@@ -78,6 +124,33 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
             return {
                 ...clinic,
                 [field]: value,
+            };
+        }));
+    };
+
+    const updateClinicScheduleField = (clinicIndex, dayOfWeek, field, value) => {
+        setData('clinics', (data.clinics || []).map((clinic, index) => {
+            if (index !== clinicIndex) return clinic;
+
+            const nextSchedules = (clinic.schedules || []).map((schedule) => {
+                if (schedule.day_of_week !== dayOfWeek) return schedule;
+
+                const nextSchedule = {
+                    ...schedule,
+                    [field]: value,
+                };
+
+                if (field === 'is_available' && value === false) {
+                    nextSchedule.break_start_time = '';
+                    nextSchedule.break_end_time = '';
+                }
+
+                return nextSchedule;
+            });
+
+            return {
+                ...clinic,
+                schedules: nextSchedules,
             };
         }));
     };
@@ -143,6 +216,7 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                                 items={[
                                     { key: 'profile', label: 'Profile' },
                                     { key: 'clinics', label: 'Clinics / Hospitals' },
+                                    { key: 'schedules', label: 'Schedules' },
                                     { key: 'media', label: 'Media' },
                                     { key: 'status', label: 'Status' },
                                     { key: 'seo', label: 'SEO' },
@@ -557,6 +631,164 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                                             Active clinic
                                         </Checkbox>
                                     </Space>
+                                </Card>
+                            ))}
+                                </>
+                            )}
+
+                            {activeTab === 'schedules' && (
+                                <>
+                            <Title level={4}>Day-wise Appointment Schedule</Title>
+                            <Alert
+                                message="Configure weekly availability, timings, and slot settings for each clinic."
+                                description="Turn a day ON to make it bookable. You can control opening/closing hours, break window, slot duration, and maximum appointments per slot."
+                                type="info"
+                                showIcon
+                                className="mb-4"
+                            />
+
+                            {(data.clinics || []).length === 0 && (
+                                <Alert
+                                    message="Add at least one clinic first"
+                                    description="Schedules are managed per clinic/hospital. Go to Clinics / Hospitals tab to create one."
+                                    type="warning"
+                                    showIcon
+                                />
+                            )}
+
+                            {(data.clinics || []).map((clinic, clinicIndex) => (
+                                <Card
+                                    key={`schedule-${clinic.id || clinicIndex}`}
+                                    className="mb-5"
+                                    title={clinic.hospital_clinic_name || `Clinic ${clinicIndex + 1}`}
+                                    extra={<span className="text-gray-500">{cities.find((c) => c.id === clinic.city_id)?.name || 'City not selected'}</span>}
+                                >
+                                    <Row gutter={[16, 16]}>
+                                        {WEEK_DAYS.map((day) => {
+                                            const scheduleIndex = (clinic.schedules || []).findIndex((item) => item.day_of_week === day.value);
+                                            const schedule = scheduleIndex >= 0
+                                                ? clinic.schedules[scheduleIndex]
+                                                : createDefaultSchedule(day.value);
+                                            const dayErrorPrefix = `clinics.${clinicIndex}.schedules.${scheduleIndex >= 0 ? scheduleIndex : 0}`;
+
+                                            return (
+                                                <Col xs={24} md={12} xl={8} key={`clinic-${clinicIndex}-day-${day.value}`}>
+                                                    <Card
+                                                        size="small"
+                                                        className="h-full"
+                                                        title={day.label}
+                                                        extra={
+                                                            <Switch
+                                                                checked={!!schedule.is_available}
+                                                                onChange={(checked) => updateClinicScheduleField(clinicIndex, day.value, 'is_available', checked)}
+                                                                checkedChildren="ON"
+                                                                unCheckedChildren="OFF"
+                                                            />
+                                                        }
+                                                    >
+                                                        <Space direction="vertical" size="middle" className="w-full">
+                                                            <Form.Item
+                                                                label="Opening Time"
+                                                                validateStatus={errors[`${dayErrorPrefix}.opening_time`] ? 'error' : ''}
+                                                                help={errors[`${dayErrorPrefix}.opening_time`]}
+                                                            >
+                                                                <Input
+                                                                    size="large"
+                                                                    type="time"
+                                                                    value={schedule.opening_time || ''}
+                                                                    disabled={!schedule.is_available}
+                                                                    onChange={(e) => updateClinicScheduleField(clinicIndex, day.value, 'opening_time', e.target.value)}
+                                                                />
+                                                            </Form.Item>
+
+                                                            <Form.Item
+                                                                label="Closing Time"
+                                                                validateStatus={errors[`${dayErrorPrefix}.closing_time`] ? 'error' : ''}
+                                                                help={errors[`${dayErrorPrefix}.closing_time`]}
+                                                            >
+                                                                <Input
+                                                                    size="large"
+                                                                    type="time"
+                                                                    value={schedule.closing_time || ''}
+                                                                    disabled={!schedule.is_available}
+                                                                    onChange={(e) => updateClinicScheduleField(clinicIndex, day.value, 'closing_time', e.target.value)}
+                                                                />
+                                                            </Form.Item>
+
+                                                            <Row gutter={12}>
+                                                                <Col span={12}>
+                                                                    <Form.Item
+                                                                        label="Break From"
+                                                                        validateStatus={errors[`${dayErrorPrefix}.break_start_time`] ? 'error' : ''}
+                                                                        help={errors[`${dayErrorPrefix}.break_start_time`]}
+                                                                    >
+                                                                        <Input
+                                                                            size="large"
+                                                                            type="time"
+                                                                            value={schedule.break_start_time || ''}
+                                                                            disabled={!schedule.is_available}
+                                                                            onChange={(e) => updateClinicScheduleField(clinicIndex, day.value, 'break_start_time', e.target.value)}
+                                                                        />
+                                                                    </Form.Item>
+                                                                </Col>
+                                                                <Col span={12}>
+                                                                    <Form.Item
+                                                                        label="Break To"
+                                                                        validateStatus={errors[`${dayErrorPrefix}.break_end_time`] ? 'error' : ''}
+                                                                        help={errors[`${dayErrorPrefix}.break_end_time`]}
+                                                                    >
+                                                                        <Input
+                                                                            size="large"
+                                                                            type="time"
+                                                                            value={schedule.break_end_time || ''}
+                                                                            disabled={!schedule.is_available}
+                                                                            onChange={(e) => updateClinicScheduleField(clinicIndex, day.value, 'break_end_time', e.target.value)}
+                                                                        />
+                                                                    </Form.Item>
+                                                                </Col>
+                                                            </Row>
+
+                                                            <Form.Item
+                                                                label="Slot Duration"
+                                                                validateStatus={errors[`${dayErrorPrefix}.slot_duration_minutes`] ? 'error' : ''}
+                                                                help={errors[`${dayErrorPrefix}.slot_duration_minutes`]}
+                                                            >
+                                                                <Select
+                                                                    size="large"
+                                                                    value={schedule.slot_duration_minutes}
+                                                                    disabled={!schedule.is_available}
+                                                                    onChange={(value) => updateClinicScheduleField(clinicIndex, day.value, 'slot_duration_minutes', value)}
+                                                                    options={[
+                                                                        { label: '15 minutes', value: 15 },
+                                                                        { label: '20 minutes', value: 20 },
+                                                                        { label: '30 minutes', value: 30 },
+                                                                        { label: '45 minutes', value: 45 },
+                                                                        { label: '60 minutes', value: 60 },
+                                                                    ]}
+                                                                />
+                                                            </Form.Item>
+
+                                                            <Form.Item
+                                                                label="Max Appointments / Slot"
+                                                                validateStatus={errors[`${dayErrorPrefix}.max_appointments_per_slot`] ? 'error' : ''}
+                                                                help={errors[`${dayErrorPrefix}.max_appointments_per_slot`]}
+                                                            >
+                                                                <InputNumber
+                                                                    size="large"
+                                                                    min={1}
+                                                                    max={10}
+                                                                    className="w-full"
+                                                                    value={schedule.max_appointments_per_slot}
+                                                                    disabled={!schedule.is_available}
+                                                                    onChange={(value) => updateClinicScheduleField(clinicIndex, day.value, 'max_appointments_per_slot', value || 1)}
+                                                                />
+                                                            </Form.Item>
+                                                        </Space>
+                                                    </Card>
+                                                </Col>
+                                            );
+                                        })}
+                                    </Row>
                                 </Card>
                             ))}
                                 </>
