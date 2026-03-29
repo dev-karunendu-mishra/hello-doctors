@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\City;
+use App\Models\DoctorHospitalClinic;
 use App\Models\DoctorProfile;
 use App\Models\Specialty;
 use App\Models\User;
@@ -64,6 +65,7 @@ class DoctorManagementController extends Controller
 
         $doctors = $query->paginate(20)->through(fn($doctor) => [
             'id' => $doctor->id,
+            'slug' => $doctor->slug,
             'name' => $doctor->user->name,
             'email' => $doctor->user->email,
             'phone' => $doctor->user->phone,
@@ -238,6 +240,7 @@ class DoctorManagementController extends Controller
         return Inertia::render('Admin/Doctors/Show', [
             'doctor' => [
                 'id' => $doctor->id,
+                'slug' => $doctor->slug,
                 'name' => $doctor->user->name,
                 'email' => $doctor->user->email,
                 'phone' => $doctor->user->phone,
@@ -265,7 +268,7 @@ class DoctorManagementController extends Controller
      */
     public function edit(DoctorProfile $doctor): Response
     {
-        $doctor->load(['user', 'cities']);
+        $doctor->load(['user', 'cities', 'hospitalClinics.city']);
 
         $cities = City::active()->orderBy('name')->get();
         $specialties = Specialty::active()->get();
@@ -287,6 +290,7 @@ class DoctorManagementController extends Controller
         return Inertia::render('Admin/Doctors/Edit', [
             'doctor' => [
                 'id' => $doctor->id,
+                'slug' => $doctor->slug,
                 'name' => $doctor->user->name,
                 'email' => $doctor->user->email,
                 'phone' => $doctor->user->phone,
@@ -304,9 +308,21 @@ class DoctorManagementController extends Controller
                 'is_active' => $doctor->user->is_active,
                 'is_available_online' => $doctor->is_available_online,
                 'cities' => $doctor->cities->map(fn($city) => [
-                    'city_id' => $city->id,
-                    'city_name' => $city->name,
-                    'address' => $city->pivot->address,
+                    'id' => $city->id,
+                    'name' => $city->name,
+                ])->values(),
+                'hospital_clinics' => $doctor->hospitalClinics->map(fn($clinic) => [
+                    'id' => $clinic->id,
+                    'hospital_clinic_name' => $clinic->hospital_clinic_name,
+                    'address' => $clinic->address,
+                    'latitude' => $clinic->latitude,
+                    'longitude' => $clinic->longitude,
+                    'landmarks' => $clinic->landmarks,
+                    'city_id' => $clinic->city_id,
+                    'phone' => $clinic->phone,
+                    'email' => $clinic->email,
+                    'consultation_fee' => $clinic->consultation_fee,
+                    'is_active' => (bool) $clinic->is_active,
                 ]),
             ],
             'cities' => $cities,
@@ -337,8 +353,19 @@ class DoctorManagementController extends Controller
             'is_active' => 'boolean',
             'is_available_online' => 'boolean',
             'cities' => 'array',
-            'cities.*.city_id' => 'required|exists:cities,id',
-            'cities.*.address' => 'nullable|string',
+            'cities.*' => 'exists:cities,id',
+            'clinics' => 'array',
+            'clinics.*.id' => 'nullable|integer|exists:doctor_hospital_clinics,id',
+            'clinics.*.hospital_clinic_name' => 'required|string|max:100',
+            'clinics.*.address' => 'required|string',
+            'clinics.*.latitude' => 'nullable|numeric|between:-90,90',
+            'clinics.*.longitude' => 'nullable|numeric|between:-180,180',
+            'clinics.*.landmarks' => 'nullable|string|max:255',
+            'clinics.*.city_id' => 'required|exists:cities,id',
+            'clinics.*.phone' => 'nullable|string|max:20',
+            'clinics.*.email' => 'nullable|email|max:100',
+            'clinics.*.consultation_fee' => 'nullable|numeric|min:0|max:999999.99',
+            'clinics.*.is_active' => 'boolean',
             'meta_title' => 'nullable|string|max:60',
             'meta_description' => 'nullable|string|max:160',
             'meta_keywords' => 'nullable|string|max:255',
@@ -394,9 +421,65 @@ class DoctorManagementController extends Controller
             // Update cities
             if (!empty($validated['cities'])) {
                 $doctor->cities()->detach();
-                foreach ($validated['cities'] as $cityData) {
-                    $doctor->cities()->attach($cityData['city_id'], [
-                        'address' => $cityData['address'] ?? null,
+                foreach ($validated['cities'] as $cityId) {
+                    $doctor->cities()->attach($cityId, [
+                        'address' => null,
+                    ]);
+                }
+            }
+
+            if (array_key_exists('clinics', $validated)) {
+                $submittedClinicIds = collect($validated['clinics'])
+                    ->pluck('id')
+                    ->filter()
+                    ->map(fn($id) => (int) $id)
+                    ->values();
+
+                DoctorHospitalClinic::query()
+                    ->where('doctor_profile_id', $doctor->id)
+                    ->when($submittedClinicIds->isNotEmpty(), fn($query) => $query->whereNotIn('id', $submittedClinicIds))
+                    ->when($submittedClinicIds->isEmpty(), fn($query) => $query)
+                    ->delete();
+
+                foreach ($validated['clinics'] as $clinicData) {
+                    $clinicId = $clinicData['id'] ?? null;
+
+                    if ($clinicId) {
+                        $clinic = DoctorHospitalClinic::query()
+                            ->where('doctor_profile_id', $doctor->id)
+                            ->where('id', $clinicId)
+                            ->first();
+
+                        if ($clinic) {
+                            $clinic->update([
+                                'hospital_clinic_name' => trim($clinicData['hospital_clinic_name']),
+                                'address' => $clinicData['address'],
+                                'latitude' => $clinicData['latitude'] ?? null,
+                                'longitude' => $clinicData['longitude'] ?? null,
+                                'landmarks' => $clinicData['landmarks'] ?? null,
+                                'city_id' => $clinicData['city_id'],
+                                'phone' => $clinicData['phone'] ?? null,
+                                'email' => $clinicData['email'] ?? null,
+                                'consultation_fee' => $clinicData['consultation_fee'] ?? null,
+                                'is_active' => $clinicData['is_active'] ?? true,
+                            ]);
+
+                            continue;
+                        }
+                    }
+
+                    DoctorHospitalClinic::create([
+                        'doctor_profile_id' => $doctor->id,
+                        'hospital_clinic_name' => trim($clinicData['hospital_clinic_name']),
+                        'address' => $clinicData['address'],
+                        'latitude' => $clinicData['latitude'] ?? null,
+                        'longitude' => $clinicData['longitude'] ?? null,
+                        'landmarks' => $clinicData['landmarks'] ?? null,
+                        'city_id' => $clinicData['city_id'],
+                        'phone' => $clinicData['phone'] ?? null,
+                        'email' => $clinicData['email'] ?? null,
+                        'consultation_fee' => $clinicData['consultation_fee'] ?? null,
+                        'is_active' => $clinicData['is_active'] ?? true,
                     ]);
                 }
             }

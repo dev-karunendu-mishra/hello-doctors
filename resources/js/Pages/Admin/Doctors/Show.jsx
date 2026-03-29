@@ -43,7 +43,7 @@ export default function DoctorShow({ doctor }) {
                                             )}
                                         </div>
                                     </div>
-                                    <Link href={`/admin/doctors/${doctor.id}/edit`}>
+                                    <Link href={`/admin/doctors/${doctor.slug || doctor.id}/edit`}>
                                         <Button type="primary" icon={<EditOutlined />}>Edit</Button>
                                     </Link>
                                 </div>

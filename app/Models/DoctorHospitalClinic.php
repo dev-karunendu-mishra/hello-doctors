@@ -18,6 +18,8 @@ class DoctorHospitalClinic extends Model
         'doctor_profile_id',
         'hospital_clinic_name',
         'address',
+        'latitude',
+        'longitude',
         'landmarks',
         'city_id',
         'consultation_fee',
@@ -29,6 +31,8 @@ class DoctorHospitalClinic extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'consultation_fee' => 'decimal:2',
+        'latitude' => 'decimal:8',
+        'longitude' => 'decimal:8',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',

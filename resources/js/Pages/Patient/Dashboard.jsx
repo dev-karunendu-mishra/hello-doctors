@@ -138,8 +138,8 @@ export default function Dashboard({ upcomingAppointments, recentRecords, recomme
                                             <Card
                                                 hoverable
                                                 actions={[
-                                                    <Link href={`/patient/doctor/${doctor.id}`}>
-                                                        <Button type="primary" size="small" block>
+                                                    <Link href={doctor.slug ? `/doctors/${doctor.slug}` : '/search'}>
+                                                        <Button type="primary" size="small" block disabled={!doctor.slug}>
                                                             View Profile
                                                         </Button>
                                                     </Link>,

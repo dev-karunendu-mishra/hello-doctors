@@ -21,22 +21,22 @@ export default function DoctorsIndex({ doctors, cities, specialties, filters }) 
         router.get(`/admin/doctors?${params.toString()}`);
     };
 
-    const handleDelete = (id) => {
-        router.delete(`/admin/doctors/${id}`, {
+    const handleDelete = (identifier) => {
+        router.delete(`/admin/doctors/${identifier}`, {
             onSuccess: () => {
                 // Success handled by flash messages
             }
         });
     };
 
-    const toggleVerification = (id, currentStatus) => {
-        router.post(`/admin/doctors/${id}/toggle-verification`, {}, {
+    const toggleVerification = (identifier, currentStatus) => {
+        router.post(`/admin/doctors/${identifier}/toggle-verification`, {}, {
             preserveScroll: true,
         });
     };
 
-    const toggleActive = (id, currentStatus) => {
-        router.post(`/admin/doctors/${id}/toggle-active`, {}, {
+    const toggleActive = (identifier, currentStatus) => {
+        router.post(`/admin/doctors/${identifier}/toggle-active`, {}, {
             preserveScroll: true,
         });
     };
@@ -104,29 +104,29 @@ export default function DoctorsIndex({ doctors, cities, specialties, filters }) 
             key: 'actions',
             render: (record) => (
                 <Space>
-                    <Link href={`/admin/doctors/${record.id}`}>
+                    <Link href={`/admin/doctors/${record.slug || record.id}`}>
                         <Button type="link" icon={<EyeOutlined />}>View</Button>
                     </Link>
-                    <Link href={`/admin/doctors/${record.id}/edit`}>
+                    <Link href={`/admin/doctors/${record.slug || record.id}/edit`}>
                         <Button type="link" icon={<EditOutlined />}>Edit</Button>
                     </Link>
                     <Button 
                         type="link" 
                         icon={record.is_verified ? <CloseCircleOutlined /> : <CheckCircleOutlined />}
-                        onClick={() => toggleVerification(record.id, record.is_verified)}
+                        onClick={() => toggleVerification(record.slug || record.id, record.is_verified)}
                     >
                         {record.is_verified ? 'Unverify' : 'Verify'}
                     </Button>
                     <Button 
                         type="link" 
-                        onClick={() => toggleActive(record.id, record.is_active)}
+                        onClick={() => toggleActive(record.slug || record.id, record.is_active)}
                     >
                         {record.is_active ? 'Deactivate' : 'Activate'}
                     </Button>
                     <Popconfirm
                         title="Delete Doctor"
                         description="Are you sure you want to delete this doctor?"
-                        onConfirm={() => handleDelete(record.id)}
+                        onConfirm={() => handleDelete(record.slug || record.id)}
                         okText="Yes"
                         cancelText="No"
                     >

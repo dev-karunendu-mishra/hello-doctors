@@ -22,7 +22,7 @@ use Inertia\Inertia;
 // Public Routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/search', [SearchController::class, 'index'])->name('search');
-Route::get('/doctors/{doctor:slug}', [SearchController::class, 'show'])->name('doctors.show');
+Route::get('/doctors/{doctor}', [SearchController::class, 'show'])->name('doctors.show');
 Route::get('/about', [AboutController::class, 'index'])->name('about');
 Route::get('/contact', [ContactController::class, 'index'])->name('contact');
 Route::post('/contact', [ContactController::class, 'store'])->name('contact.store');

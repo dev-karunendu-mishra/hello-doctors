@@ -104,6 +104,37 @@ class OldDataSeeder extends Seeder
                 'gastroenterologist' => ['gastro', 'stomach specialist'],
                 'urologist' => ['uro', 'urology'],
                 'pulmonologist' => ['chest specialist', 'lung specialist'],
+                        // Keys must match strtolower() of actual DB specialty names.
+                        $variations = [
+                            'dermatologist'                      => ['skin specialist', 'dermatology'],
+                            'ent surgeon'                        => ['ent', 'ear nose throat', 'otolaryngologist'],
+                            'orthopedic surgeon'                 => ['orthopedic', 'orthopedist', 'orthopaedic', 'orthopaedic surgeon', 'bone specialist'],
+                            'nephrologist'                       => ['kidney specialist', 'nephrology'],
+                            'pediatrician'                       => ['pediatric', 'pediatric surgeon', 'child specialist', 'paediatrician', 'paediatric', 'paediatric surgeon'],
+                            'neurologist'                        => ['neuro', 'brain specialist', 'neurology'],
+                            'anesthesiologist'                   => ['anaesthetist', 'anesthesia'],
+                            'dentist'                            => ['dental surgeon', 'dental', 'orthodontist'],
+                            'general physician'                  => ['physician', 'physican', 'general doctor', 'general physican', 'general surgeon physician'],
+                            'gynecologist'                       => ['gynaecologist', 'obstetrician', 'obs & gynae', 'gynae', 'gynaecology', 'gynecology'],
+                            'ophthalmologist'                    => ['eye specialist', 'eye doctor', 'ophthalmology'],
+                            'cardiologist'                       => ['heart specialist', 'cardiology'],
+                            'cardio-thoracic & vascular surgeon' => ['ctv', 'cardio thoracic', 'cardiothoracic', 'cardio thoracic vascular'],
+                            'psychiatrist'                       => ['mental health', 'psychiatry'],
+                            'gastroenterologist'                 => ['gastro', 'stomach specialist'],
+                            'urologist'                          => ['urology'],
+                            'pulmonologist'                      => ['lung specialist', 'pulmonology'],
+                            'tb and chest specialist'            => ['tb chest', 'tb & chest', 'tb and chest', 'chest physician', 'pulmonologist chest'],
+                            'geriatric physician'                => ['geriatric', 'geriatric physican', 'gerietic physican', 'gerieatric'],
+                            'ayurveda'                           => ['ayurved', 'ayurvedic', 'ayurvedacharya', 'vaidya', 'bams', 'b.a.m.s.', 'ayurvedic doctor', 'ayurvedic physician'],
+                            'homeopathy'                         => ['homeopathic', 'homoeopathy', 'homoeopathic', 'homeopathic doctor'],
+                            'unani'                              => ['unani doctor', 'hakim', 'bums', 'b.u.m.s.'],
+                            'veterinary doctor'                  => ['veterinary', 'bvsc', 'b.v.sc.', 'animal doctor', 'veternary'],
+                            'physiotherapist'                    => ['physiotherapy', 'physio'],
+                            'general surgeon'                    => ['ms surgery', 'general surgery'],
+                            'plastic surgeon'                    => ['plastic surgery', 'microvascular'],
+                            'dietitian'                          => ['dietician', 'nutritionist', 'nutrition'],
+                            'radiologist'                        => ['radiology', 'imaging'],
+                        ];
             ];
 
             if (isset($variations[$key])) {
@@ -199,8 +230,14 @@ class OldDataSeeder extends Seeder
 
         $columns = array_map('trim', explode(',', str_replace('`', '', $colMatches[1])));
 
+        // Extract only the VALUES segment (avoid parsing the column list tuple).
+        if (!preg_match('/VALUES\s*(.*);\s*$/is', $statement, $valuesSectionMatch)) {
+            return;
+        }
+        $valuesSection = $valuesSectionMatch[1];
+
         // Extract all value sets
-        preg_match_all('/\(((?:[^()]++|\((?:[^()]++|\([^()]*+\))*+\))*+)\)/i', $statement, $valueMatches);
+        preg_match_all('/\(((?:[^()]++|\((?:[^()]++|\([^()]*+\))*+\))*+)\)/i', $valuesSection, $valueMatches);
 
         foreach ($valueMatches[1] as $valueSet) {
             $values = $this->parseValueSet($valueSet);
@@ -276,6 +313,11 @@ class OldDataSeeder extends Seeder
             return '';
         }
 
+        // Strip backtick-wrapped identifiers (e.g. `title` → title)
+        if (strlen($value) >= 2 && $value[0] === '`' && $value[-1] === '`') {
+            $value = trim($value, '`');
+        }
+
         // Remove escaped quotes
         $value = str_replace(["\\'", '\\"'], ["'", '"'], $value);
         
@@ -309,7 +351,27 @@ class OldDataSeeder extends Seeder
                 return;
             }
 
+            // Guard against accidental header row imports from malformed parsing.
+            // Strip any residual backticks before comparing (e.g. `title`).
+            $titleNormalized = strtolower(trim($title, " `"));
+            $deptNormalized  = strtolower(trim($department, " `"));
+            if ($titleNormalized === 'title' || $deptNormalized === 'department') {
+                $this->failedDoctors++;
+                DB::rollBack();
+                return;
+            }
+
             // Find or map specialty
+                        // Skip non-medical / non-doctor entries (medical stores, gyms, ambulances, etc.)
+                        $deptSlug = strtolower(str_replace([' ', '_'], '-', trim($department, ' `')));
+                        $nonMedical = ['medical-store', 'medical-shop', 'gym', 'super-gym', 'ambulance', 'blood-bank', 'hospitals', 'nursing-staff', 'nursing-home', 'travel'];
+                        if (in_array($deptSlug, $nonMedical)) {
+                            $this->failedDoctors++;
+                            DB::rollBack();
+                            return;
+                        }
+
+                        // Find or map specialty
             $specialtyId = $this->findSpecialtyId($department);
 
             // Generate unique email if not provided
@@ -335,7 +397,8 @@ class OldDataSeeder extends Seeder
             }
 
             // Create or get doctor profile
-            $doctorProfile = DoctorProfile::firstOrCreate(
+            // updateOrCreate so re-seeding fills missing specialization_id from previous partial runs.
+            $doctorProfile = DoctorProfile::updateOrCreate(
                 ['user_id' => $user->id],
                 [
                     'specialization_id' => $specialtyId,
@@ -405,8 +468,10 @@ class OldDataSeeder extends Seeder
      */
     private function findSpecialtyId(string $department): ?int
     {
-        $key = strtolower(trim($department));
-        
+        // Normalize: lowercase, strip backticks/spaces, replace hyphens/underscores with spaces.
+        // Old SQL data uses hyphenated slugs (e.g. "orthopedic-surgeon" not "Orthopedic Surgeon").
+        $key = strtolower(trim(str_replace(['-', '_'], ' ', trim($department, ' `'))));
+
         // Direct match
         if (isset($this->specialtyMapping[$key])) {
             return $this->specialtyMapping[$key];

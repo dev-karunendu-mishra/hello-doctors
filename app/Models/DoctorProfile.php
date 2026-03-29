@@ -51,16 +51,41 @@ class DoctorProfile extends Model
         parent::boot();
 
         static::creating(function ($doctor) {
-            if (empty($doctor->slug) && $doctor->user) {
-                $doctor->slug = static::generateUniqueSlug($doctor->user->name);
+            if (empty($doctor->slug)) {
+                $name = static::resolveDoctorNameForSlug($doctor);
+                $doctor->slug = static::generateUniqueSlug($name);
             }
         });
 
         static::updating(function ($doctor) {
-            if (empty($doctor->slug) && $doctor->user) {
-                $doctor->slug = static::generateUniqueSlug($doctor->user->name, $doctor->id);
+            if (empty($doctor->slug)) {
+                $name = static::resolveDoctorNameForSlug($doctor);
+                $doctor->slug = static::generateUniqueSlug($name, $doctor->id);
             }
         });
+    }
+
+    /**
+     * Resolve a consistent name source for slug generation.
+     */
+    protected static function resolveDoctorNameForSlug(self $doctor): string
+    {
+        if ($doctor->relationLoaded('user') && $doctor->user) {
+            return $doctor->user->name;
+        }
+
+        if ($doctor->user) {
+            return $doctor->user->name;
+        }
+
+        if ($doctor->user_id) {
+            $name = User::whereKey($doctor->user_id)->value('name');
+            if (!empty($name)) {
+                return $name;
+            }
+        }
+
+        return 'doctor-' . ($doctor->id ?? Str::random(6));
     }
 
     /**
@@ -100,6 +125,27 @@ class DoctorProfile extends Model
     public function getRouteKeyName()
     {
         return 'slug';
+    }
+
+    /**
+     * Resolve route binding and support both slug and numeric id for admin URLs.
+     */
+    public function resolveRouteBinding($value, $field = null)
+    {
+        if ($field !== null) {
+            return $this->where($field, $value)->first();
+        }
+
+        $bySlug = $this->where('slug', $value)->first();
+        if ($bySlug) {
+            return $bySlug;
+        }
+
+        if (is_numeric($value)) {
+            return $this->whereKey((int) $value)->first();
+        }
+
+        return null;
     }
 
     /**

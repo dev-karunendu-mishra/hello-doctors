@@ -7,6 +7,7 @@ use App\Models\City;
 use App\Models\DoctorProfile;
 use App\Models\Specialty;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -90,7 +91,7 @@ class SearchController extends Controller
                 'specialty' => $doctor->specialty?->name,
                 'specialty_id' => $doctor->specialty?->id,
                 'image' => $doctor->profile_image_url,
-                'bio' => \Str::limit($doctor->bio, 150),
+                'bio' => Str::limit($doctor->bio, 150),
                 'cities' => $doctor->cities->map(fn($city) => [
                     'id' => $city->id,
                     'name' => $city->name,
@@ -131,6 +132,8 @@ class SearchController extends Controller
             'specialty',
             'cities',
             'workingHours.city',
+            'hospitalClinics.city',
+            'hospitalClinics.scheduleSlots',
             'searchTag',
         ]);
 
@@ -171,6 +174,29 @@ class SearchController extends Controller
                     'opening_time' => $wh->opening_time?->format('H:i'),
                     'closing_time' => $wh->closing_time?->format('H:i'),
                 ]),
+                'clinic_schedules' => $doctor->hospitalClinics
+                    ->where('is_active', true)
+                    ->values()
+                    ->map(fn($clinic) => [
+                        'id' => $clinic->id,
+                        'hospital_clinic_name' => $clinic->hospital_clinic_name,
+                        'city' => $clinic->city?->name,
+                        'address' => $clinic->address,
+                        'latitude' => $clinic->latitude,
+                        'longitude' => $clinic->longitude,
+                        'consultation_fee' => $clinic->consultation_fee,
+                        'schedules' => $clinic->scheduleSlots
+                            ->where('is_available', true)
+                            ->sortBy('day_of_week')
+                            ->values()
+                            ->map(fn($slot) => [
+                                'day_of_week' => \App\Models\DoctorScheduleSlot::DAYS_OF_WEEK[$slot->day_of_week] ?? 'Unknown',
+                                'opening_time' => $slot->opening_time ? substr($slot->opening_time, 0, 5) : null,
+                                'closing_time' => $slot->closing_time ? substr($slot->closing_time, 0, 5) : null,
+                                'break_start_time' => $slot->break_start_time ? substr($slot->break_start_time, 0, 5) : null,
+                                'break_end_time' => $slot->break_end_time ? substr($slot->break_end_time, 0, 5) : null,
+                            ]),
+                    ]),
             ],
         ]);
     }

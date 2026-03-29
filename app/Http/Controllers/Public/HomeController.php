@@ -7,6 +7,7 @@ use App\Models\City;
 use App\Models\DoctorProfile;
 use App\Models\Specialty;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -46,12 +47,12 @@ class HomeController extends Controller
             ->get()
             ->map(fn($doctor) => [
                 'id' => $doctor->id,
-                'slug' => $doctor->slug,
+                'slug' => $doctor->slug ?: (string) $doctor->id,
                 'name' => $doctor->user->name,
                 'specialty' => $doctor->specialty?->name,
                 'image' => $doctor->profile_image_url,
                 'cities' => $doctor->cities->pluck('name')->join(', '),
-                'bio' => \Str::limit($doctor->bio, 100),
+                'bio' => Str::limit($doctor->bio, 100),
             ]);
 
         // Get statistics
