@@ -10,6 +10,52 @@ use Illuminate\Http\Request;
 
 class DoctorAppointmentController extends Controller
 {
+    public function overview(Request $request): JsonResponse
+    {
+        $request->validate([
+            'doctor_id' => ['nullable', 'integer', 'exists:users,id'],
+            'clinic_id' => ['nullable', 'integer', 'exists:doctor_hospital_clinics,id'],
+            'status' => ['nullable', 'in:pending,confirmed,completed,cancelled,no-show'],
+            'date' => ['nullable', 'date'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+
+        $query = Appointment::query()
+            ->with(['patient:id,name,email,phone', 'doctorHospitalClinic.city', 'doctorHospitalClinic.doctorProfile.user:id,name,email'])
+            ->orderByDesc('appointment_date')
+            ->orderByDesc('appointment_time');
+
+        if ($request->filled('doctor_id')) {
+            $query->whereHas('doctorHospitalClinic.doctorProfile', function ($doctorQuery) use ($request) {
+                $doctorQuery->where('user_id', $request->integer('doctor_id'));
+            });
+        }
+
+        if ($request->filled('clinic_id')) {
+            $query->where('doctor_hospital_clinic_id', $request->integer('clinic_id'));
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status')->value());
+        }
+
+        if ($request->filled('date')) {
+            $query->whereDate('appointment_date', $request->date('date')->toDateString());
+        }
+
+        if ($request->filled('date_from') && $request->filled('date_to')) {
+            $query->whereBetween('appointment_date', [
+                $request->date('date_from')->toDateString(),
+                $request->date('date_to')->toDateString(),
+            ]);
+        }
+
+        return response()->json([
+            'data' => $query->paginate(20),
+        ]);
+    }
+
     public function index(Request $request, User $doctor): JsonResponse
     {
         abort_unless($doctor->isDoctor(), 422, 'Selected user is not a doctor.');

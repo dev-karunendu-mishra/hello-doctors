@@ -167,6 +167,8 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     // Admin appointments management (session-authenticated JSON endpoints)
     Route::get('/appointments-data/doctors', [ApiAdminDoctorLookupController::class, 'index'])
         ->name('appointments-data.doctors.index');
+    Route::get('/appointments-data/appointments', [ApiAdminDoctorAppointmentController::class, 'overview'])
+        ->name('appointments-data.appointments.index');
     Route::get('/appointments-data/doctors/{doctor}/hospital-clinics', [ApiAdminDoctorClinicController::class, 'index'])
         ->name('appointments-data.doctors.clinics.index');
     Route::post('/appointments-data/doctors/{doctor}/hospital-clinics', [ApiAdminDoctorClinicController::class, 'store'])

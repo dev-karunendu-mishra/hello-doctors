@@ -83,9 +83,6 @@ export default function Index() {
 
             setDoctors(doctorRes.data.data || []);
             setCities(cityRes.data.data || []);
-
-            const firstDoctorId = doctorRes.data.data?.[0]?.id ?? null;
-            setDoctorId(firstDoctorId);
         } catch (error) {
             message.error(error?.response?.data?.message || 'Failed to load initial data.');
         } finally {
@@ -98,7 +95,6 @@ export default function Index() {
             setClinics([]);
             setClinicId(null);
             setScheduleRows([]);
-            setAppointments([]);
             return;
         }
 
@@ -106,31 +102,40 @@ export default function Index() {
             const clinicRes = await api.get(`/admin/appointments-data/doctors/${newDoctorId}/hospital-clinics`);
             const clinicList = clinicRes.data.data || [];
             setClinics(clinicList);
-            const firstClinicId = clinicList[0]?.id ?? null;
-            setClinicId(firstClinicId);
+            setClinicId((currentClinicId) =>
+                clinicList.some((clinic) => clinic.id === currentClinicId) ? currentClinicId : null
+            );
         } catch (error) {
             message.error(error?.response?.data?.message || 'Failed to load clinics.');
         }
     };
 
-    const loadClinicData = async (newDoctorId, newClinicId, page = 1) => {
+    const loadClinicData = async (newDoctorId, newClinicId) => {
         if (!newDoctorId || !newClinicId) {
             setScheduleRows([]);
-            setAppointments([]);
-            setAppointmentPagination({ current: 1, pageSize: 20, total: 0 });
             return;
         }
 
         try {
-            const [scheduleRes, appointmentRes] = await Promise.all([
-                api.get(`/admin/appointments-data/doctors/${newDoctorId}/hospital-clinics/${newClinicId}/schedules`),
-                api.get(`/admin/appointments-data/doctors/${newDoctorId}/appointments`, {
-                    params: { clinic_id: newClinicId, page },
-                }),
-            ]);
+            const scheduleRes = await api.get(`/admin/appointments-data/doctors/${newDoctorId}/hospital-clinics/${newClinicId}/schedules`);
 
             setScheduleRows(scheduleRes.data.data || []);
-            const paginated = appointmentRes.data.data || {};
+        } catch (error) {
+            message.error(error?.response?.data?.message || 'Failed to load clinic data.');
+        }
+    };
+
+    const loadAppointments = async (page = 1, nextDoctorId = doctorId, nextClinicId = clinicId) => {
+        try {
+            const response = await api.get('/admin/appointments-data/appointments', {
+                params: {
+                    page,
+                    doctor_id: nextDoctorId || undefined,
+                    clinic_id: nextClinicId || undefined,
+                },
+            });
+
+            const paginated = response.data.data || {};
             setAppointments(paginated.data || []);
             setAppointmentPagination({
                 current: paginated.current_page || 1,
@@ -138,7 +143,7 @@ export default function Index() {
                 total: paginated.total || 0,
             });
         } catch (error) {
-            message.error(error?.response?.data?.message || 'Failed to load clinic data.');
+            message.error(error?.response?.data?.message || 'Failed to load appointments.');
         }
     };
 
@@ -152,6 +157,10 @@ export default function Index() {
 
     useEffect(() => {
         loadClinicData(doctorId, clinicId);
+    }, [doctorId, clinicId]);
+
+    useEffect(() => {
+        loadAppointments(1, doctorId, clinicId);
     }, [doctorId, clinicId]);
 
     const openCreateClinic = () => {
@@ -290,6 +299,7 @@ export default function Index() {
                                     placeholder="Select doctor"
                                     value={doctorId}
                                     onChange={(value) => setDoctorId(value)}
+                                    allowClear
                                     options={doctors.map((doctor) => ({
                                         value: doctor.id,
                                         label: `${doctor.name}${doctor.specialty ? ` (${doctor.specialty})` : ''}`,
@@ -311,9 +321,11 @@ export default function Index() {
                             <Col xs={24} md={12}>
                                 <Select
                                     style={{ width: '100%' }}
-                                    placeholder="Select clinic"
+                                    placeholder={doctorId ? 'Select clinic' : 'Select doctor first'}
                                     value={clinicId}
                                     onChange={(value) => setClinicId(value)}
+                                    allowClear
+                                    disabled={!doctorId}
                                     options={clinics.map((clinic) => ({
                                         value: clinic.id,
                                         label: `${clinic.hospital_clinic_name} - ${clinic.city?.name || 'City N/A'}`,
@@ -407,7 +419,7 @@ export default function Index() {
                             )}
                         </Card>
 
-                        <Card size="small" title="Appointments for Selected Clinic">
+                        <Card size="small" title={clinicId ? 'Appointments for Selected Clinic' : doctorId ? 'Appointments for Selected Doctor' : 'All Appointments'}>
                             <Table
                                 rowKey="id"
                                 dataSource={appointments}
@@ -415,7 +427,7 @@ export default function Index() {
                                     current: appointmentPagination.current,
                                     pageSize: appointmentPagination.pageSize,
                                     total: appointmentPagination.total,
-                                    onChange: (page) => loadClinicData(doctorId, clinicId, page),
+                                    onChange: (page) => loadAppointments(page),
                                     showSizeChanger: false,
                                 }}
                                 columns={[
@@ -424,6 +436,16 @@ export default function Index() {
                                         title: 'Patient',
                                         key: 'patient',
                                         render: (_, record) => record.patient?.name || '-',
+                                    },
+                                    {
+                                        title: 'Doctor',
+                                        key: 'doctor',
+                                        render: (_, record) => record.doctor_hospital_clinic?.doctor_profile?.user?.name || '-',
+                                    },
+                                    {
+                                        title: 'Clinic',
+                                        key: 'clinic',
+                                        render: (_, record) => record.doctor_hospital_clinic?.hospital_clinic_name || '-',
                                     },
                                     { title: 'Date', dataIndex: 'appointment_date', key: 'appointment_date' },
                                     {
