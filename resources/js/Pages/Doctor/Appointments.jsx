@@ -36,14 +36,14 @@ export default function Appointments() {
     const [statusForm] = Form.useForm();
 
     const loadClinics = async () => {
-        const clinicRes = await window.axios.get('/api/doctor/hospital-clinics');
+        const clinicRes = await window.axios.get('/doctor/data/hospital-clinics');
         setClinics(clinicRes.data.data || []);
     };
 
     const loadAppointments = async (nextFilters = filters, page = 1) => {
         setLoading(true);
         try {
-            const response = await window.axios.get('/api/doctor/appointments', {
+            const response = await window.axios.get('/doctor/data/appointments', {
                 params: {
                     clinic_id: nextFilters.clinic_id || undefined,
                     status: nextFilters.status || undefined,
@@ -96,7 +96,7 @@ export default function Appointments() {
         try {
             const values = await statusForm.validateFields();
             setSaving(true);
-            await window.axios.put(`/api/doctor/appointments/${selectedAppointment.id}`, values);
+            await window.axios.put(`/doctor/data/appointments/${selectedAppointment.id}`, values);
             message.success('Appointment updated successfully.');
             setStatusModalOpen(false);
             await loadAppointments(filters);

@@ -22,6 +22,9 @@ use App\Http\Controllers\Api\Admin\DoctorLookupController as ApiAdminDoctorLooku
 use App\Http\Controllers\Api\Admin\DoctorClinicController as ApiAdminDoctorClinicController;
 use App\Http\Controllers\Api\Admin\DoctorClinicScheduleController as ApiAdminDoctorClinicScheduleController;
 use App\Http\Controllers\Api\Admin\DoctorAppointmentController as ApiAdminDoctorAppointmentController;
+use App\Http\Controllers\Api\Doctor\AppointmentController as DoctorAppointmentController;
+use App\Http\Controllers\Api\Doctor\HospitalClinicController as DoctorHospitalClinicController;
+use App\Http\Controllers\Api\Doctor\ScheduleController as DoctorScheduleController;
 use App\Http\Controllers\Api\Patient\AppointmentController as PatientAppointmentController;
 use App\Http\Controllers\Api\Patient\AvailableAppointmentController as PatientAvailableAppointmentController;
 use App\Http\Controllers\Api\Patient\HomeServiceController as PatientHomeServiceController;
@@ -218,6 +221,22 @@ Route::middleware(['auth', 'role:doctor'])->prefix('doctor')->name('doctor.')->g
     Route::get('/schedule', function () {
         return Inertia::render('Doctor/Schedule');
     })->name('schedule');
+
+    // Doctor data session-authenticated endpoints (mirrors API routes)
+    Route::get('/data/meta/cities', [ApiMetaController::class, 'cities'])->name('data.meta.cities');
+
+    Route::get('/data/hospital-clinics', [DoctorHospitalClinicController::class, 'index'])->name('data.hospital-clinics.index');
+    Route::post('/data/hospital-clinics', [DoctorHospitalClinicController::class, 'store'])->name('data.hospital-clinics.store');
+    Route::put('/data/hospital-clinics/{clinic}', [DoctorHospitalClinicController::class, 'update'])->name('data.hospital-clinics.update');
+    Route::delete('/data/hospital-clinics/{clinic}', [DoctorHospitalClinicController::class, 'destroy'])->name('data.hospital-clinics.destroy');
+
+    Route::get('/data/hospital-clinics/{clinic}/schedules', [DoctorScheduleController::class, 'index'])->name('data.hospital-clinics.schedules.index');
+    Route::post('/data/hospital-clinics/{clinic}/schedules', [DoctorScheduleController::class, 'store'])->name('data.hospital-clinics.schedules.store');
+    Route::put('/data/hospital-clinics/{clinic}/schedules/{day}', [DoctorScheduleController::class, 'updateDay'])->name('data.hospital-clinics.schedules.update-day');
+    Route::delete('/data/hospital-clinics/{clinic}/schedules/{day}', [DoctorScheduleController::class, 'destroy'])->name('data.hospital-clinics.schedules.destroy');
+
+    Route::get('/data/appointments', [DoctorAppointmentController::class, 'index'])->name('data.appointments.index');
+    Route::put('/data/appointments/{appointment}', [DoctorAppointmentController::class, 'update'])->name('data.appointments.update');
 });
 
 // Patient Routes

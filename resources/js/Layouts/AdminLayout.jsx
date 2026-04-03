@@ -38,6 +38,12 @@ export default function AdminLayout({ children }) {
         
         if (currentPath.includes('/admin/dashboard')) {
             setSelectedKeys(['dashboard']);
+        } else if (currentPath.includes('/doctor/dashboard')) {
+            setSelectedKeys(['dashboard']);
+        } else if (currentPath.includes('/patient/dashboard')) {
+            setSelectedKeys(['dashboard']);
+        } else if (currentPath.includes('/provider/home-services/profile') && !currentPath.includes('/admin')) {
+            setSelectedKeys(['provider-home-profile']);
         } else if (currentPath.includes('/admin/users')) {
             setSelectedKeys(['all-users']);
             setOpenKeys(['users']);

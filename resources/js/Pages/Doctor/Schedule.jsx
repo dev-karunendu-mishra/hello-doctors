@@ -51,8 +51,8 @@ export default function Schedule() {
         setLoading(true);
         try {
             const [cityRes, clinicRes] = await Promise.all([
-                window.axios.get('/api/meta/cities'),
-                window.axios.get('/api/doctor/hospital-clinics'),
+                window.axios.get('/doctor/data/meta/cities'),
+                window.axios.get('/doctor/data/hospital-clinics'),
             ]);
 
             setCities(cityRes.data.data || []);
@@ -73,7 +73,7 @@ export default function Schedule() {
         }
 
         try {
-            const response = await window.axios.get(`/api/doctor/hospital-clinics/${newClinicId}/schedules`);
+            const response = await window.axios.get(`/doctor/data/hospital-clinics/${newClinicId}/schedules`);
             setScheduleRows(response.data.data || []);
         } catch (error) {
             message.error(error?.response?.data?.message || 'Failed to load schedule.');
@@ -137,10 +137,10 @@ export default function Schedule() {
             setSavingClinic(true);
 
             if (editingClinic) {
-                await window.axios.put(`/api/doctor/hospital-clinics/${editingClinic.id}`, values);
+                await window.axios.put(`/doctor/data/hospital-clinics/${editingClinic.id}`, values);
                 message.success('Clinic updated.');
             } else {
-                await window.axios.post('/api/doctor/hospital-clinics', values);
+                await window.axios.post('/doctor/data/hospital-clinics', values);
                 message.success('Clinic created.');
             }
 
@@ -157,7 +157,7 @@ export default function Schedule() {
     const deleteClinic = async () => {
         if (!selectedClinic) return;
         try {
-            await window.axios.delete(`/api/doctor/hospital-clinics/${selectedClinic.id}`);
+            await window.axios.delete(`/doctor/data/hospital-clinics/${selectedClinic.id}`);
             message.success('Clinic deleted.');
             await loadInitial();
         } catch (error) {
@@ -174,7 +174,7 @@ export default function Schedule() {
         try {
             const values = await scheduleForm.validateFields();
             setSavingSchedule(true);
-            await window.axios.post(`/api/doctor/hospital-clinics/${clinicId}/schedules`, {
+            await window.axios.post(`/doctor/data/hospital-clinics/${clinicId}/schedules`, {
                 schedules: values.schedules,
             });
             message.success('Schedule updated.');
