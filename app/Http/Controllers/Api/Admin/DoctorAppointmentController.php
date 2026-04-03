@@ -12,23 +12,34 @@ class DoctorAppointmentController extends Controller
 {
     public function overview(Request $request): JsonResponse
     {
+        $validStatuses = 'pending,confirmed,completed,cancelled,no-show';
+        $validTypes    = 'in-person,online,home-visit';
+
         $request->validate([
-            'doctor_id' => ['nullable', 'integer', 'exists:users,id'],
-            'clinic_id' => ['nullable', 'integer', 'exists:doctor_hospital_clinics,id'],
-            'status' => ['nullable', 'in:pending,confirmed,completed,cancelled,no-show'],
-            'date' => ['nullable', 'date'],
-            'date_from' => ['nullable', 'date'],
-            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'doctor_id'   => ['nullable', 'integer', 'exists:users,id'],
+            'clinic_id'   => ['nullable', 'integer', 'exists:doctor_hospital_clinics,id'],
+            'status'      => ['nullable', 'array'],
+            'status.*'    => ['in:' . $validStatuses],
+            'type'        => ['nullable', 'array'],
+            'type.*'      => ['in:' . $validTypes],
+            'date'        => ['nullable', 'date'],
+            'date_from'   => ['nullable', 'date'],
+            'date_to'     => ['nullable', 'date', 'after_or_equal:date_from'],
+            'sort_by'     => ['nullable', 'in:appointment_date,appointment_number'],
+            'sort_dir'    => ['nullable', 'in:asc,desc'],
         ]);
+
+        $sortBy  = $request->input('sort_by', 'appointment_date');
+        $sortDir = $request->input('sort_dir', 'desc');
 
         $query = Appointment::query()
             ->with(['patient:id,name,email,phone', 'doctorHospitalClinic.city', 'doctorHospitalClinic.doctorProfile.user:id,name,email'])
-            ->orderByDesc('appointment_date')
-            ->orderByDesc('appointment_time');
+            ->orderBy($sortBy, $sortDir)
+            ->orderBy('appointment_time', $sortDir);
 
         if ($request->filled('doctor_id')) {
-            $query->whereHas('doctorHospitalClinic.doctorProfile', function ($doctorQuery) use ($request) {
-                $doctorQuery->where('user_id', $request->integer('doctor_id'));
+            $query->whereHas('doctorHospitalClinic.doctorProfile', function ($q) use ($request) {
+                $q->where('user_id', $request->integer('doctor_id'));
             });
         }
 
@@ -37,7 +48,11 @@ class DoctorAppointmentController extends Controller
         }
 
         if ($request->filled('status')) {
-            $query->where('status', $request->string('status')->value());
+            $query->whereIn('status', $request->input('status'));
+        }
+
+        if ($request->filled('type')) {
+            $query->whereIn('consultation_type', $request->input('type'));
         }
 
         if ($request->filled('date')) {

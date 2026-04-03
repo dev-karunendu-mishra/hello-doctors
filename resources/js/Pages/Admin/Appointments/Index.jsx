@@ -53,8 +53,24 @@ const defaultAppointmentFilters = {
     doctor_id: null,
     clinic_id: null,
     status: null,
-    date: null,
+    type: null,
+    sort_by: 'appointment_date',
+    sort_dir: 'desc',
 };
+
+const statusFilters = [
+    { text: 'Pending',   value: 'pending' },
+    { text: 'Confirmed', value: 'confirmed' },
+    { text: 'Completed', value: 'completed' },
+    { text: 'Cancelled', value: 'cancelled' },
+    { text: 'No Show',   value: 'no-show' },
+];
+
+const typeFilters = [
+    { text: 'In Person',     value: 'in-person' },
+    { text: 'Online',        value: 'online' },
+    { text: 'Home Visit',    value: 'home-visit' },
+];
 
 export default function Index() {
     const [loading, setLoading] = useState(true);
@@ -68,6 +84,7 @@ export default function Index() {
     const [managementClinicId, setManagementClinicId] = useState(null);
 
     const [appointmentFilters, setAppointmentFilters] = useState(defaultAppointmentFilters);
+    const [columnFilters, setColumnFilters] = useState({});
     const [filterClinics, setFilterClinics] = useState([]);
     const [appointments, setAppointments] = useState([]);
     const [appointmentPagination, setAppointmentPagination] = useState({ current: 1, pageSize: 20, total: 0 });
@@ -156,13 +173,29 @@ export default function Index() {
 
     const loadAppointments = async (page = 1, nextFilters = appointmentFilters) => {
         try {
+            const statusParam  = nextFilters.status?.length  ? nextFilters.status  : undefined;
+            const typeParam    = nextFilters.type?.length    ? nextFilters.type    : undefined;
             const response = await api.get('/admin/appointments-data/appointments', {
                 params: {
                     page,
                     doctor_id: nextFilters.doctor_id || undefined,
                     clinic_id: nextFilters.clinic_id || undefined,
-                    status: nextFilters.status || undefined,
-                    date: nextFilters.date || undefined,
+                    status:    statusParam,
+                    type:      typeParam,
+                    sort_by:   nextFilters.sort_by  || undefined,
+                    sort_dir:  nextFilters.sort_dir || undefined,
+                },
+                paramsSerializer: (params) => {
+                    const parts = [];
+                    Object.entries(params).forEach(([key, val]) => {
+                        if (val === undefined || val === null) return;
+                        if (Array.isArray(val)) {
+                            val.forEach((v) => parts.push(`${encodeURIComponent(key)}[]=${encodeURIComponent(v)}`));
+                        } else {
+                            parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(val)}`);
+                        }
+                    });
+                    return parts.join('&');
                 },
             });
 
@@ -204,6 +237,23 @@ export default function Index() {
         setFilterClinics([]);
         await loadFilterClinics(nextDoctorId);
         await updateAppointmentFilters({ doctor_id: nextDoctorId, clinic_id: null });
+    };
+
+    const handleTableChange = async (pagination, antFilters, sorter) => {
+        const statusValues = antFilters.status?.length   ? antFilters.status   : null;
+        const typeValues   = antFilters.consultation_type?.length ? antFilters.consultation_type : null;
+        const sortBy  = sorter?.field  || 'appointment_date';
+        const sortDir = sorter?.order === 'ascend' ? 'asc' : 'desc';
+        const nextFilters = {
+            ...appointmentFilters,
+            status:   statusValues,
+            type:     typeValues,
+            sort_by:  sortBy,
+            sort_dir: sortDir,
+        };
+        setColumnFilters(antFilters);
+        setAppointmentFilters(nextFilters);
+        await loadAppointments(pagination.current, nextFilters);
     };
 
     const openCreateClinic = () => {
@@ -310,46 +360,74 @@ export default function Index() {
         });
     }, [scheduleRows, scheduleForm]);
 
-    const appointmentsColumns = [
-        { title: 'No.', dataIndex: 'appointment_number', key: 'appointment_number', width: 170 },
+    const buildAppointmentsColumns = () => [
+        {
+            title: 'No.',
+            dataIndex: 'appointment_number',
+            key: 'appointment_number',
+            width: 175,
+            sorter: true,
+            sortOrder: appointmentFilters.sort_by === 'appointment_number'
+                ? (appointmentFilters.sort_dir === 'asc' ? 'ascend' : 'descend')
+                : null,
+            showSorterTooltip: { target: 'sorter-icon' },
+        },
         {
             title: 'Patient',
             key: 'patient',
-            width: 170,
+            width: 160,
             render: (_, record) => record.patient?.name || '-',
         },
         {
             title: 'Doctor',
             key: 'doctor',
-            width: 170,
+            width: 160,
             render: (_, record) => record.doctor_hospital_clinic?.doctor_profile?.user?.name || '-',
         },
         {
             title: 'Clinic',
             key: 'clinic',
-            width: 190,
+            width: 180,
             render: (_, record) => record.doctor_hospital_clinic?.hospital_clinic_name || '-',
         },
         {
             title: 'Date',
             dataIndex: 'appointment_date',
             key: 'appointment_date',
-            width: 170,
+            width: 130,
+            sorter: true,
+            sortOrder: appointmentFilters.sort_by === 'appointment_date'
+                ? (appointmentFilters.sort_dir === 'asc' ? 'ascend' : 'descend')
+                : null,
+            defaultSortOrder: 'descend',
+            showSorterTooltip: { target: 'sorter-icon' },
             render: (value) => (value ? String(value).slice(0, 10) : '-'),
         },
         {
             title: 'Time',
             key: 'appointment_time',
-            width: 110,
+            width: 90,
             render: (_, record) => (record.appointment_time || '').slice(0, 5),
         },
         {
             title: 'Status',
             key: 'status',
-            width: 130,
+            dataIndex: 'status',
+            width: 135,
+            filters: statusFilters,
+            filteredValue: columnFilters.status || null,
+            filterMultiple: true,
             render: (_, record) => <Tag color={statusColors[record.status] || 'default'}>{record.status}</Tag>,
         },
-        { title: 'Type', dataIndex: 'consultation_type', key: 'consultation_type', width: 130 },
+        {
+            title: 'Type',
+            dataIndex: 'consultation_type',
+            key: 'consultation_type',
+            width: 130,
+            filters: typeFilters,
+            filteredValue: columnFilters.consultation_type || null,
+            filterMultiple: true,
+        },
     ];
 
     return (
@@ -384,12 +462,8 @@ export default function Index() {
                                 label: 'Appointments Data Grid',
                                 children: (
                                     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                                        <Typography.Text type="secondary">
-                                            Use filters to review all appointments across doctors and clinics.
-                                        </Typography.Text>
-
-                                        <Row gutter={[12, 12]}>
-                                            <Col xs={24} md={6}>
+                                        <Row gutter={[12, 12]} align="middle">
+                                            <Col xs={24} md={7}>
                                                 <Select
                                                     showSearch
                                                     optionFilterProp="label"
@@ -404,7 +478,7 @@ export default function Index() {
                                                     }))}
                                                 />
                                             </Col>
-                                            <Col xs={24} md={6}>
+                                            <Col xs={24} md={7}>
                                                 <Select
                                                     showSearch
                                                     optionFilterProp="label"
@@ -421,63 +495,43 @@ export default function Index() {
                                                 />
                                             </Col>
                                             <Col xs={24} md={4}>
-                                                <Select
-                                                    style={{ width: '100%' }}
-                                                    placeholder="Status"
-                                                    value={appointmentFilters.status}
-                                                    onChange={(value) => updateAppointmentFilters({ status: value || null })}
-                                                    allowClear
-                                                    options={[
-                                                        { value: 'pending', label: 'Pending' },
-                                                        { value: 'confirmed', label: 'Confirmed' },
-                                                        { value: 'completed', label: 'Completed' },
-                                                        { value: 'cancelled', label: 'Cancelled' },
-                                                        { value: 'no-show', label: 'No Show' },
-                                                    ]}
-                                                />
-                                            </Col>
-                                            <Col xs={24} md={4}>
-                                                <Input
-                                                    type="date"
-                                                    value={appointmentFilters.date || ''}
-                                                    onChange={(e) => updateAppointmentFilters({ date: e.target.value || null })}
-                                                />
-                                            </Col>
-                                            <Col xs={24} md={4}>
                                                 <Button
                                                     block
                                                     onClick={async () => {
                                                         setFilterClinics([]);
+                                                        setColumnFilters({});
                                                         setAppointmentFilters(defaultAppointmentFilters);
                                                         await loadAppointments(1, defaultAppointmentFilters);
                                                     }}
                                                 >
-                                                    Reset Filters
+                                                    Reset All
                                                 </Button>
+                                            </Col>
+                                            <Col xs={24} md={6} style={{ textAlign: 'right' }}>
+                                                <Tag color="geekblue">Total: {appointmentPagination.total}</Tag>
+                                                <Typography.Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
+                                                    Use column headers to filter &amp; sort
+                                                </Typography.Text>
                                             </Col>
                                         </Row>
 
-                                        <Card
-                                            size="small"
-                                            title="All Appointments"
-                                            extra={<Tag color="geekblue">Total: {appointmentPagination.total}</Tag>}
-                                        >
-                                            <Table
-                                                rowKey="id"
-                                                bordered
-                                                size="middle"
-                                                scroll={{ x: 1200 }}
-                                                dataSource={appointments}
-                                                pagination={{
-                                                    current: appointmentPagination.current,
-                                                    pageSize: appointmentPagination.pageSize,
-                                                    total: appointmentPagination.total,
-                                                    onChange: (page) => loadAppointments(page, appointmentFilters),
-                                                    showSizeChanger: false,
-                                                }}
-                                                columns={appointmentsColumns}
-                                            />
-                                        </Card>
+                                        <Table
+                                            rowKey="id"
+                                            bordered
+                                            size="middle"
+                                            scroll={{ x: 1100 }}
+                                            dataSource={appointments}
+                                            onChange={handleTableChange}
+                                            showSorterTooltip={{ target: 'sorter-icon' }}
+                                            pagination={{
+                                                current: appointmentPagination.current,
+                                                pageSize: appointmentPagination.pageSize,
+                                                total: appointmentPagination.total,
+                                                showSizeChanger: false,
+                                                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+                                            }}
+                                            columns={buildAppointmentsColumns()}
+                                        />
                                     </Space>
                                 ),
                             },
