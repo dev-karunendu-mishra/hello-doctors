@@ -16,17 +16,19 @@ class DoctorAppointmentController extends Controller
         $validTypes    = 'in-person,online,home-visit';
 
         $request->validate([
-            'doctor_id'   => ['nullable', 'integer', 'exists:users,id'],
-            'clinic_id'   => ['nullable', 'integer', 'exists:doctor_hospital_clinics,id'],
-            'status'      => ['nullable', 'array'],
-            'status.*'    => ['in:' . $validStatuses],
-            'type'        => ['nullable', 'array'],
-            'type.*'      => ['in:' . $validTypes],
-            'date'        => ['nullable', 'date'],
-            'date_from'   => ['nullable', 'date'],
-            'date_to'     => ['nullable', 'date', 'after_or_equal:date_from'],
-            'sort_by'     => ['nullable', 'in:appointment_date,appointment_number'],
-            'sort_dir'    => ['nullable', 'in:asc,desc'],
+            'doctor_id'      => ['nullable', 'integer', 'exists:users,id'],
+            'clinic_id'      => ['nullable', 'integer', 'exists:doctor_hospital_clinics,id'],
+            'status'         => ['nullable', 'array'],
+            'status.*'       => ['in:' . $validStatuses],
+            'type'           => ['nullable', 'array'],
+            'type.*'         => ['in:' . $validTypes],
+            'payment_status' => ['nullable', 'array'],
+            'payment_status.*' => ['in:pending,paid,failed,refunded'],
+            'date'           => ['nullable', 'date'],
+            'date_from'      => ['nullable', 'date'],
+            'date_to'        => ['nullable', 'date', 'after_or_equal:date_from'],
+            'sort_by'        => ['nullable', 'in:appointment_date,appointment_number'],
+            'sort_dir'       => ['nullable', 'in:asc,desc'],
         ]);
 
         $sortBy  = $request->input('sort_by', 'appointment_date');
@@ -53,6 +55,10 @@ class DoctorAppointmentController extends Controller
 
         if ($request->filled('type')) {
             $query->whereIn('consultation_type', $request->input('type'));
+        }
+
+        if ($request->filled('payment_status')) {
+            $query->whereIn('payment_status', $request->input('payment_status'));
         }
 
         if ($request->filled('date')) {

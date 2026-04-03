@@ -42,6 +42,13 @@ const statusColors = {
     'no-show': 'default',
 };
 
+const paymentStatusColors = {
+    pending: 'orange',
+    paid: 'green',
+    failed: 'red',
+    refunded: 'purple',
+};
+
 const api = {
     get: (url, config = {}) => window.axios.get(url, config),
     post: (url, payload) => window.axios.post(url, payload),
@@ -54,6 +61,7 @@ const defaultAppointmentFilters = {
     clinic_id: null,
     status: null,
     type: null,
+    payment_status: null,
     sort_by: 'appointment_date',
     sort_dir: 'desc',
 };
@@ -70,6 +78,13 @@ const typeFilters = [
     { text: 'In Person',     value: 'in-person' },
     { text: 'Online',        value: 'online' },
     { text: 'Home Visit',    value: 'home-visit' },
+];
+
+const paymentStatusFilters = [
+    { text: 'Pending', value: 'pending' },
+    { text: 'Paid', value: 'paid' },
+    { text: 'Failed', value: 'failed' },
+    { text: 'Refunded', value: 'refunded' },
 ];
 
 export default function Index() {
@@ -173,17 +188,19 @@ export default function Index() {
 
     const loadAppointments = async (page = 1, nextFilters = appointmentFilters) => {
         try {
-            const statusParam  = nextFilters.status?.length  ? nextFilters.status  : undefined;
-            const typeParam    = nextFilters.type?.length    ? nextFilters.type    : undefined;
+            const statusParam  = nextFilters.status?.length ? nextFilters.status : undefined;
+            const typeParam = nextFilters.type?.length ? nextFilters.type : undefined;
+            const paymentStatusParam = nextFilters.payment_status?.length ? nextFilters.payment_status : undefined;
             const response = await api.get('/admin/appointments-data/appointments', {
                 params: {
                     page,
                     doctor_id: nextFilters.doctor_id || undefined,
                     clinic_id: nextFilters.clinic_id || undefined,
-                    status:    statusParam,
-                    type:      typeParam,
-                    sort_by:   nextFilters.sort_by  || undefined,
-                    sort_dir:  nextFilters.sort_dir || undefined,
+                    status: statusParam,
+                    type: typeParam,
+                    payment_status: paymentStatusParam,
+                    sort_by: nextFilters.sort_by || undefined,
+                    sort_dir: nextFilters.sort_dir || undefined,
                 },
                 paramsSerializer: (params) => {
                     const parts = [];
@@ -240,15 +257,17 @@ export default function Index() {
     };
 
     const handleTableChange = async (pagination, antFilters, sorter) => {
-        const statusValues = antFilters.status?.length   ? antFilters.status   : null;
-        const typeValues   = antFilters.consultation_type?.length ? antFilters.consultation_type : null;
+        const statusValues = antFilters.status?.length ? antFilters.status : null;
+        const typeValues = antFilters.consultation_type?.length ? antFilters.consultation_type : null;
+        const paymentStatusValues = antFilters.payment_status?.length ? antFilters.payment_status : null;
         const sortBy  = sorter?.field  || 'appointment_date';
         const sortDir = sorter?.order === 'ascend' ? 'asc' : 'desc';
         const nextFilters = {
             ...appointmentFilters,
-            status:   statusValues,
-            type:     typeValues,
-            sort_by:  sortBy,
+            status: statusValues,
+            type: typeValues,
+            payment_status: paymentStatusValues,
+            sort_by: sortBy,
             sort_dir: sortDir,
         };
         setColumnFilters(antFilters);
@@ -420,6 +439,19 @@ export default function Index() {
             render: (_, record) => <Tag color={statusColors[record.status] || 'default'}>{record.status}</Tag>,
         },
         {
+            title: 'Payment',
+            key: 'payment_status',
+            dataIndex: 'payment_status',
+            width: 150,
+            filters: paymentStatusFilters,
+            filteredValue: columnFilters.payment_status || null,
+            filterMultiple: true,
+            render: (_, record) => {
+                const paymentStatus = record.payment_status || 'pending';
+                return <Tag color={paymentStatusColors[paymentStatus] || 'default'}>{paymentStatus}</Tag>;
+            },
+        },
+        {
             title: 'Type',
             dataIndex: 'consultation_type',
             key: 'consultation_type',
@@ -519,7 +551,7 @@ export default function Index() {
                                             rowKey="id"
                                             bordered
                                             size="middle"
-                                            scroll={{ x: 1100 }}
+                                            scroll={{ x: 1250 }}
                                             dataSource={appointments}
                                             onChange={handleTableChange}
                                             showSorterTooltip={{ target: 'sorter-icon' }}

@@ -24,6 +24,13 @@ const statusColor = {
     'no-show': 'default',
 };
 
+const paymentStatusColor = {
+    pending: 'orange',
+    paid: 'green',
+    failed: 'red',
+    refunded: 'purple',
+};
+
 export default function Appointments() {
     const [loading, setLoading] = useState(true);
     const [appointments, setAppointments] = useState([]);
@@ -157,6 +164,14 @@ export default function Appointments() {
                             title: 'Status',
                             key: 'status',
                             render: (_, record) => <Tag color={statusColor[record.status] || 'default'}>{record.status}</Tag>,
+                        },
+                        {
+                            title: 'Payment',
+                            key: 'payment_status',
+                            render: (_, record) => {
+                                const paymentStatus = record.payment_status || 'pending';
+                                return <Tag color={paymentStatusColor[paymentStatus] || 'default'}>{paymentStatus}</Tag>;
+                            },
                         },
                         {
                             title: 'Action',
