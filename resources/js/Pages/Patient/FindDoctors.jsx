@@ -9,6 +9,7 @@ import {
     Form,
     Input,
     Modal,
+    Radio,
     Row,
     Select,
     Space,
@@ -24,6 +25,21 @@ const consultationTypes = [
     { value: 'online', label: 'Online' },
     { value: 'phone', label: 'Phone' },
 ];
+
+const ONLINE_DISCOUNT_PERCENT = 10;
+
+const getPricingSummary = (amount, paymentMethod) => {
+    const baseAmount = Number(amount || 0);
+    const discountAmount = paymentMethod === 'online'
+        ? Number(((baseAmount * ONLINE_DISCOUNT_PERCENT) / 100).toFixed(2))
+        : 0;
+
+    return {
+        baseAmount,
+        discountAmount,
+        payableAmount: Number(Math.max(baseAmount - discountAmount, 0).toFixed(2)),
+    };
+};
 
 const loadRazorpayScript = () =>
     new Promise((resolve) => {
@@ -75,6 +91,7 @@ export default function FindDoctors() {
         date_to: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     });
     const [bookingForm] = Form.useForm();
+    const selectedPaymentMethod = Form.useWatch('payment_method', bookingForm) || 'online';
 
     const loadMeta = async () => {
         try {
@@ -117,6 +134,7 @@ export default function FindDoctors() {
         setBookingSelection({ doctor, clinic, date, slot });
         bookingForm.setFieldsValue({
             consultation_type: 'in-person',
+            payment_method: 'online',
             reason_for_visit: '',
         });
         setBookingOpen(true);
@@ -131,6 +149,7 @@ export default function FindDoctors() {
 
             const bookingParams = {
                 type: 'appointment',
+                payment_method: values.payment_method,
                 doctor_hospital_clinic_id: bookingSelection.clinic.id,
                 appointment_date: bookingSelection.date,
                 appointment_time: bookingSelection.slot.time,
@@ -150,8 +169,11 @@ export default function FindDoctors() {
                     appointment_time: bookingSelection.slot.time,
                     consultation_type: values.consultation_type,
                     reason_for_visit: values.reason_for_visit,
+                    payment_method: values.payment_method === 'online' ? undefined : 'cod',
                 });
-                message.success('Appointment booked successfully (no fee).');
+                message.success(values.payment_method === 'online'
+                    ? 'Appointment booked successfully.'
+                    : 'Appointment booked successfully. Please pay at the clinic during your visit.');
                 setBookingOpen(false);
                 await search(filters);
                 return;
@@ -208,6 +230,8 @@ export default function FindDoctors() {
             setBookingSaving(false);
         }
     };
+
+    const pricing = getPricingSummary(bookingSelection?.clinic?.consultation_fee, selectedPaymentMethod);
 
     return (
         <AdminLayout>
@@ -323,11 +347,9 @@ export default function FindDoctors() {
                 open={bookingOpen}
                 onCancel={() => setBookingOpen(false)}
                 onOk={confirmBooking}
-                okText={
-                    bookingSelection?.clinic?.consultation_fee
-                        ? `Pay ₹${bookingSelection.clinic.consultation_fee} &amp; Book`
-                        : 'Confirm Booking'
-                }
+                okText={selectedPaymentMethod === 'online'
+                    ? `Pay ₹${pricing.payableAmount} & Book`
+                    : 'Book & Pay at Clinic'}
                 confirmLoading={bookingSaving}
                 destroyOnClose
             >
@@ -337,12 +359,9 @@ export default function FindDoctors() {
                         <p><strong>Clinic:</strong> {bookingSelection.clinic.hospital_clinic_name}</p>
                         <p><strong>Date:</strong> {bookingSelection.date}</p>
                         <p><strong>Time:</strong> {bookingSelection.slot.time}</p>
-                        <p>
-                            <strong>Consultation Fee:</strong>{' '}
-                            {bookingSelection.clinic.consultation_fee
-                                ? `₹${bookingSelection.clinic.consultation_fee}`
-                                : 'Free'}
-                        </p>
+                        <p><strong>Consultation Fee:</strong> {bookingSelection.clinic.consultation_fee ? `₹${bookingSelection.clinic.consultation_fee}` : 'Free'}</p>
+                        <p><strong>Online Discount:</strong> {selectedPaymentMethod === 'online' ? `₹${pricing.discountAmount} (${ONLINE_DISCOUNT_PERCENT}% off)` : 'No discount on pay-at-clinic'}</p>
+                        <p><strong>Payable:</strong> ₹{pricing.payableAmount}</p>
                     </div>
                 )}
 
@@ -350,6 +369,20 @@ export default function FindDoctors() {
                     <Form.Item name="consultation_type" label="Consultation Type" rules={[{ required: true }]}>
                         <Select options={consultationTypes} />
                     </Form.Item>
+                    <Form.Item name="payment_method" label="Payment Option" rules={[{ required: true }]} initialValue="online">
+                        <Radio.Group optionType="button" buttonStyle="solid">
+                            <Radio.Button value="online">Pay Online ({ONLINE_DISCOUNT_PERCENT}% off)</Radio.Button>
+                            <Radio.Button value="cod">Pay at Clinic</Radio.Button>
+                        </Radio.Group>
+                    </Form.Item>
+                    <Alert
+                        type={selectedPaymentMethod === 'online' ? 'success' : 'warning'}
+                        showIcon
+                        style={{ marginBottom: 12 }}
+                        message={selectedPaymentMethod === 'online'
+                            ? `You save ₹${pricing.discountAmount} with online payment.`
+                            : 'No discount is applied for pay-at-clinic bookings.'}
+                    />
                     <Form.Item
                         name="reason_for_visit"
                         label="Reason for Visit"

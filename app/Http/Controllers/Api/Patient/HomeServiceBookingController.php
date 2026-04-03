@@ -61,6 +61,7 @@ class HomeServiceBookingController extends Controller
             'service_date' => ['required', 'date', 'after_or_equal:today'],
             'service_time' => ['required', 'date_format:H:i'],
             'special_instructions' => ['nullable', 'string'],
+            'payment_method' => ['nullable', 'in:cod'],
         ]);
 
         $service = HomeService::active()->findOrFail($validated['home_service_id']);
@@ -104,6 +105,10 @@ class HomeServiceBookingController extends Controller
                     }
                 }
 
+                $totalAmount = (float) $price;
+                $paymentMethod = $validated['payment_method'] ?? HomeServiceBooking::PAYMENT_METHOD_COD;
+                $paymentStatus = $totalAmount > 0 ? HomeServiceBooking::PAYMENT_PENDING : HomeServiceBooking::PAYMENT_PAID;
+
                 $booking = HomeServiceBooking::create([
                     'user_id' => Auth::id(),
                     'home_service_id' => $service->id,
@@ -115,8 +120,9 @@ class HomeServiceBookingController extends Controller
                     'price' => $price,
                     'travel_fee' => 0,
                     'discount_amount' => 0,
-                    'total_amount' => $price,
-                    'payment_status' => HomeServiceBooking::PAYMENT_PENDING,
+                    'total_amount' => $totalAmount,
+                    'payment_status' => $paymentStatus,
+                    'payment_method' => $paymentMethod,
                     'status' => $provider ? HomeServiceBooking::STATUS_ASSIGNED : HomeServiceBooking::STATUS_PENDING,
                     'special_instructions' => $validated['special_instructions'] ?? null,
                 ]);

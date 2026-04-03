@@ -28,6 +28,18 @@ const statusColor = {
     no_show: 'default',
 };
 
+const paymentStatusColor = {
+    pending: 'orange',
+    paid: 'green',
+    failed: 'red',
+    refunded: 'purple',
+};
+
+const paymentMethodLabel = {
+    online: 'Online',
+    cod: 'Pay on Visit',
+};
+
 export default function HomeServiceMyBookings() {
     const [loading, setLoading] = useState(true);
     const [bookings, setBookings] = useState([]);
@@ -174,6 +186,20 @@ export default function HomeServiceMyBookings() {
                                 title: 'Total',
                                 key: 'total_amount',
                                 render: (_, record) => `INR ${record.total_amount || 0}`,
+                            },
+                            {
+                                title: 'Payment',
+                                key: 'payment_status',
+                                render: (_, record) => (
+                                    <Tag color={paymentStatusColor[record.payment_status] || 'default'}>
+                                        {record.payment_status || 'pending'}
+                                    </Tag>
+                                ),
+                            },
+                            {
+                                title: 'Method',
+                                key: 'payment_method',
+                                render: (_, record) => paymentMethodLabel[record.payment_method || 'cod'] || record.payment_method || 'cod',
                             },
                             {
                                 title: 'Status',

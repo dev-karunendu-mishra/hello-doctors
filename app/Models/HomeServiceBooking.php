@@ -25,6 +25,9 @@ class HomeServiceBooking extends Model
     public const PAYMENT_FAILED = 'failed';
     public const PAYMENT_REFUNDED = 'refunded';
 
+    public const PAYMENT_METHOD_ONLINE = 'online';
+    public const PAYMENT_METHOD_COD = 'cod';
+
     protected $fillable = [
         'booking_number',
         'user_id',
@@ -39,6 +42,7 @@ class HomeServiceBooking extends Model
         'discount_amount',
         'total_amount',
         'payment_status',
+        'payment_method',
         'razorpay_order_id',
         'razorpay_payment_id',
         'razorpay_signature',

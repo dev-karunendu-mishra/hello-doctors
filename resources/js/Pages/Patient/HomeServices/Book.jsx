@@ -9,6 +9,7 @@ import {
     Empty,
     Form,
     Input,
+    Radio,
     Row,
     Select,
     Space,
@@ -21,6 +22,20 @@ import dayjs from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
 
 const { Title, Text } = Typography;
+const ONLINE_DISCOUNT_PERCENT = 10;
+
+const getPricingSummary = (amount, paymentMethod) => {
+    const baseAmount = Number(amount || 0);
+    const discountAmount = paymentMethod === 'online'
+        ? Number(((baseAmount * ONLINE_DISCOUNT_PERCENT) / 100).toFixed(2))
+        : 0;
+
+    return {
+        baseAmount,
+        discountAmount,
+        payableAmount: Number(Math.max(baseAmount - discountAmount, 0).toFixed(2)),
+    };
+};
 
 const loadRazorpayScript = () =>
     new Promise((resolve) => {
@@ -47,6 +62,7 @@ export default function HomeServicesBook() {
     const selectedServiceId = Form.useWatch('home_service_id', form);
     const selectedCityId = Form.useWatch('city_id', form);
     const selectedDate = Form.useWatch('service_date', form);
+    const selectedPaymentMethod = Form.useWatch('payment_method', form) || 'online';
 
     const serviceById = useMemo(() => {
         const map = new Map();
@@ -163,6 +179,7 @@ export default function HomeServicesBook() {
 
             const bookingParams = {
                 type: 'home_service',
+                payment_method: values.payment_method,
                 home_service_id: values.home_service_id,
                 address_id: values.address_id,
                 provider_id: providerId,
@@ -184,8 +201,11 @@ export default function HomeServicesBook() {
                     service_date: dayjs(values.service_date).format('YYYY-MM-DD'),
                     service_time: serviceTime,
                     special_instructions: values.special_instructions || null,
+                    payment_method: values.payment_method === 'online' ? undefined : 'cod',
                 });
-                message.success('Home service booked successfully (no fee).');
+                message.success(values.payment_method === 'online'
+                    ? 'Home service booked successfully.'
+                    : 'Home service booked successfully. Please pay on visit.');
                 window.location.href = '/patient/home-services/bookings';
                 return;
             }
@@ -244,6 +264,8 @@ export default function HomeServicesBook() {
         }
     };
 
+    const pricing = getPricingSummary(serviceById.get(selectedServiceId)?.base_price, selectedPaymentMethod);
+
     return (
         <AdminLayout>
             <Head title="Book Home Service" />
@@ -274,7 +296,7 @@ export default function HomeServicesBook() {
                     <Row gutter={[16, 16]}>
                         <Col xs={24} xl={16}>
                             <Card>
-                                <Form form={form} layout="vertical">
+                                <Form form={form} layout="vertical" initialValues={{ payment_method: 'online' }}>
                                     <Row gutter={12}>
                                         <Col xs={24} md={12}>
                                             <Form.Item
@@ -352,6 +374,22 @@ export default function HomeServicesBook() {
                                         />
                                     </Form.Item>
 
+                                    <Form.Item name="payment_method" label="Payment Option" rules={[{ required: true }]}> 
+                                        <Radio.Group optionType="button" buttonStyle="solid">
+                                            <Radio.Button value="online">Pay Online ({ONLINE_DISCOUNT_PERCENT}% off)</Radio.Button>
+                                            <Radio.Button value="cod">Pay on Visit (C.O.D.)</Radio.Button>
+                                        </Radio.Group>
+                                    </Form.Item>
+
+                                    <Alert
+                                        type={selectedPaymentMethod === 'online' ? 'success' : 'warning'}
+                                        showIcon
+                                        style={{ marginBottom: 16 }}
+                                        message={selectedPaymentMethod === 'online'
+                                            ? `Online payment saves ₹${pricing.discountAmount} on this booking.`
+                                            : 'No discount is applied for C.O.D. / pay-on-visit bookings.'}
+                                    />
+
                                     <Form.Item label="Special Instructions" name="special_instructions">
                                         <Input.TextArea
                                             rows={4}
@@ -361,9 +399,9 @@ export default function HomeServicesBook() {
 
                                     <Space>
                                         <Button type="primary" loading={submitting} onClick={onSubmit}>
-                                            {selectedServiceId && serviceById.get(selectedServiceId)?.base_price
-                                                ? `Pay & Book`
-                                                : 'Confirm Booking'}
+                                            {selectedPaymentMethod === 'online'
+                                                ? `Pay ₹${pricing.payableAmount} & Book`
+                                                : 'Book & Pay on Visit'}
                                         </Button>
                                         <Link href="/patient/home-services/bookings">
                                             <Button>View My Bookings</Button>
@@ -380,7 +418,13 @@ export default function HomeServicesBook() {
                                         <Text strong>{serviceById.get(selectedServiceId)?.name}</Text>
                                         <Text>Duration: {serviceById.get(selectedServiceId)?.duration_minutes || '-'} minutes</Text>
                                         <Text>Base Price: INR {serviceById.get(selectedServiceId)?.base_price || '-'}</Text>
-                                        <Text type="secondary">Final amount may vary based on provider custom pricing and travel charges.</Text>
+                                        <Text>Discount: INR {selectedPaymentMethod === 'online' ? pricing.discountAmount : 0}</Text>
+                                        <Text strong>Payable: INR {pricing.payableAmount}</Text>
+                                        <Text type="secondary">
+                                            {selectedPaymentMethod === 'online'
+                                                ? `You save ${ONLINE_DISCOUNT_PERCENT}% with online payment.`
+                                                : 'No discount is available for C.O.D. / pay on visit.'}
+                                        </Text>
                                     </Space>
                                 ) : (
                                     <Empty description="Select a service to view summary" image={Empty.PRESENTED_IMAGE_SIMPLE} />

@@ -28,7 +28,9 @@ class Appointment extends Model
         'completed_at',
         'cancelled_at',
         'payment_status',
+        'payment_method',
         'payment_amount',
+        'discount_amount',
         'razorpay_order_id',
         'razorpay_payment_id',
         'razorpay_signature',
@@ -42,6 +44,7 @@ class Appointment extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'payment_amount' => 'decimal:2',
+        'discount_amount' => 'decimal:2',
     ];
 
     /**
@@ -59,6 +62,14 @@ class Appointment extends Model
     public const CONSULTATION_IN_PERSON = 'in-person';
     public const CONSULTATION_ONLINE = 'online';
     public const CONSULTATION_PHONE = 'phone';
+
+    public const PAYMENT_PENDING = 'pending';
+    public const PAYMENT_PAID = 'paid';
+    public const PAYMENT_FAILED = 'failed';
+    public const PAYMENT_REFUNDED = 'refunded';
+
+    public const PAYMENT_METHOD_ONLINE = 'online';
+    public const PAYMENT_METHOD_COD = 'cod';
 
     /**
      * Get the patient (user) who booked this appointment

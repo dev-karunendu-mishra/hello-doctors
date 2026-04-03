@@ -49,6 +49,16 @@ const paymentStatusColors = {
     refunded: 'purple',
 };
 
+const paymentMethodColors = {
+    online: 'green',
+    cod: 'blue',
+};
+
+const paymentMethodLabels = {
+    online: 'Online',
+    cod: 'Pay at Visit',
+};
+
 const api = {
     get: (url, config = {}) => window.axios.get(url, config),
     post: (url, payload) => window.axios.post(url, payload),
@@ -452,6 +462,26 @@ export default function Index() {
             },
         },
         {
+            title: 'Method',
+            key: 'payment_method',
+            dataIndex: 'payment_method',
+            width: 130,
+            render: (_, record) => {
+                const paymentMethod = record.payment_method || 'cod';
+                return <Tag color={paymentMethodColors[paymentMethod] || 'default'}>{paymentMethodLabels[paymentMethod] || paymentMethod}</Tag>;
+            },
+        },
+        {
+            title: 'Amount',
+            key: 'payment_amount',
+            width: 150,
+            render: (_, record) => {
+                const amount = Number(record.payment_amount || 0).toFixed(2);
+                const discount = Number(record.discount_amount || 0).toFixed(2);
+                return Number(discount) > 0 ? `₹${amount} (saved ₹${discount})` : `₹${amount}`;
+            },
+        },
+        {
             title: 'Type',
             dataIndex: 'consultation_type',
             key: 'consultation_type',
@@ -551,7 +581,7 @@ export default function Index() {
                                             rowKey="id"
                                             bordered
                                             size="middle"
-                                            scroll={{ x: 1250 }}
+                                            scroll={{ x: 1450 }}
                                             dataSource={appointments}
                                             onChange={handleTableChange}
                                             showSorterTooltip={{ target: 'sorter-icon' }}

@@ -31,6 +31,16 @@ const paymentStatusColor = {
     refunded: 'purple',
 };
 
+const paymentMethodColor = {
+    online: 'green',
+    cod: 'blue',
+};
+
+const paymentMethodLabel = {
+    online: 'Online',
+    cod: 'Pay at Clinic',
+};
+
 export default function Appointments() {
     const [loading, setLoading] = useState(true);
     const [appointments, setAppointments] = useState([]);
@@ -171,6 +181,23 @@ export default function Appointments() {
                             render: (_, record) => {
                                 const paymentStatus = record.payment_status || 'pending';
                                 return <Tag color={paymentStatusColor[paymentStatus] || 'default'}>{paymentStatus}</Tag>;
+                            },
+                        },
+                        {
+                            title: 'Method',
+                            key: 'payment_method',
+                            render: (_, record) => {
+                                const paymentMethod = record.payment_method || 'cod';
+                                return <Tag color={paymentMethodColor[paymentMethod] || 'default'}>{paymentMethodLabel[paymentMethod] || paymentMethod}</Tag>;
+                            },
+                        },
+                        {
+                            title: 'Amount',
+                            key: 'payment_amount',
+                            render: (_, record) => {
+                                const amount = Number(record.payment_amount || 0).toFixed(2);
+                                const discount = Number(record.discount_amount || 0).toFixed(2);
+                                return Number(discount) > 0 ? `₹${amount} (saved ₹${discount})` : `₹${amount}`;
                             },
                         },
                         {

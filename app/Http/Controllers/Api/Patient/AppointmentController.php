@@ -65,6 +65,7 @@ class AppointmentController extends Controller
             'appointment_time' => ['required', 'date_format:H:i'],
             'consultation_type' => ['nullable', 'in:in-person,online,phone'],
             'reason_for_visit' => ['nullable', 'string'],
+            'payment_method' => ['nullable', 'in:cod'],
         ]);
 
         $clinic = DoctorHospitalClinic::with('doctorProfile.user')->findOrFail($validated['doctor_hospital_clinic_id']);
@@ -98,8 +99,12 @@ class AppointmentController extends Controller
             ], 422);
         }
 
+        $feeAmount = (float) ($clinic->consultation_fee ?? $clinic->doctorProfile?->consultation_fee ?? 0);
+        $paymentMethod = $validated['payment_method'] ?? Appointment::PAYMENT_METHOD_COD;
+        $paymentStatus = $feeAmount > 0 ? Appointment::PAYMENT_PENDING : Appointment::PAYMENT_PAID;
+
         try {
-            $appointment = DB::transaction(function () use ($validated, $appointmentDate, $appointmentTime) {
+            $appointment = DB::transaction(function () use ($validated, $appointmentDate, $appointmentTime, $paymentMethod, $paymentStatus, $feeAmount) {
                 return Appointment::create([
                     'patient_id' => Auth::id(),
                     'doctor_hospital_clinic_id' => $validated['doctor_hospital_clinic_id'],
@@ -108,6 +113,10 @@ class AppointmentController extends Controller
                     'consultation_type' => $validated['consultation_type'] ?? Appointment::CONSULTATION_IN_PERSON,
                     'reason_for_visit' => $validated['reason_for_visit'] ?? null,
                     'status' => Appointment::STATUS_PENDING,
+                    'payment_status' => $paymentStatus,
+                    'payment_method' => $paymentMethod,
+                    'payment_amount' => $feeAmount,
+                    'discount_amount' => 0,
                 ]);
             });
         } catch (QueryException $e) {
