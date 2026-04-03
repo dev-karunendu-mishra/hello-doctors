@@ -22,6 +22,19 @@ import { useEffect, useMemo, useState } from 'react';
 
 const { Title, Text } = Typography;
 
+const loadRazorpayScript = () =>
+    new Promise((resolve) => {
+        if (document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')) {
+            resolve(true);
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.body.appendChild(script);
+    });
+
 export default function HomeServicesBook() {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
@@ -144,20 +157,85 @@ export default function HomeServicesBook() {
 
             if (!serviceTime) {
                 message.error('Please choose a slot or preferred time.');
+                setSubmitting(false);
                 return;
             }
 
-            await window.axios.post('/patient/data/home-service-bookings', {
+            const bookingParams = {
+                type: 'home_service',
                 home_service_id: values.home_service_id,
                 address_id: values.address_id,
                 provider_id: providerId,
                 service_date: dayjs(values.service_date).format('YYYY-MM-DD'),
                 service_time: serviceTime,
                 special_instructions: values.special_instructions || null,
-            });
+            };
 
-            message.success('Home service booked successfully.');
-            window.location.href = '/patient/home-services/bookings';
+            // Step 1: Create Razorpay order
+            const orderRes = await window.axios.post('/patient/data/payment/create-order', bookingParams);
+            const orderData = orderRes.data;
+
+            // Free booking — skip payment, book directly
+            if (orderData.skip_payment) {
+                await window.axios.post('/patient/data/home-service-bookings', {
+                    home_service_id: values.home_service_id,
+                    address_id: values.address_id,
+                    provider_id: providerId,
+                    service_date: dayjs(values.service_date).format('YYYY-MM-DD'),
+                    service_time: serviceTime,
+                    special_instructions: values.special_instructions || null,
+                });
+                message.success('Home service booked successfully (no fee).');
+                window.location.href = '/patient/home-services/bookings';
+                return;
+            }
+
+            // Step 2: Load Razorpay script
+            const loaded = await loadRazorpayScript();
+            if (!loaded) {
+                message.error('Could not load payment gateway. Please try again.');
+                setSubmitting(false);
+                return;
+            }
+
+            // Step 3: Open Razorpay checkout
+            const selectedService = serviceById.get(values.home_service_id);
+            await new Promise((resolve, reject) => {
+                const rzp = new window.Razorpay({
+                    key: orderData.key_id,
+                    order_id: orderData.order_id,
+                    amount: orderData.amount,
+                    currency: orderData.currency,
+                    name: 'Hello Doctors',
+                    description: selectedService ? `Home Service: ${selectedService.name}` : 'Home Service Booking',
+                    handler: async (response) => {
+                        try {
+                            // Step 4: Verify payment and create booking
+                            await window.axios.post('/patient/data/payment/verify', {
+                                ...bookingParams,
+                                razorpay_order_id: response.razorpay_order_id,
+                                razorpay_payment_id: response.razorpay_payment_id,
+                                razorpay_signature: response.razorpay_signature,
+                            });
+                            message.success('Home service booked and payment successful!');
+                            window.location.href = '/patient/home-services/bookings';
+                            resolve();
+                        } catch (err) {
+                            message.error(err?.response?.data?.message || 'Payment verified but booking failed. Please contact support.');
+                            reject(err);
+                        }
+                    },
+                    modal: {
+                        ondismiss: () => {
+                            message.warning('Payment was not completed. Your booking has not been placed.');
+                            resolve();
+                        },
+                    },
+                    prefill: {},
+                    theme: { color: '#1677ff' },
+                });
+                rzp.open();
+            });
         } catch (error) {
             if (error?.errorFields) return;
             message.error(error?.response?.data?.message || 'Failed to create booking.');
@@ -283,7 +361,9 @@ export default function HomeServicesBook() {
 
                                     <Space>
                                         <Button type="primary" loading={submitting} onClick={onSubmit}>
-                                            Confirm Booking
+                                            {selectedServiceId && serviceById.get(selectedServiceId)?.base_price
+                                                ? `Pay & Book`
+                                                : 'Confirm Booking'}
                                         </Button>
                                         <Link href="/patient/home-services/bookings">
                                             <Button>View My Bookings</Button>

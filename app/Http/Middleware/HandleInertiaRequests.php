@@ -76,6 +76,7 @@ class HandleInertiaRequests extends Middleware
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),
             ],
+            'razorpay_key_id' => config('services.razorpay.key_id'),
         ];
     }
 }

@@ -25,6 +25,19 @@ const consultationTypes = [
     { value: 'phone', label: 'Phone' },
 ];
 
+const loadRazorpayScript = () =>
+    new Promise((resolve) => {
+        if (document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')) {
+            resolve(true);
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.body.appendChild(script);
+    });
+
 const groupSlots = (slots) => {
     const groups = {
         Morning: [],
@@ -115,19 +128,82 @@ export default function FindDoctors() {
         try {
             const values = await bookingForm.validateFields();
             setBookingSaving(true);
-            await window.axios.post('/patient/data/appointments', {
+
+            const bookingParams = {
+                type: 'appointment',
                 doctor_hospital_clinic_id: bookingSelection.clinic.id,
                 appointment_date: bookingSelection.date,
                 appointment_time: bookingSelection.slot.time,
                 consultation_type: values.consultation_type,
                 reason_for_visit: values.reason_for_visit,
+            };
+
+            // Step 1: Create Razorpay order
+            const orderRes = await window.axios.post('/patient/data/payment/create-order', bookingParams);
+            const orderData = orderRes.data;
+
+            // Free booking — book directly
+            if (orderData.skip_payment) {
+                await window.axios.post('/patient/data/appointments', {
+                    doctor_hospital_clinic_id: bookingSelection.clinic.id,
+                    appointment_date: bookingSelection.date,
+                    appointment_time: bookingSelection.slot.time,
+                    consultation_type: values.consultation_type,
+                    reason_for_visit: values.reason_for_visit,
+                });
+                message.success('Appointment booked successfully (no fee).');
+                setBookingOpen(false);
+                await search(filters);
+                return;
+            }
+
+            // Step 2: Load Razorpay script and open checkout
+            const loaded = await loadRazorpayScript();
+            if (!loaded) {
+                message.error('Could not load payment gateway. Please try again.');
+                return;
+            }
+
+            await new Promise((resolve, reject) => {
+                const rzp = new window.Razorpay({
+                    key: orderData.key_id,
+                    order_id: orderData.order_id,
+                    amount: orderData.amount,
+                    currency: orderData.currency,
+                    name: 'Hello Doctors',
+                    description: `Appointment with ${bookingSelection.doctor.name}`,
+                    handler: async (response) => {
+                        try {
+                            // Step 3: Verify payment and create appointment
+                            await window.axios.post('/patient/data/payment/verify', {
+                                ...bookingParams,
+                                razorpay_order_id: response.razorpay_order_id,
+                                razorpay_payment_id: response.razorpay_payment_id,
+                                razorpay_signature: response.razorpay_signature,
+                            });
+                            message.success('Appointment booked and payment successful!');
+                            setBookingOpen(false);
+                            await search(filters);
+                            resolve();
+                        } catch (err) {
+                            message.error(err?.response?.data?.message || 'Payment verified but booking failed. Please contact support.');
+                            reject(err);
+                        }
+                    },
+                    modal: {
+                        ondismiss: () => {
+                            message.warning('Payment was not completed. Your slot has not been booked.');
+                            resolve();
+                        },
+                    },
+                    prefill: {},
+                    theme: { color: '#1677ff' },
+                });
+                rzp.open();
             });
-            message.success('Appointment booked successfully.');
-            setBookingOpen(false);
-            await search(filters);
         } catch (error) {
             if (error?.errorFields) return;
-            message.error(error?.response?.data?.message || 'Booking failed.');
+            message.error(error?.response?.data?.message || 'Booking failed. Please try again.');
         } finally {
             setBookingSaving(false);
         }
@@ -243,10 +319,15 @@ export default function FindDoctors() {
             </Card>
 
             <Modal
-                title="Confirm Booking"
+                title="Confirm Booking &amp; Payment"
                 open={bookingOpen}
                 onCancel={() => setBookingOpen(false)}
                 onOk={confirmBooking}
+                okText={
+                    bookingSelection?.clinic?.consultation_fee
+                        ? `Pay ₹${bookingSelection.clinic.consultation_fee} &amp; Book`
+                        : 'Confirm Booking'
+                }
                 confirmLoading={bookingSaving}
                 destroyOnClose
             >
@@ -256,6 +337,12 @@ export default function FindDoctors() {
                         <p><strong>Clinic:</strong> {bookingSelection.clinic.hospital_clinic_name}</p>
                         <p><strong>Date:</strong> {bookingSelection.date}</p>
                         <p><strong>Time:</strong> {bookingSelection.slot.time}</p>
+                        <p>
+                            <strong>Consultation Fee:</strong>{' '}
+                            {bookingSelection.clinic.consultation_fee
+                                ? `₹${bookingSelection.clinic.consultation_fee}`
+                                : 'Free'}
+                        </p>
                     </div>
                 )}
 

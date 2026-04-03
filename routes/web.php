@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\Patient\AvailableAppointmentController as PatientAv
 use App\Http\Controllers\Api\Patient\HomeServiceController as PatientHomeServiceController;
 use App\Http\Controllers\Api\Patient\HomeServiceAddressController as PatientHomeServiceAddressController;
 use App\Http\Controllers\Api\Patient\HomeServiceBookingController as PatientHomeServiceBookingController;
+use App\Http\Controllers\Api\Patient\PaymentController as PatientPaymentController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -298,6 +299,10 @@ Route::middleware(['auth', 'role:patient'])->prefix('patient')->name('patient.')
     Route::get('/data/appointments', [PatientAppointmentController::class, 'index'])->name('data.appointments.index');
     Route::post('/data/appointments', [PatientAppointmentController::class, 'store'])->name('data.appointments.store');
     Route::post('/data/appointments/{appointment}/cancel', [PatientAppointmentController::class, 'cancel'])->name('data.appointments.cancel');
+
+    // Razorpay payment endpoints
+    Route::post('/data/payment/create-order', [PatientPaymentController::class, 'createOrder'])->name('data.payment.create-order');
+    Route::post('/data/payment/verify', [PatientPaymentController::class, 'verifyAndBook'])->name('data.payment.verify');
 });
 
 // Home Service Provider Routes

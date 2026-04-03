@@ -27,6 +27,11 @@ class Appointment extends Model
         'confirmed_at',
         'completed_at',
         'cancelled_at',
+        'payment_status',
+        'payment_amount',
+        'razorpay_order_id',
+        'razorpay_payment_id',
+        'razorpay_signature',
     ];
 
     protected $casts = [
@@ -36,6 +41,7 @@ class Appointment extends Model
         'cancelled_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'payment_amount' => 'decimal:2',
     ];
 
     /**
