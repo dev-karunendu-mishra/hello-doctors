@@ -40,4 +40,16 @@ return [
         'key_secret' => env('RAZORPAY_KEY_SECRET'),
     ],
 
+    'abha' => [
+        'base_url' => env('ABHA_BASE_URL'),
+        'client_id' => env('ABHA_CLIENT_ID'),
+        'client_secret' => env('ABHA_CLIENT_SECRET'),
+        'cm_id' => env('ABHA_CM_ID', 'sbx'),
+        'request_otp_endpoint' => env('ABHA_REQUEST_OTP_ENDPOINT', '/request-otp'),
+        'verify_otp_endpoint' => env('ABHA_VERIFY_OTP_ENDPOINT', '/verify-otp'),
+        'profile_endpoint' => env('ABHA_PROFILE_ENDPOINT', '/profile'),
+        'system_bearer_token' => env('ABHA_SYSTEM_BEARER_TOKEN'),
+        'timeout' => env('ABHA_TIMEOUT', 20),
+    ],
+
 ];

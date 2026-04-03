@@ -28,6 +28,13 @@ class User extends Authenticatable
         'address',
         'specialization',
         'license_number',
+        'abha_number',
+        'abha_address',
+        'abha_status',
+        'abha_reference_id',
+        'abha_verified_at',
+        'abha_last_synced_at',
+        'abha_payload',
         'is_active',
     ];
 
@@ -52,6 +59,9 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'abha_verified_at' => 'datetime',
+            'abha_last_synced_at' => 'datetime',
+            'abha_payload' => 'array',
         ];
     }
 

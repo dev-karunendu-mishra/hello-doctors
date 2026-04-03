@@ -20,6 +20,13 @@ class DashboardController extends Controller
                 ->where('status', Appointment::STATUS_COMPLETED)
                 ->whereDate('completed_at', today())
                 ->count(),
+            'linkedAbhaUsers' => User::whereNotNull('abha_address')->count(),
+        ];
+
+        $abhaStats = [
+            'linkedPatients' => User::where('role', 'patient')->whereNotNull('abha_address')->count(),
+            'verifiedToday' => User::whereNotNull('abha_verified_at')->whereDate('abha_verified_at', today())->count(),
+            'syncedToday' => User::whereNotNull('abha_last_synced_at')->whereDate('abha_last_synced_at', today())->count(),
         ];
 
         $recentUsers = User::latest()
@@ -41,10 +48,18 @@ class DashboardController extends Controller
                 ];
             });
 
+        $recentAbhaUsers = User::query()
+            ->whereNotNull('abha_address')
+            ->latest('abha_verified_at')
+            ->take(5)
+            ->get(['id', 'name', 'email', 'role', 'abha_address', 'abha_status', 'abha_verified_at']);
+
         return Inertia::render('Admin/Dashboard', [
             'stats' => $stats,
+            'abhaStats' => $abhaStats,
             'recentAppointments' => $recentAppointments,
             'recentUsers' => $recentUsers,
+            'recentAbhaUsers' => $recentAbhaUsers,
         ]);
     }
 }

@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\Admin\DoctorAppointmentController as ApiAdminDoctor
 use App\Http\Controllers\Api\Doctor\AppointmentController as DoctorAppointmentController;
 use App\Http\Controllers\Api\Doctor\HospitalClinicController as DoctorHospitalClinicController;
 use App\Http\Controllers\Api\Doctor\ScheduleController as DoctorScheduleController;
+use App\Http\Controllers\Api\Patient\AbhaController as PatientAbhaController;
 use App\Http\Controllers\Api\Patient\AppointmentController as PatientAppointmentController;
 use App\Http\Controllers\Api\Patient\AvailableAppointmentController as PatientAvailableAppointmentController;
 use App\Http\Controllers\Api\Patient\HomeServiceController as PatientHomeServiceController;
@@ -299,6 +300,12 @@ Route::middleware(['auth', 'role:patient'])->prefix('patient')->name('patient.')
     Route::get('/data/appointments', [PatientAppointmentController::class, 'index'])->name('data.appointments.index');
     Route::post('/data/appointments', [PatientAppointmentController::class, 'store'])->name('data.appointments.store');
     Route::post('/data/appointments/{appointment}/cancel', [PatientAppointmentController::class, 'cancel'])->name('data.appointments.cancel');
+
+    // ABHA integration endpoints
+    Route::get('/data/abha/status', [PatientAbhaController::class, 'status'])->name('data.abha.status');
+    Route::post('/data/abha/request-otp', [PatientAbhaController::class, 'requestOtp'])->name('data.abha.request-otp');
+    Route::post('/data/abha/verify-otp', [PatientAbhaController::class, 'verifyOtp'])->name('data.abha.verify-otp');
+    Route::post('/data/abha/sync', [PatientAbhaController::class, 'sync'])->name('data.abha.sync');
 
     // Razorpay payment endpoints
     Route::post('/data/payment/create-order', [PatientPaymentController::class, 'createOrder'])->name('data.payment.create-order');

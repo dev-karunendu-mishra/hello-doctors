@@ -11,7 +11,21 @@ class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-        $upcomingAppointments = []; // Will be populated when appointments are implemented
+        $user = $request->user();
+
+        $upcomingAppointments = $user?->upcomingAppointments()
+            ->with(['doctorHospitalClinic.doctorProfile.user', 'doctorHospitalClinic.doctorProfile.specialty'])
+            ->take(5)
+            ->get()
+            ->map(fn ($item) => [
+                'id' => $item->id,
+                'doctor_name' => $item->doctorHospitalClinic?->doctorProfile?->user?->name,
+                'date' => $item->appointment_date?->format('Y-m-d'),
+                'time' => substr((string) $item->appointment_time, 0, 5),
+                'status' => $item->status,
+                'specialization' => $item->doctorHospitalClinic?->doctorProfile?->specialty?->name,
+            ]) ?? [];
+
         $recentRecords = [];
         
         // Get recommended doctors with public profile slug for profile links.
@@ -34,6 +48,13 @@ class DashboardController extends Controller
             'upcomingAppointments' => $upcomingAppointments,
             'recentRecords' => $recentRecords,
             'recommendedDoctors' => $recommendedDoctors,
+            'abhaProfile' => [
+                'abha_number' => $user?->abha_number,
+                'abha_address' => $user?->abha_address,
+                'abha_status' => $user?->abha_status ?? 'not_linked',
+                'abha_verified_at' => optional($user?->abha_verified_at)?->toDateTimeString(),
+                'abha_last_synced_at' => optional($user?->abha_last_synced_at)?->toDateTimeString(),
+            ],
         ]);
     }
 }
