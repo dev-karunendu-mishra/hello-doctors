@@ -474,10 +474,16 @@ export default function Index() {
         {
             title: 'Amount',
             key: 'payment_amount',
-            width: 150,
+            width: 170,
             render: (_, record) => {
                 const amount = Number(record.payment_amount || 0).toFixed(2);
                 const discount = Number(record.discount_amount || 0).toFixed(2);
+                const refundAmount = Number(record.refund_amount || 0).toFixed(2);
+
+                if (Number(refundAmount) > 0) {
+                    return `₹${amount} (refund ₹${refundAmount})`;
+                }
+
                 return Number(discount) > 0 ? `₹${amount} (saved ₹${discount})` : `₹${amount}`;
             },
         },

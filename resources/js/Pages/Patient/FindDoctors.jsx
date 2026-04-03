@@ -383,6 +383,13 @@ export default function FindDoctors() {
                             ? `You save ₹${pricing.discountAmount} with online payment.`
                             : 'No discount is applied for pay-at-clinic bookings.'}
                     />
+                    <Alert
+                        type="info"
+                        showIcon
+                        style={{ marginBottom: 12 }}
+                        message="Refund Policy"
+                        description="For online payments only: cancel more than 1 hour before the appointment to get a 90% refund; within 1 hour, you get an 80% refund. No refund applies for pay-at-clinic bookings or after the visit time."
+                    />
                     <Form.Item
                         name="reason_for_visit"
                         label="Reason for Visit"

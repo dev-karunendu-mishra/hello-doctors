@@ -13,9 +13,13 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Services\RefundService;
 
 class HomeServiceBookingController extends Controller
 {
+    public function __construct(private readonly RefundService $refundService)
+    {
+    }
     public function index(Request $request): JsonResponse
     {
         $request->validate([
@@ -176,23 +180,43 @@ class HomeServiceBookingController extends Controller
             return response()->json(['message' => 'Booking cannot be cancelled now.'], 422);
         }
 
+        try {
+            $refund = $this->refundService->forHomeServiceBooking($booking);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Cancellation failed while processing the refund: ' . $e->getMessage(),
+            ], 422);
+        }
+
         $oldStatus = $booking->status;
 
         $booking->update([
             'status' => HomeServiceBooking::STATUS_CANCELLED,
             'cancel_reason' => $validated['reason'] ?? null,
             'cancelled_at' => now(),
+            'payment_status' => ($refund['eligible'] ?? false) ? HomeServiceBooking::PAYMENT_REFUNDED : $booking->payment_status,
+            'refund_amount' => $refund['refund_amount'] ?? 0,
+            'refund_percentage' => $refund['refund_percentage'] ?? 0,
+            'refunded_at' => ($refund['eligible'] ?? false) ? now() : null,
+            'razorpay_refund_id' => $refund['refund_id'] ?? null,
         ]);
 
         $booking->statusLogs()->create([
             'old_status' => $oldStatus,
             'new_status' => HomeServiceBooking::STATUS_CANCELLED,
             'changed_by_user_id' => Auth::id(),
-            'notes' => $validated['reason'] ?? 'Cancelled by patient',
+            'notes' => trim(($validated['reason'] ?? 'Cancelled by patient') . (($refund['eligible'] ?? false) ? ' | ' . ($refund['message'] ?? 'Refund initiated successfully.') : '')),
         ]);
 
+        $message = 'Booking cancelled successfully.';
+        if (($refund['eligible'] ?? false) && ($refund['refund_amount'] ?? 0) > 0) {
+            $message .= ' ' . ($refund['message'] ?? 'Refund initiated successfully.');
+        } elseif (($booking->payment_method ?? null) === HomeServiceBooking::PAYMENT_METHOD_COD) {
+            $message .= ' No refund applies for pay-on-visit bookings.';
+        }
+
         return response()->json([
-            'message' => 'Booking cancelled successfully.',
+            'message' => $message,
             'data' => $booking->fresh(['service:id,name', 'provider.user:id,name']),
         ]);
     }

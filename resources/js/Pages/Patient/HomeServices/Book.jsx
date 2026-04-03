@@ -390,6 +390,14 @@ export default function HomeServicesBook() {
                                             : 'No discount is applied for C.O.D. / pay-on-visit bookings.'}
                                     />
 
+                                    <Alert
+                                        type="info"
+                                        showIcon
+                                        style={{ marginBottom: 16 }}
+                                        message="Refund Policy"
+                                        description="For online payments only: cancel more than 1 hour before the booked time to get a 90% refund; within 1 hour, you get an 80% refund. No refund applies for C.O.D. / pay-on-visit bookings or after the service time."
+                                    />
+
                                     <Form.Item label="Special Instructions" name="special_instructions">
                                         <Input.TextArea
                                             rows={4}

@@ -88,11 +88,11 @@ export default function HomeServiceMyBookings() {
         try {
             const values = await cancelForm.validateFields();
             setCancelling(true);
-            await window.axios.post(`/patient/data/home-service-bookings/${selectedBooking.id}/cancel`, {
+            const response = await window.axios.post(`/patient/data/home-service-bookings/${selectedBooking.id}/cancel`, {
                 reason: values.reason,
             });
 
-            message.success('Booking cancelled successfully.');
+            message.success(response?.data?.message || 'Booking cancelled successfully.');
             setCancelModalOpen(false);
             await loadBookings(status, pagination.current);
         } catch (error) {
@@ -185,7 +185,13 @@ export default function HomeServiceMyBookings() {
                             {
                                 title: 'Total',
                                 key: 'total_amount',
-                                render: (_, record) => `INR ${record.total_amount || 0}`,
+                                render: (_, record) => {
+                                    const totalAmount = Number(record.total_amount || 0).toFixed(2);
+                                    const refundAmount = Number(record.refund_amount || 0).toFixed(2);
+                                    return Number(refundAmount) > 0
+                                        ? `INR ${totalAmount} (refund ₹${refundAmount})`
+                                        : `INR ${totalAmount}`;
+                                },
                             },
                             {
                                 title: 'Payment',

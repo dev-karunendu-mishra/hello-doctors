@@ -43,9 +43,13 @@ class HomeServiceBooking extends Model
         'total_amount',
         'payment_status',
         'payment_method',
+        'refund_amount',
+        'refund_percentage',
+        'refunded_at',
         'razorpay_order_id',
         'razorpay_payment_id',
         'razorpay_signature',
+        'razorpay_refund_id',
         'status',
         'special_instructions',
         'cancel_reason',
@@ -60,8 +64,10 @@ class HomeServiceBooking extends Model
         'travel_fee' => 'decimal:2',
         'discount_amount' => 'decimal:2',
         'total_amount' => 'decimal:2',
+        'refund_amount' => 'decimal:2',
         'cancelled_at' => 'datetime',
         'completed_at' => 'datetime',
+        'refunded_at' => 'datetime',
     ];
 
     protected static function boot()

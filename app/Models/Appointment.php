@@ -31,9 +31,13 @@ class Appointment extends Model
         'payment_method',
         'payment_amount',
         'discount_amount',
+        'refund_amount',
+        'refund_percentage',
+        'refunded_at',
         'razorpay_order_id',
         'razorpay_payment_id',
         'razorpay_signature',
+        'razorpay_refund_id',
     ];
 
     protected $casts = [
@@ -45,6 +49,8 @@ class Appointment extends Model
         'updated_at' => 'datetime',
         'payment_amount' => 'decimal:2',
         'discount_amount' => 'decimal:2',
+        'refund_amount' => 'decimal:2',
+        'refunded_at' => 'datetime',
     ];
 
     /**

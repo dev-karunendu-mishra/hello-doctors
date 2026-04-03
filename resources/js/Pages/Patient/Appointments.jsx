@@ -91,10 +91,10 @@ export default function Appointments() {
         try {
             const values = await cancelForm.validateFields();
             setCancelling(true);
-            await window.axios.post(`/patient/data/appointments/${selectedAppointment.id}/cancel`, {
+            const response = await window.axios.post(`/patient/data/appointments/${selectedAppointment.id}/cancel`, {
                 reason: values.reason,
             });
-            message.success('Appointment cancelled successfully.');
+            message.success(response?.data?.message || 'Appointment cancelled successfully.');
             setCancelModalOpen(false);
             await loadAppointments(status);
         } catch (error) {
@@ -197,6 +197,12 @@ export default function Appointments() {
                             render: (_, record) => {
                                 const amount = Number(record.payment_amount || 0).toFixed(2);
                                 const discount = Number(record.discount_amount || 0).toFixed(2);
+                                const refundAmount = Number(record.refund_amount || 0).toFixed(2);
+
+                                if (Number(refundAmount) > 0) {
+                                    return `₹${amount} (refund ₹${refundAmount})`;
+                                }
+
                                 return Number(discount) > 0 ? `₹${amount} (saved ₹${discount})` : `₹${amount}`;
                             },
                         },

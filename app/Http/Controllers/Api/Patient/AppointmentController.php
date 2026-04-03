@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\DoctorHospitalClinic;
 use App\Services\AppointmentNotificationService;
+use App\Services\RefundService;
 use Carbon\Carbon;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -15,8 +16,10 @@ use Illuminate\Support\Facades\Auth;
 
 class AppointmentController extends Controller
 {
-    public function __construct(private readonly AppointmentNotificationService $appointmentNotifications)
-    {
+    public function __construct(
+        private readonly AppointmentNotificationService $appointmentNotifications,
+        private readonly RefundService $refundService,
+    ) {
     }
 
     public function index(Request $request): JsonResponse
@@ -152,7 +155,24 @@ class AppointmentController extends Controller
             ], 422);
         }
 
-        $appointment->cancel($validated['reason'] ?? null);
+        try {
+            $refund = $this->refundService->forAppointment($appointment);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Cancellation failed while processing the refund: ' . $e->getMessage(),
+            ], 422);
+        }
+
+        $appointment->update([
+            'status' => Appointment::STATUS_CANCELLED,
+            'cancellation_reason' => $validated['reason'] ?? null,
+            'cancelled_at' => now(),
+            'payment_status' => ($refund['eligible'] ?? false) ? Appointment::PAYMENT_REFUNDED : $appointment->payment_status,
+            'refund_amount' => $refund['refund_amount'] ?? 0,
+            'refund_percentage' => $refund['refund_percentage'] ?? 0,
+            'refunded_at' => ($refund['eligible'] ?? false) ? now() : null,
+            'razorpay_refund_id' => $refund['refund_id'] ?? null,
+        ]);
 
         $this->appointmentNotifications->sendCancellationNotifications(
             $appointment,
@@ -160,8 +180,15 @@ class AppointmentController extends Controller
             'patient'
         );
 
+        $message = 'Appointment cancelled successfully.';
+        if (($refund['eligible'] ?? false) && ($refund['refund_amount'] ?? 0) > 0) {
+            $message .= ' ' . ($refund['message'] ?? 'Refund initiated successfully.');
+        } elseif (($appointment->payment_method ?? null) === Appointment::PAYMENT_METHOD_COD) {
+            $message .= ' No refund applies for pay-at-clinic bookings.';
+        }
+
         return response()->json([
-            'message' => 'Appointment cancelled successfully.',
+            'message' => $message,
             'data' => $appointment->fresh(['doctorHospitalClinic.city', 'doctorHospitalClinic.doctorProfile.user']),
         ]);
     }
