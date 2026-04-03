@@ -5,6 +5,7 @@ import {
     Button,
     Card,
     Col,
+    Divider,
     Form,
     Input,
     InputNumber,
@@ -15,7 +16,9 @@ import {
     Spin,
     Switch,
     Table,
+    Tabs,
     Tag,
+    Typography,
     message,
 } from 'antd';
 import { CalendarOutlined, PlusOutlined } from '@ant-design/icons';
@@ -46,17 +49,29 @@ const api = {
     del: (url) => window.axios.delete(url),
 };
 
+const defaultAppointmentFilters = {
+    doctor_id: null,
+    clinic_id: null,
+    status: null,
+    date: null,
+};
+
 export default function Index() {
     const [loading, setLoading] = useState(true);
     const [savingClinic, setSavingClinic] = useState(false);
     const [savingSchedule, setSavingSchedule] = useState(false);
     const [doctors, setDoctors] = useState([]);
     const [cities, setCities] = useState([]);
-    const [doctorId, setDoctorId] = useState(null);
+
+    const [managementDoctorId, setManagementDoctorId] = useState(null);
     const [clinics, setClinics] = useState([]);
-    const [clinicId, setClinicId] = useState(null);
+    const [managementClinicId, setManagementClinicId] = useState(null);
+
+    const [appointmentFilters, setAppointmentFilters] = useState(defaultAppointmentFilters);
+    const [filterClinics, setFilterClinics] = useState([]);
     const [appointments, setAppointments] = useState([]);
     const [appointmentPagination, setAppointmentPagination] = useState({ current: 1, pageSize: 20, total: 0 });
+
     const [scheduleRows, setScheduleRows] = useState([]);
     const [clinicModalOpen, setClinicModalOpen] = useState(false);
     const [editingClinic, setEditingClinic] = useState(null);
@@ -64,13 +79,13 @@ export default function Index() {
     const [scheduleForm] = Form.useForm();
 
     const selectedClinic = useMemo(
-        () => clinics.find((clinic) => clinic.id === clinicId) || null,
-        [clinics, clinicId]
+        () => clinics.find((clinic) => clinic.id === managementClinicId) || null,
+        [clinics, managementClinicId]
     );
 
     const selectedDoctor = useMemo(
-        () => doctors.find((doctor) => doctor.id === doctorId) || null,
-        [doctors, doctorId]
+        () => doctors.find((doctor) => doctor.id === managementDoctorId) || null,
+        [doctors, managementDoctorId]
     );
 
     const loadBaseData = async () => {
@@ -90,10 +105,10 @@ export default function Index() {
         }
     };
 
-    const loadDoctorClinics = async (newDoctorId) => {
+    const loadManagementDoctorClinics = async (newDoctorId) => {
         if (!newDoctorId) {
             setClinics([]);
-            setClinicId(null);
+            setManagementClinicId(null);
             setScheduleRows([]);
             return;
         }
@@ -102,11 +117,25 @@ export default function Index() {
             const clinicRes = await api.get(`/admin/appointments-data/doctors/${newDoctorId}/hospital-clinics`);
             const clinicList = clinicRes.data.data || [];
             setClinics(clinicList);
-            setClinicId((currentClinicId) =>
+            setManagementClinicId((currentClinicId) =>
                 clinicList.some((clinic) => clinic.id === currentClinicId) ? currentClinicId : null
             );
         } catch (error) {
             message.error(error?.response?.data?.message || 'Failed to load clinics.');
+        }
+    };
+
+    const loadFilterClinics = async (newDoctorId) => {
+        if (!newDoctorId) {
+            setFilterClinics([]);
+            return;
+        }
+
+        try {
+            const clinicRes = await api.get(`/admin/appointments-data/doctors/${newDoctorId}/hospital-clinics`);
+            setFilterClinics(clinicRes.data.data || []);
+        } catch (error) {
+            message.error(error?.response?.data?.message || 'Failed to load filter clinics.');
         }
     };
 
@@ -125,13 +154,15 @@ export default function Index() {
         }
     };
 
-    const loadAppointments = async (page = 1, nextDoctorId = doctorId, nextClinicId = clinicId) => {
+    const loadAppointments = async (page = 1, nextFilters = appointmentFilters) => {
         try {
             const response = await api.get('/admin/appointments-data/appointments', {
                 params: {
                     page,
-                    doctor_id: nextDoctorId || undefined,
-                    clinic_id: nextClinicId || undefined,
+                    doctor_id: nextFilters.doctor_id || undefined,
+                    clinic_id: nextFilters.clinic_id || undefined,
+                    status: nextFilters.status || undefined,
+                    date: nextFilters.date || undefined,
                 },
             });
 
@@ -148,20 +179,32 @@ export default function Index() {
     };
 
     useEffect(() => {
-        loadBaseData();
+        (async () => {
+            await loadBaseData();
+            await loadAppointments(1, defaultAppointmentFilters);
+        })();
     }, []);
 
     useEffect(() => {
-        loadDoctorClinics(doctorId);
-    }, [doctorId]);
+        loadManagementDoctorClinics(managementDoctorId);
+    }, [managementDoctorId]);
 
     useEffect(() => {
-        loadClinicData(doctorId, clinicId);
-    }, [doctorId, clinicId]);
+        loadClinicData(managementDoctorId, managementClinicId);
+    }, [managementDoctorId, managementClinicId]);
 
-    useEffect(() => {
-        loadAppointments(1, doctorId, clinicId);
-    }, [doctorId, clinicId]);
+    const updateAppointmentFilters = async (changes) => {
+        const nextFilters = { ...appointmentFilters, ...changes };
+        setAppointmentFilters(nextFilters);
+        await loadAppointments(1, nextFilters);
+    };
+
+    const handleFilterDoctorChange = async (value) => {
+        const nextDoctorId = value || null;
+        setFilterClinics([]);
+        await loadFilterClinics(nextDoctorId);
+        await updateAppointmentFilters({ doctor_id: nextDoctorId, clinic_id: null });
+    };
 
     const openCreateClinic = () => {
         setEditingClinic(null);
@@ -189,7 +232,7 @@ export default function Index() {
     const saveClinic = async () => {
         try {
             const values = await clinicForm.validateFields();
-            if (!doctorId) {
+            if (!managementDoctorId) {
                 message.error('Select a doctor first.');
                 return;
             }
@@ -197,15 +240,15 @@ export default function Index() {
             setSavingClinic(true);
 
             if (editingClinic) {
-                await api.put(`/admin/appointments-data/doctors/${doctorId}/hospital-clinics/${editingClinic.id}`, values);
+                await api.put(`/admin/appointments-data/doctors/${managementDoctorId}/hospital-clinics/${editingClinic.id}`, values);
                 message.success('Clinic updated successfully.');
             } else {
-                await api.post(`/admin/appointments-data/doctors/${doctorId}/hospital-clinics`, values);
+                await api.post(`/admin/appointments-data/doctors/${managementDoctorId}/hospital-clinics`, values);
                 message.success('Clinic created successfully.');
             }
 
             setClinicModalOpen(false);
-            await loadDoctorClinics(doctorId);
+            await loadManagementDoctorClinics(managementDoctorId);
         } catch (error) {
             if (error?.errorFields) return;
             message.error(error?.response?.data?.message || 'Failed to save clinic.');
@@ -215,19 +258,19 @@ export default function Index() {
     };
 
     const deleteClinic = async () => {
-        if (!selectedClinic || !doctorId) return;
+        if (!selectedClinic || !managementDoctorId) return;
 
         try {
-            await api.del(`/admin/appointments-data/doctors/${doctorId}/hospital-clinics/${selectedClinic.id}`);
+            await api.del(`/admin/appointments-data/doctors/${managementDoctorId}/hospital-clinics/${selectedClinic.id}`);
             message.success('Clinic deleted successfully.');
-            await loadDoctorClinics(doctorId);
+            await loadManagementDoctorClinics(managementDoctorId);
         } catch (error) {
             message.error(error?.response?.data?.message || 'Failed to delete clinic.');
         }
     };
 
     const saveSchedule = async () => {
-        if (!doctorId || !clinicId) {
+        if (!managementDoctorId || !managementClinicId) {
             message.error('Select doctor and clinic first.');
             return;
         }
@@ -235,11 +278,11 @@ export default function Index() {
         try {
             const values = await scheduleForm.validateFields();
             setSavingSchedule(true);
-            await api.post(`/admin/appointments-data/doctors/${doctorId}/hospital-clinics/${clinicId}/schedules`, {
+            await api.post(`/admin/appointments-data/doctors/${managementDoctorId}/hospital-clinics/${managementClinicId}/schedules`, {
                 schedules: values.schedules,
             });
             message.success('Schedule saved successfully.');
-            await loadClinicData(doctorId, clinicId);
+            await loadClinicData(managementDoctorId, managementClinicId);
         } catch (error) {
             if (error?.errorFields) return;
             message.error(error?.response?.data?.message || 'Failed to save schedule.');
@@ -267,6 +310,48 @@ export default function Index() {
         });
     }, [scheduleRows, scheduleForm]);
 
+    const appointmentsColumns = [
+        { title: 'No.', dataIndex: 'appointment_number', key: 'appointment_number', width: 170 },
+        {
+            title: 'Patient',
+            key: 'patient',
+            width: 170,
+            render: (_, record) => record.patient?.name || '-',
+        },
+        {
+            title: 'Doctor',
+            key: 'doctor',
+            width: 170,
+            render: (_, record) => record.doctor_hospital_clinic?.doctor_profile?.user?.name || '-',
+        },
+        {
+            title: 'Clinic',
+            key: 'clinic',
+            width: 190,
+            render: (_, record) => record.doctor_hospital_clinic?.hospital_clinic_name || '-',
+        },
+        {
+            title: 'Date',
+            dataIndex: 'appointment_date',
+            key: 'appointment_date',
+            width: 170,
+            render: (value) => (value ? String(value).slice(0, 10) : '-'),
+        },
+        {
+            title: 'Time',
+            key: 'appointment_time',
+            width: 110,
+            render: (_, record) => (record.appointment_time || '').slice(0, 5),
+        },
+        {
+            title: 'Status',
+            key: 'status',
+            width: 130,
+            render: (_, record) => <Tag color={statusColors[record.status] || 'default'}>{record.status}</Tag>,
+        },
+        { title: 'Type', dataIndex: 'consultation_type', key: 'consultation_type', width: 130 },
+    ];
+
     return (
         <AdminLayout>
             <Head title="Appointments Management" />
@@ -291,178 +376,257 @@ export default function Index() {
                         <Spin size="large" />
                     </div>
                 ) : (
-                    <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                        <Row gutter={16}>
-                            <Col xs={24} md={12}>
-                                <Select
-                                    style={{ width: '100%' }}
-                                    placeholder="Select doctor"
-                                    value={doctorId}
-                                    onChange={(value) => setDoctorId(value)}
-                                    allowClear
-                                    options={doctors.map((doctor) => ({
-                                        value: doctor.id,
-                                        label: `${doctor.name}${doctor.specialty ? ` (${doctor.specialty})` : ''}`,
-                                    }))}
-                                />
-                            </Col>
-                            <Col xs={24} md={12}>
-                                <Space>
-                                    <Button icon={<PlusOutlined />} type="primary" onClick={openCreateClinic} disabled={!doctorId}>
-                                        Add Clinic
-                                    </Button>
-                                    <Button onClick={openEditClinic} disabled={!selectedClinic}>Edit Clinic</Button>
-                                    <Button danger onClick={deleteClinic} disabled={!selectedClinic}>Delete Clinic</Button>
-                                </Space>
-                            </Col>
-                        </Row>
+                    <Tabs
+                        defaultActiveKey="appointments"
+                        items={[
+                            {
+                                key: 'appointments',
+                                label: 'Appointments Data Grid',
+                                children: (
+                                    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                                        <Typography.Text type="secondary">
+                                            Use filters to review all appointments across doctors and clinics.
+                                        </Typography.Text>
 
-                        <Row gutter={16}>
-                            <Col xs={24} md={12}>
-                                <Select
-                                    style={{ width: '100%' }}
-                                    placeholder={doctorId ? 'Select clinic' : 'Select doctor first'}
-                                    value={clinicId}
-                                    onChange={(value) => setClinicId(value)}
-                                    allowClear
-                                    disabled={!doctorId}
-                                    options={clinics.map((clinic) => ({
-                                        value: clinic.id,
-                                        label: `${clinic.hospital_clinic_name} - ${clinic.city?.name || 'City N/A'}`,
-                                    }))}
-                                />
-                            </Col>
-                            <Col xs={24} md={12}>
-                                {selectedDoctor && selectedClinic && (
-                                    <Tag color="blue">
-                                        {selectedDoctor.name} | {selectedClinic.hospital_clinic_name}
-                                    </Tag>
-                                )}
-                            </Col>
-                        </Row>
+                                        <Row gutter={[12, 12]}>
+                                            <Col xs={24} md={6}>
+                                                <Select
+                                                    showSearch
+                                                    optionFilterProp="label"
+                                                    style={{ width: '100%' }}
+                                                    placeholder="Filter by doctor"
+                                                    value={appointmentFilters.doctor_id}
+                                                    onChange={handleFilterDoctorChange}
+                                                    allowClear
+                                                    options={doctors.map((doctor) => ({
+                                                        value: doctor.id,
+                                                        label: `${doctor.name}${doctor.specialty ? ` (${doctor.specialty})` : ''}`,
+                                                    }))}
+                                                />
+                                            </Col>
+                                            <Col xs={24} md={6}>
+                                                <Select
+                                                    showSearch
+                                                    optionFilterProp="label"
+                                                    style={{ width: '100%' }}
+                                                    placeholder={appointmentFilters.doctor_id ? 'Filter by clinic' : 'Select doctor first'}
+                                                    value={appointmentFilters.clinic_id}
+                                                    onChange={(value) => updateAppointmentFilters({ clinic_id: value || null })}
+                                                    allowClear
+                                                    disabled={!appointmentFilters.doctor_id}
+                                                    options={filterClinics.map((clinic) => ({
+                                                        value: clinic.id,
+                                                        label: `${clinic.hospital_clinic_name} - ${clinic.city?.name || 'City N/A'}`,
+                                                    }))}
+                                                />
+                                            </Col>
+                                            <Col xs={24} md={4}>
+                                                <Select
+                                                    style={{ width: '100%' }}
+                                                    placeholder="Status"
+                                                    value={appointmentFilters.status}
+                                                    onChange={(value) => updateAppointmentFilters({ status: value || null })}
+                                                    allowClear
+                                                    options={[
+                                                        { value: 'pending', label: 'Pending' },
+                                                        { value: 'confirmed', label: 'Confirmed' },
+                                                        { value: 'completed', label: 'Completed' },
+                                                        { value: 'cancelled', label: 'Cancelled' },
+                                                        { value: 'no-show', label: 'No Show' },
+                                                    ]}
+                                                />
+                                            </Col>
+                                            <Col xs={24} md={4}>
+                                                <Input
+                                                    type="date"
+                                                    value={appointmentFilters.date || ''}
+                                                    onChange={(e) => updateAppointmentFilters({ date: e.target.value || null })}
+                                                />
+                                            </Col>
+                                            <Col xs={24} md={4}>
+                                                <Button
+                                                    block
+                                                    onClick={async () => {
+                                                        setFilterClinics([]);
+                                                        setAppointmentFilters(defaultAppointmentFilters);
+                                                        await loadAppointments(1, defaultAppointmentFilters);
+                                                    }}
+                                                >
+                                                    Reset Filters
+                                                </Button>
+                                            </Col>
+                                        </Row>
 
-                        <Card size="small" title="Weekly Schedule">
-                            {!clinicId ? (
-                                <Alert type="warning" showIcon message="Select a clinic to edit schedule." />
-                            ) : (
-                                <Form form={scheduleForm} layout="vertical">
-                                    <Form.List name="schedules">
-                                        {(fields) => (
-                                            <Space direction="vertical" style={{ width: '100%' }}>
-                                                {fields.map((field, index) => (
-                                                    <Card key={field.key} size="small" title={dayOptions[index]?.label || `Day ${index}`}>
-                                                        <Row gutter={12}>
-                                                            <Col xs={24} md={4}>
-                                                                <Form.Item name={[field.name, 'day_of_week']} hidden>
-                                                                    <InputNumber />
-                                                                </Form.Item>
-                                                                <Form.Item name={[field.name, 'is_available']} label="Available" valuePropName="checked">
-                                                                    <Switch />
-                                                                </Form.Item>
-                                                            </Col>
-                                                            <Col xs={12} md={5}>
-                                                                <Form.Item
-                                                                    name={[field.name, 'opening_time']}
-                                                                    label="Open"
-                                                                    rules={[{ pattern: /^([01]\d|2[0-3]):([0-5]\d)$/, message: 'Use HH:MM format.' }]}
-                                                                >
-                                                                    <Input placeholder="09:00" />
-                                                                </Form.Item>
-                                                            </Col>
-                                                            <Col xs={12} md={5}>
-                                                                <Form.Item
-                                                                    name={[field.name, 'closing_time']}
-                                                                    label="Close"
-                                                                    rules={[{ pattern: /^([01]\d|2[0-3]):([0-5]\d)$/, message: 'Use HH:MM format.' }]}
-                                                                >
-                                                                    <Input placeholder="17:00" />
-                                                                </Form.Item>
-                                                            </Col>
-                                                            <Col xs={12} md={5}>
-                                                                <Form.Item
-                                                                    name={[field.name, 'break_start_time']}
-                                                                    label="Break Start"
-                                                                    rules={[{ pattern: /^$|^([01]\d|2[0-3]):([0-5]\d)$/, message: 'Use HH:MM format.' }]}
-                                                                >
-                                                                    <Input placeholder="13:00" />
-                                                                </Form.Item>
-                                                            </Col>
-                                                            <Col xs={12} md={5}>
-                                                                <Form.Item
-                                                                    name={[field.name, 'break_end_time']}
-                                                                    label="Break End"
-                                                                    rules={[{ pattern: /^$|^([01]\d|2[0-3]):([0-5]\d)$/, message: 'Use HH:MM format.' }]}
-                                                                >
-                                                                    <Input placeholder="14:00" />
-                                                                </Form.Item>
-                                                            </Col>
-                                                            <Col xs={12} md={4}>
-                                                                <Form.Item name={[field.name, 'slot_duration_minutes']} label="Slot (min)" rules={[{ required: true }]}>
-                                                                    <InputNumber min={5} max={240} style={{ width: '100%' }} />
-                                                                </Form.Item>
-                                                            </Col>
-                                                            <Col xs={12} md={4}>
-                                                                <Form.Item name={[field.name, 'max_appointments_per_slot']} label="Max/Slot" rules={[{ required: true }]}>
-                                                                    <InputNumber min={1} max={20} style={{ width: '100%' }} />
-                                                                </Form.Item>
-                                                            </Col>
-                                                        </Row>
-                                                    </Card>
-                                                ))}
-                                            </Space>
-                                        )}
-                                    </Form.List>
-                                    <Button type="primary" loading={savingSchedule} onClick={saveSchedule}>
-                                        Save Weekly Schedule
-                                    </Button>
-                                </Form>
-                            )}
-                        </Card>
+                                        <Card
+                                            size="small"
+                                            title="All Appointments"
+                                            extra={<Tag color="geekblue">Total: {appointmentPagination.total}</Tag>}
+                                        >
+                                            <Table
+                                                rowKey="id"
+                                                bordered
+                                                size="middle"
+                                                scroll={{ x: 1200 }}
+                                                dataSource={appointments}
+                                                pagination={{
+                                                    current: appointmentPagination.current,
+                                                    pageSize: appointmentPagination.pageSize,
+                                                    total: appointmentPagination.total,
+                                                    onChange: (page) => loadAppointments(page, appointmentFilters),
+                                                    showSizeChanger: false,
+                                                }}
+                                                columns={appointmentsColumns}
+                                            />
+                                        </Card>
+                                    </Space>
+                                ),
+                            },
+                            {
+                                key: 'management',
+                                label: 'Doctor, Clinic & Schedule Management',
+                                children: (
+                                    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                                        <Typography.Text type="secondary">
+                                            Search doctor, manage hospital/clinic records, and maintain weekly schedules.
+                                        </Typography.Text>
 
-                        <Card size="small" title={clinicId ? 'Appointments for Selected Clinic' : doctorId ? 'Appointments for Selected Doctor' : 'All Appointments'}>
-                            <Table
-                                rowKey="id"
-                                dataSource={appointments}
-                                pagination={{
-                                    current: appointmentPagination.current,
-                                    pageSize: appointmentPagination.pageSize,
-                                    total: appointmentPagination.total,
-                                    onChange: (page) => loadAppointments(page),
-                                    showSizeChanger: false,
-                                }}
-                                columns={[
-                                    { title: 'No.', dataIndex: 'appointment_number', key: 'appointment_number' },
-                                    {
-                                        title: 'Patient',
-                                        key: 'patient',
-                                        render: (_, record) => record.patient?.name || '-',
-                                    },
-                                    {
-                                        title: 'Doctor',
-                                        key: 'doctor',
-                                        render: (_, record) => record.doctor_hospital_clinic?.doctor_profile?.user?.name || '-',
-                                    },
-                                    {
-                                        title: 'Clinic',
-                                        key: 'clinic',
-                                        render: (_, record) => record.doctor_hospital_clinic?.hospital_clinic_name || '-',
-                                    },
-                                    { title: 'Date', dataIndex: 'appointment_date', key: 'appointment_date' },
-                                    {
-                                        title: 'Time',
-                                        key: 'appointment_time',
-                                        render: (_, record) => (record.appointment_time || '').slice(0, 5),
-                                    },
-                                    {
-                                        title: 'Status',
-                                        key: 'status',
-                                        render: (_, record) => <Tag color={statusColors[record.status] || 'default'}>{record.status}</Tag>,
-                                    },
-                                    { title: 'Type', dataIndex: 'consultation_type', key: 'consultation_type' },
-                                ]}
-                            />
-                        </Card>
-                    </Space>
+                                        <Row gutter={16}>
+                                            <Col xs={24} md={12}>
+                                                <Select
+                                                    showSearch
+                                                    optionFilterProp="label"
+                                                    style={{ width: '100%' }}
+                                                    placeholder="Search or select doctor"
+                                                    value={managementDoctorId}
+                                                    onChange={(value) => setManagementDoctorId(value)}
+                                                    allowClear
+                                                    options={doctors.map((doctor) => ({
+                                                        value: doctor.id,
+                                                        label: `${doctor.name}${doctor.specialty ? ` (${doctor.specialty})` : ''}`,
+                                                    }))}
+                                                />
+                                            </Col>
+                                            <Col xs={24} md={12}>
+                                                <Space>
+                                                    <Button icon={<PlusOutlined />} type="primary" onClick={openCreateClinic} disabled={!managementDoctorId}>
+                                                        Add Clinic
+                                                    </Button>
+                                                    <Button onClick={openEditClinic} disabled={!selectedClinic}>Edit Clinic</Button>
+                                                    <Button danger onClick={deleteClinic} disabled={!selectedClinic}>Delete Clinic</Button>
+                                                </Space>
+                                            </Col>
+                                        </Row>
+
+                                        <Row gutter={16}>
+                                            <Col xs={24} md={12}>
+                                                <Select
+                                                    showSearch
+                                                    optionFilterProp="label"
+                                                    style={{ width: '100%' }}
+                                                    placeholder={managementDoctorId ? 'Select clinic' : 'Select doctor first'}
+                                                    value={managementClinicId}
+                                                    onChange={(value) => setManagementClinicId(value)}
+                                                    allowClear
+                                                    disabled={!managementDoctorId}
+                                                    options={clinics.map((clinic) => ({
+                                                        value: clinic.id,
+                                                        label: `${clinic.hospital_clinic_name} - ${clinic.city?.name || 'City N/A'}`,
+                                                    }))}
+                                                />
+                                            </Col>
+                                            <Col xs={24} md={12}>
+                                                {selectedDoctor && selectedClinic && (
+                                                    <Tag color="blue">
+                                                        {selectedDoctor.name} | {selectedClinic.hospital_clinic_name}
+                                                    </Tag>
+                                                )}
+                                            </Col>
+                                        </Row>
+
+                                        <Divider style={{ margin: '8px 0' }} />
+
+                                        <Card size="small" title="Weekly Schedule">
+                                            {!managementClinicId ? (
+                                                <Alert type="warning" showIcon message="Select a clinic to edit schedule." />
+                                            ) : (
+                                                <Form form={scheduleForm} layout="vertical">
+                                                    <Form.List name="schedules">
+                                                        {(fields) => (
+                                                            <Space direction="vertical" style={{ width: '100%' }}>
+                                                                {fields.map((field, index) => (
+                                                                    <Card key={field.key} size="small" title={dayOptions[index]?.label || `Day ${index}`}>
+                                                                        <Row gutter={12}>
+                                                                            <Col xs={24} md={4}>
+                                                                                <Form.Item name={[field.name, 'day_of_week']} hidden>
+                                                                                    <InputNumber />
+                                                                                </Form.Item>
+                                                                                <Form.Item name={[field.name, 'is_available']} label="Available" valuePropName="checked">
+                                                                                    <Switch />
+                                                                                </Form.Item>
+                                                                            </Col>
+                                                                            <Col xs={12} md={5}>
+                                                                                <Form.Item
+                                                                                    name={[field.name, 'opening_time']}
+                                                                                    label="Open"
+                                                                                    rules={[{ pattern: /^([01]\d|2[0-3]):([0-5]\d)$/, message: 'Use HH:MM format.' }]}
+                                                                                >
+                                                                                    <Input placeholder="09:00" />
+                                                                                </Form.Item>
+                                                                            </Col>
+                                                                            <Col xs={12} md={5}>
+                                                                                <Form.Item
+                                                                                    name={[field.name, 'closing_time']}
+                                                                                    label="Close"
+                                                                                    rules={[{ pattern: /^([01]\d|2[0-3]):([0-5]\d)$/, message: 'Use HH:MM format.' }]}
+                                                                                >
+                                                                                    <Input placeholder="17:00" />
+                                                                                </Form.Item>
+                                                                            </Col>
+                                                                            <Col xs={12} md={5}>
+                                                                                <Form.Item
+                                                                                    name={[field.name, 'break_start_time']}
+                                                                                    label="Break Start"
+                                                                                    rules={[{ pattern: /^$|^([01]\d|2[0-3]):([0-5]\d)$/, message: 'Use HH:MM format.' }]}
+                                                                                >
+                                                                                    <Input placeholder="13:00" />
+                                                                                </Form.Item>
+                                                                            </Col>
+                                                                            <Col xs={12} md={5}>
+                                                                                <Form.Item
+                                                                                    name={[field.name, 'break_end_time']}
+                                                                                    label="Break End"
+                                                                                    rules={[{ pattern: /^$|^([01]\d|2[0-3]):([0-5]\d)$/, message: 'Use HH:MM format.' }]}
+                                                                                >
+                                                                                    <Input placeholder="14:00" />
+                                                                                </Form.Item>
+                                                                            </Col>
+                                                                            <Col xs={12} md={4}>
+                                                                                <Form.Item name={[field.name, 'slot_duration_minutes']} label="Slot (min)" rules={[{ required: true }]}>
+                                                                                    <InputNumber min={5} max={240} style={{ width: '100%' }} />
+                                                                                </Form.Item>
+                                                                            </Col>
+                                                                            <Col xs={12} md={4}>
+                                                                                <Form.Item name={[field.name, 'max_appointments_per_slot']} label="Max/Slot" rules={[{ required: true }]}>
+                                                                                    <InputNumber min={1} max={20} style={{ width: '100%' }} />
+                                                                                </Form.Item>
+                                                                            </Col>
+                                                                        </Row>
+                                                                    </Card>
+                                                                ))}
+                                                            </Space>
+                                                        )}
+                                                    </Form.List>
+                                                    <Button type="primary" loading={savingSchedule} onClick={saveSchedule}>
+                                                        Save Weekly Schedule
+                                                    </Button>
+                                                </Form>
+                                            )}
+                                        </Card>
+                                    </Space>
+                                ),
+                            },
+                        ]}
+                    />
                 )}
             </Card>
 
