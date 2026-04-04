@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useForm } from '@inertiajs/react';
-import { Card, Tabs, Form, Input, Button, Upload, message } from 'antd';
+import { Card, Tabs, Form, Input, Button, Upload, Select, Typography, message } from 'antd';
 import { UploadOutlined, SaveOutlined } from '@ant-design/icons';
 import AdminLayout from '@/Layouts/AdminLayout';
 
 const { TabPane } = Tabs;
 const { TextArea } = Input;
+const { Text } = Typography;
 
 export default function SiteCustomization({ settings }) {
     const [activeTab, setActiveTab] = useState('general');
@@ -179,6 +180,26 @@ export default function SiteCustomization({ settings }) {
                                             style={{ marginTop: 10, maxHeight: 32 }}
                                         />
                                     )}
+                                </Form.Item>
+
+                                <Form.Item label="Booking Email Delivery Mode">
+                                    <Select
+                                        size="large"
+                                        value={generalForm.data.settings.email_delivery_mode || 'async'}
+                                        onChange={(value) =>
+                                            generalForm.setData('settings', {
+                                                ...generalForm.data.settings,
+                                                email_delivery_mode: value,
+                                            })
+                                        }
+                                        options={[
+                                            { value: 'async', label: 'Async (queue emails in background)' },
+                                            { value: 'sync', label: 'Sync (send immediately in request)' },
+                                        ]}
+                                    />
+                                    <Text type="secondary">
+                                        Async is recommended and requires a running queue worker: <code>php artisan queue:work</code>.
+                                    </Text>
                                 </Form.Item>
 
                                 <Button

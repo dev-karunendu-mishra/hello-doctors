@@ -29,6 +29,7 @@ class SiteCustomizationController extends Controller
                     'site_description' => 'Connect with verified healthcare professionals',
                     'site_logo' => null,
                     'site_favicon' => null,
+                    'email_delivery_mode' => 'async',
                 ], $generalSettings),
                 'appearance' => array_merge([
                     'primary_color' => '#1890ff',
@@ -58,8 +59,9 @@ class SiteCustomizationController extends Controller
     public function update(Request $request)
     {
         $validated = $request->validate([
-            'group' => 'required|string',
+            'group' => 'required|string|in:general,appearance,contact',
             'settings' => 'required|array',
+            'settings.email_delivery_mode' => 'nullable|in:sync,async',
         ]);
 
         foreach ($validated['settings'] as $key => $value) {
