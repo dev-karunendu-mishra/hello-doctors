@@ -4,6 +4,7 @@ export default function Footer() {
     const { site = {} } = usePage().props;
     const contact = site?.contact || {};
     const siteName = site?.name || 'Hello Doctors';
+    const siteLogo = site?.logo || null;
     const siteDescription = site?.description || 'Compassionate healthcare discovery for patients, providers, and families—designed to make finding the right care feel faster and more trustworthy.';
 
     return (
@@ -14,6 +15,13 @@ export default function Footer() {
                         <div className="col-lg-5">
                             <div className="brand-section">
                                 <Link href="/" className="logo d-flex align-items-center mb-4">
+                                    {siteLogo ? (
+                                        <img
+                                            src={siteLogo}
+                                            alt={siteName}
+                                            style={{ maxHeight: 44, width: 'auto', objectFit: 'contain', marginRight: 10 }}
+                                        />
+                                    ) : null}
                                     <span className="sitename">{siteName}</span>
                                 </Link>
                                 <p className="brand-description">

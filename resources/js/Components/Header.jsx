@@ -8,6 +8,7 @@ export default function Header({ auth }) {
     const contact = site?.contact || {};
     const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
     const siteName = site?.name || 'Hello Doctors';
+    const siteLogo = site?.logo || null;
     const primaryEmail = contact?.email || 'support@hellodoctors.in';
     const primaryPhone = contact?.phone || '+91 (555) 123-4567';
 
@@ -52,6 +53,13 @@ export default function Header({ auth }) {
             <div className="branding d-flex align-items-center">
                 <div className="container position-relative d-flex align-items-center justify-content-between">
                     <Link href="/" className="logo d-flex align-items-center" onClick={closeMenus}>
+                        {siteLogo ? (
+                            <img
+                                src={siteLogo}
+                                alt={siteName}
+                                style={{ maxHeight: 44, width: 'auto', objectFit: 'contain' }}
+                            />
+                        ) : null}
                         <h1 className="sitename">{siteName}</h1>
                     </Link>
 

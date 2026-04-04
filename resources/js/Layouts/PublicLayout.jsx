@@ -1,9 +1,12 @@
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { useEffect } from 'react';
 import Header from '@/Components/Header';
 import Footer from '@/Components/Footer';
 
 export default function PublicLayout({ auth, title, children, pageClassName = 'index-page' }) {
+    const { site = {} } = usePage().props;
+    const siteName = site?.name || 'Hello Doctors';
+    const siteFavicon = site?.favicon || null;
     useEffect(() => {
         if (typeof window === 'undefined') {
             return undefined;
@@ -142,9 +145,11 @@ export default function PublicLayout({ auth, title, children, pageClassName = 'i
 
     return (
         <>
-            <Head title={title || 'Hello Doctors'}>
+            <Head title={title || siteName}>
                 <meta charSet="utf-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+                {siteFavicon && <link rel="icon" href={siteFavicon} />}
+                {siteFavicon && <link rel="apple-touch-icon" href={siteFavicon} />}
 
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
