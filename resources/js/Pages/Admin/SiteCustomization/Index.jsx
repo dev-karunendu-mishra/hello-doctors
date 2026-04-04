@@ -38,42 +38,61 @@ export default function SiteCustomization({ settings }) {
         });
     };
 
-    const handleImageUpload = (file, key, group) => {
+    const updateImageSetting = (group, key, value) => {
+        if (group === 'general') {
+            generalForm.setData('settings', {
+                ...generalForm.data.settings,
+                [key]: value,
+            });
+        } else if (group === 'appearance') {
+            appearanceForm.setData('settings', {
+                ...appearanceForm.data.settings,
+                [key]: value,
+            });
+        }
+    };
+
+    const handleImageUpload = async (file, key, group) => {
         const formData = new FormData();
         formData.append('image', file);
         formData.append('key', key);
         formData.append('group', group);
 
-        fetch(route('admin.site-customization.upload-image'), {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-            },
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    message.success('Image uploaded successfully');
-                    if (group === 'general') {
-                        generalForm.setData('settings', {
-                            ...generalForm.data.settings,
-                            [key]: data.url,
-                        });
-                    } else if (group === 'appearance') {
-                        appearanceForm.setData('settings', {
-                            ...appearanceForm.data.settings,
-                            [key]: data.url,
-                        });
-                    }
-                }
-            })
-            .catch(error => {
-                message.error('Failed to upload image');
-                console.error(error);
+        const existingValue = group === 'general'
+            ? generalForm.data.settings[key]
+            : appearanceForm.data.settings[key];
+        const previewUrl = URL.createObjectURL(file);
+
+        updateImageSetting(group, key, previewUrl);
+
+        try {
+            const response = await window.axios.post(route('admin.site-customization.upload-image'), formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
             });
 
-        return false; // Prevent default upload behavior
+            if (response.data?.success) {
+                updateImageSetting(group, key, response.data.url);
+                message.success(response.data?.message || 'Image uploaded successfully');
+            } else {
+                updateImageSetting(group, key, existingValue || null);
+                message.error('Upload did not complete successfully.');
+            }
+        } catch (error) {
+            updateImageSetting(group, key, existingValue || null);
+            const uploadError = error?.response?.data?.message
+                || Object.values(error?.response?.data?.errors || {}).flat().join(' ')
+                || 'Failed to upload image.';
+            message.error(uploadError);
+            console.error(error);
+        } finally {
+            URL.revokeObjectURL(previewUrl);
+        }
+
+        return false;
     };
 
     return (
@@ -126,6 +145,7 @@ export default function SiteCustomization({ settings }) {
 
                                 <Form.Item label="Site Logo">
                                     <Upload
+                                        accept=".png,.jpg,.jpeg,.gif,.svg,.webp,.ico"
                                         beforeUpload={(file) =>
                                             handleImageUpload(file, 'site_logo', 'general')
                                         }
@@ -144,6 +164,7 @@ export default function SiteCustomization({ settings }) {
 
                                 <Form.Item label="Site Favicon">
                                     <Upload
+                                        accept=".png,.jpg,.jpeg,.gif,.svg,.webp,.ico"
                                         beforeUpload={(file) =>
                                             handleImageUpload(file, 'site_favicon', 'general')
                                         }
@@ -229,6 +250,7 @@ export default function SiteCustomization({ settings }) {
 
                                 <Form.Item label="Hero Background Image">
                                     <Upload
+                                        accept=".png,.jpg,.jpeg,.gif,.svg,.webp"
                                         beforeUpload={(file) =>
                                             handleImageUpload(file, 'hero_background', 'appearance')
                                         }

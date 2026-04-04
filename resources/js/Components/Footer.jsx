@@ -21,8 +21,8 @@ export default function Footer() {
                                             alt={siteName}
                                             style={{ maxHeight: 44, width: 'auto', objectFit: 'contain', marginRight: 10 }}
                                         />
-                                    ) : null}
-                                    <span className="sitename">{siteName}</span>
+                                    ) : <span className="sitename">{siteName}</span>}
+                                    
                                 </Link>
                                 <p className="brand-description">
                                     {siteDescription}

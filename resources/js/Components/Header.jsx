@@ -59,8 +59,7 @@ export default function Header({ auth }) {
                                 alt={siteName}
                                 style={{ maxHeight: 44, width: 'auto', objectFit: 'contain' }}
                             />
-                        ) : null}
-                        <h1 className="sitename">{siteName}</h1>
+                        ) : <h1 className="sitename">{siteName}</h1>}
                     </Link>
 
                     <nav id="navmenu" className="navmenu">

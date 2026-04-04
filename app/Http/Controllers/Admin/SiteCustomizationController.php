@@ -72,7 +72,7 @@ class SiteCustomizationController extends Controller
     public function uploadImage(Request $request)
     {
         $request->validate([
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'image' => 'required|file|mimes:jpeg,png,jpg,gif,svg,webp,ico|max:4096',
             'key' => 'required|string',
             'group' => 'required|string',
         ]);
@@ -86,6 +86,7 @@ class SiteCustomizationController extends Controller
         return response()->json([
             'success' => true,
             'url' => $url,
+            'message' => 'Image uploaded successfully.',
         ]);
     }
 }
