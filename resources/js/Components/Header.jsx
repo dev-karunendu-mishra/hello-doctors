@@ -11,6 +11,15 @@ export default function Header({ auth }) {
     const siteLogo = site?.logo || null;
     const primaryEmail = contact?.email || 'support@hellodoctors.in';
     const primaryPhone = contact?.phone || '+91 (555) 123-4567';
+    const dashboardHref = auth?.user
+        ? auth.user.role === 'super_admin'
+            ? '/admin/dashboard'
+            : auth.user.role === 'doctor'
+                ? '/doctor/dashboard'
+                : auth.user.role === 'patient'
+                    ? '/patient/dashboard'
+                    : '/dashboard'
+        : '/dashboard';
 
     const isActive = (href) => {
         if (href === '/') {
@@ -88,17 +97,55 @@ export default function Header({ auth }) {
                                     <li><Link href="/privacy" className={isActive('/privacy') ? 'active' : ''} onClick={closeMenus}>Privacy Policy</Link></li>
                                     <li><Link href="/register-doctor" onClick={closeMenus}>Doctor Registration</Link></li>
                                     <li><Link href="/register-provider" onClick={closeMenus}>Provider Registration</Link></li>
-                                    {auth?.user ? (
-                                        <>
-                                            <li><Link href="/dashboard" onClick={closeMenus}>Dashboard</Link></li>
-                                            <li><Link href="/logout" method="post" as="button" onClick={closeMenus}>Logout</Link></li>
-                                        </>
-                                    ) : (
-                                        <li><Link href="/login" onClick={closeMenus}>Login</Link></li>
-                                    )}
                                 </ul>
                             </li>
                             <li><Link href="/contact" className={isActive('/contact') ? 'active' : ''} onClick={closeMenus}>Contact</Link></li>
+
+                            {auth?.user ? (
+                                <>
+                                    <li className="nav-auth-item">
+                                        <Link
+                                            href={dashboardHref}
+                                            className={`nav-auth-link nav-auth-link-secondary ${currentPath.startsWith(dashboardHref) ? 'active' : ''}`}
+                                            onClick={closeMenus}
+                                        >
+                                            Dashboard
+                                        </Link>
+                                    </li>
+                                    <li className="nav-auth-item">
+                                        <Link
+                                            href="/logout"
+                                            method="post"
+                                            as="button"
+                                            className="nav-auth-link nav-auth-link-primary"
+                                            onClick={closeMenus}
+                                        >
+                                            Logout
+                                        </Link>
+                                    </li>
+                                </>
+                            ) : (
+                                <>
+                                    <li className="nav-auth-item">
+                                        <Link
+                                            href="/login"
+                                            className={`nav-auth-link nav-auth-link-secondary ${isActive('/login') ? 'active' : ''}`}
+                                            onClick={closeMenus}
+                                        >
+                                            Login
+                                        </Link>
+                                    </li>
+                                    <li className="nav-auth-item">
+                                        <Link
+                                            href="/register"
+                                            className={`nav-auth-link nav-auth-link-primary ${isActive('/register') ? 'active' : ''}`}
+                                            onClick={closeMenus}
+                                        >
+                                            Register
+                                        </Link>
+                                    </li>
+                                </>
+                            )}
                         </ul>
 
                         <i
