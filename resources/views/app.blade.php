@@ -11,6 +11,7 @@
             $seoSettings = \Illuminate\Support\Facades\Schema::hasTable('site_settings')
                 ? App\Models\SiteSetting::where('group', 'seo')->get()->pluck('value', 'key')
                 : collect();
+            $isPublicPage = str_starts_with($page['component'] ?? '', 'Public/');
         @endphp
         
         <meta name="description" content="{{ $seoSettings['meta_description'] ?? 'Find the best doctors and healthcare professionals' }}">
@@ -74,6 +75,28 @@
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+
+        @if($isPublicPage)
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Montserrat:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&display=swap" rel="stylesheet">
+
+        <link rel="preload" href="/clinic-theme/vendor/bootstrap/css/bootstrap.min.css" as="style">
+        <link rel="preload" href="/clinic-theme/vendor/bootstrap-icons/bootstrap-icons.css" as="style">
+        <link rel="preload" href="/clinic-theme/vendor/aos/aos.css" as="style">
+        <link rel="preload" href="/clinic-theme/vendor/glightbox/css/glightbox.min.css" as="style">
+        <link rel="preload" href="/clinic-theme/vendor/fontawesome-free/css/all.min.css" as="style">
+        <link rel="preload" href="/clinic-theme/vendor/swiper/swiper-bundle.min.css" as="style">
+        <link rel="preload" href="/clinic-theme/main.css" as="style">
+
+        <link href="/clinic-theme/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet" />
+        <link href="/clinic-theme/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet" />
+        <link href="/clinic-theme/vendor/aos/aos.css" rel="stylesheet" />
+        <link href="/clinic-theme/vendor/glightbox/css/glightbox.min.css" rel="stylesheet" />
+        <link href="/clinic-theme/vendor/fontawesome-free/css/all.min.css" rel="stylesheet" />
+        <link href="/clinic-theme/vendor/swiper/swiper-bundle.min.css" rel="stylesheet" />
+        <link href="/clinic-theme/main.css" rel="stylesheet" />
+        @endif
 
         <!-- Scripts -->
         @routes
