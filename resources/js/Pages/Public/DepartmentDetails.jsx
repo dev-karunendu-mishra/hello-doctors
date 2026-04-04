@@ -1,4 +1,4 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import PublicLayout from '@/Layouts/PublicLayout';
 
 const fallbackDetailContent = [
@@ -116,11 +116,13 @@ const resolveDetailBlueprint = (name = '') => {
 };
 
 export default function DepartmentDetails({ auth, specialty }) {
+    const { site = {} } = usePage().props;
     const detail = resolveDetailBlueprint(specialty?.name || '');
     const pageTitle = `${specialty?.name || 'Department'} Details - Hello Doctors`;
     const canonicalPath = `/departments/${specialty?.slug || specialty?.id || 'department'}`;
     const consultationLink = specialty?.id ? `/doctors?specialty=${specialty.id}` : '/doctors';
     const specialistsCount = specialty?.doctors_count ? `${specialty.doctors_count}+` : detail.highlights[1].number;
+    const contactPhone = site?.contact?.phone || '+91 (555) 123-4567';
 
     const highlights = [
         detail.highlights[0],
@@ -270,7 +272,7 @@ export default function DepartmentDetails({ auth, specialty }) {
                                                 <i className="bi bi-telephone" />
                                                 <div>
                                                     <span className="contact-label">{detail.contactLabel}</span>
-                                                    <span className="contact-value">+91 (555) 123-4567</span>
+                                                    <span className="contact-value">{contactPhone}</span>
                                                 </div>
                                             </div>
                                             <div className="contact-item">

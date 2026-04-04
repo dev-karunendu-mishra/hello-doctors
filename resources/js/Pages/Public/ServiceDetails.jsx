@@ -1,4 +1,4 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import PublicLayout from '@/Layouts/PublicLayout';
 
 const fallbackServiceDetails = [
@@ -25,7 +25,7 @@ const fallbackServiceDetails = [
             primaryText: 'Book Now',
             primaryAvailability: 'Next available: Tomorrow',
             secondaryText: 'Call Now',
-            secondaryAvailability: '+91 (555) 123-4567',
+            secondaryAvailability: 'Available for urgent support',
             tertiaryText: 'Request Review',
             tertiaryAvailability: 'Response within 48h',
         },
@@ -53,7 +53,7 @@ const fallbackServiceDetails = [
             primaryText: 'Book Now',
             primaryAvailability: 'Next available: Tomorrow',
             secondaryText: 'Call Now',
-            secondaryAvailability: '+91 (555) 123-4567',
+            secondaryAvailability: 'Available for urgent support',
             tertiaryText: 'Request Review',
             tertiaryAvailability: 'Response within 48h',
         },
@@ -81,7 +81,7 @@ const fallbackServiceDetails = [
             primaryText: 'Book Test',
             primaryAvailability: 'Next slot: Today',
             secondaryText: 'Call Lab',
-            secondaryAvailability: '+91 (555) 123-4567',
+            secondaryAvailability: 'Available for urgent support',
             tertiaryText: 'Request Info',
             tertiaryAvailability: 'Reply within 24h',
         },
@@ -98,6 +98,7 @@ const resolveServiceDetailBlueprint = (service = {}) => {
 };
 
 export default function ServiceDetails({ auth, service }) {
+    const { site = {} } = usePage().props;
     const detail = resolveServiceDetailBlueprint(service);
     const pageTitle = `${service?.name || 'Service'} Details - Hello Doctors`;
     const canonicalPath = `/services/${service?.code || service?.id || 'service'}`;
@@ -106,6 +107,8 @@ export default function ServiceDetails({ auth, service }) {
     const displayTitle = service?.name ? `${service.name} Service Details` : detail.title;
     const statOne = service?.providers_count ? `${service.providers_count}+` : detail.stats[0].number;
     const statTwo = service?.duration_minutes ? `${service.duration_minutes} Min` : detail.stats[1].number;
+    const contactPhone = site?.contact?.phone || '+91 (555) 123-4567';
+    const contactPhoneHref = `tel:${String(contactPhone).replace(/[^+\d]/g, '')}`;
 
     return (
         <>
@@ -249,8 +252,8 @@ export default function ServiceDetails({ auth, service }) {
                                     </div>
                                     <p>Connect quickly for urgent support or immediate service coordination.</p>
                                     <div className="card-footer">
-                                        <a href="tel:+915551234567" className="btn-action">{detail.actions.secondaryText}</a>
-                                        <span className="availability">{detail.actions.secondaryAvailability}</span>
+                                        <a href={contactPhoneHref} className="btn-action">{detail.actions.secondaryText}</a>
+                                        <span className="availability">{contactPhone}</span>
                                     </div>
                                 </div>
                             </div>

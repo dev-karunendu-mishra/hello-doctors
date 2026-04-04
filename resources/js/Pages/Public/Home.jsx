@@ -140,6 +140,8 @@ export default function Home({ auth, site, seo, specialties = [], featuredDoctor
     const homeSecondaryHref = auth?.user?.role === 'patient' ? '/patient/home-services' : '/contact';
     const heroPatientsCount = Math.max((stats.total_doctors || 50) * 100, 5000);
     const aboutPatientsCount = Math.max((stats.total_doctors || 50) * 300, 15000);
+    const contactPhone = site?.contact?.phone || '+91 (555) 123-4567';
+    const contactPhoneHref = `tel:${String(contactPhone).replace(/[^+\d]/g, '')}`;
 
     const handleDoctorSearch = (event) => {
         event.preventDefault();
@@ -232,7 +234,7 @@ export default function Home({ auth, site, seo, specialties = [], featuredDoctor
                                         </div>
                                         <div className="emergency-info">
                                             <small>Emergency Hotline</small>
-                                            <strong>+91 (555) 911-2468</strong>
+                                            <strong>{contactPhone}</strong>
                                         </div>
                                     </div>
                                 </div>
@@ -402,9 +404,9 @@ export default function Home({ auth, site, seo, specialties = [], featuredDoctor
                                     </div>
                                 </div>
                                 <div className="col-lg-4 text-lg-end">
-                                    <a href="tel:+915551234567" className="emergency-btn">
+                                    <a href={contactPhoneHref} className="emergency-btn">
                                         <i className="bi bi-telephone-fill" />
-                                        Call Emergency: +91 55512 34567
+                                        Call Emergency: {contactPhone}
                                     </a>
                                 </div>
                             </div>
@@ -650,9 +652,9 @@ export default function Home({ auth, site, seo, specialties = [], featuredDoctor
 
                                 <div className="col-lg-4">
                                     <div className="contact-actions" data-aos="fade-up" data-aos-delay="300">
-                                        <a href="tel:+915551234567" className="emergency-call">
+                                        <a href={contactPhoneHref} className="emergency-call">
                                             <i className="bi bi-telephone" />
-                                            <span>+91 55512 34567</span>
+                                            <span>{contactPhone}</span>
                                         </a>
                                         <Link href="/contact" className="contact-link">Find Location</Link>
                                     </div>
