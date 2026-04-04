@@ -305,7 +305,10 @@ Route::middleware(['auth', 'role:patient'])->prefix('patient')->name('patient.')
     Route::get('/data/abha/status', [PatientAbhaController::class, 'status'])->name('data.abha.status');
     Route::post('/data/abha/request-otp', [PatientAbhaController::class, 'requestOtp'])->name('data.abha.request-otp');
     Route::post('/data/abha/verify-otp', [PatientAbhaController::class, 'verifyOtp'])->name('data.abha.verify-otp');
+    Route::post('/data/abha/link-account', [PatientAbhaController::class, 'linkAccount'])->name('data.abha.link-account');
     Route::post('/data/abha/sync', [PatientAbhaController::class, 'sync'])->name('data.abha.sync');
+    Route::get('/data/abha/qr-code', [PatientAbhaController::class, 'qrCode'])->name('data.abha.qr-code');
+    Route::get('/data/abha/card', [PatientAbhaController::class, 'card'])->name('data.abha.card');
 
     // Razorpay payment endpoints
     Route::post('/data/payment/create-order', [PatientPaymentController::class, 'createOrder'])->name('data.payment.create-order');

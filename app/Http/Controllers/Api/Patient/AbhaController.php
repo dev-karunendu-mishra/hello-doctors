@@ -39,7 +39,7 @@ class AbhaController extends Controller
         ])->save();
 
         return response()->json([
-            'message' => 'ABHA OTP sent successfully.',
+            'message' => $otp['message'] ?? 'ABHA login OTP sent successfully.',
             'data' => $otp,
         ]);
     }
@@ -49,30 +49,71 @@ class AbhaController extends Controller
         $validated = $request->validate([
             'request_id' => ['required', 'string'],
             'otp' => ['required', 'string', 'min:4', 'max:10'],
+            'abha_number' => ['nullable', 'string'],
         ]);
 
+        $user = $request->user();
+
         try {
-            $result = $this->abhaService->verifyOtp($validated['request_id'], $validated['otp']);
-            $profile = $this->abhaService->fetchProfile($result['access_token'] ?? null, $result['abha_address'] ?? null);
+            $otpResult = $this->abhaService->verifyOtp($validated['request_id'], $validated['otp'], (int) $user->id);
+            $accounts = $otpResult['accounts'] ?? [];
+
+            if (empty($accounts)) {
+                return response()->json([
+                    'message' => 'OTP verified, but no ABHA accounts were found for this mobile number.',
+                ], 422);
+            }
+
+            $selectedAbhaNumber = $validated['abha_number'] ?? null;
+            if (!$selectedAbhaNumber) {
+                if (count($accounts) > 1) {
+                    return response()->json([
+                        'message' => 'OTP verified. Please select the ABHA account you want to link.',
+                        'data' => [
+                            'selection_required' => true,
+                            'accounts' => $accounts,
+                        ],
+                    ]);
+                }
+
+                $selectedAbhaNumber = $accounts[0]['abha_number'] ?? null;
+            }
+
+            $result = $this->abhaService->linkAccount((int) $user->id, (string) $selectedAbhaNumber);
         } catch (\Throwable $e) {
             return response()->json([
                 'message' => $e->getMessage(),
             ], 422);
         }
 
-        $user = $request->user();
-        $user->forceFill([
-            'abha_number' => $result['abha_number'] ?? $user->abha_number,
-            'abha_address' => $result['abha_address'] ?? $user->abha_address,
-            'abha_status' => 'verified',
-            'abha_reference_id' => $result['reference_id'] ?? $user->abha_reference_id,
-            'abha_verified_at' => now(),
-            'abha_last_synced_at' => now(),
-            'abha_payload' => !empty($profile) ? $profile : ($result['raw'] ?? null),
-        ])->save();
+        $this->persistLinkedProfile($user, $result);
 
         return response()->json([
-            'message' => 'ABHA linked successfully.',
+            'message' => 'ABHA linked successfully using ABDM ABHA V3 mobile OTP flow.',
+            'data' => $this->serializeUserAbha($user->fresh()),
+        ]);
+    }
+
+    public function linkAccount(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'abha_number' => ['required', 'string'],
+        ]);
+
+        $user = $request->user();
+
+        try {
+            $result = $this->abhaService->linkAccount((int) $user->id, $validated['abha_number']);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+
+        $this->persistLinkedProfile($user, $result);
+
+        return response()->json([
+            'message' => 'ABHA account linked successfully.',
             'data' => $this->serializeUserAbha($user->fresh()),
         ]);
     }
@@ -88,7 +129,7 @@ class AbhaController extends Controller
         }
 
         try {
-            $profile = $this->abhaService->fetchProfile(abhaAddress: $user->abha_address);
+            $profile = $this->abhaService->fetchProfileForUser((int) $user->id);
         } catch (\Throwable $e) {
             return response()->json([
                 'message' => $e->getMessage(),
@@ -99,14 +140,60 @@ class AbhaController extends Controller
             'abha_status' => 'verified',
             'abha_last_synced_at' => now(),
             'abha_payload' => !empty($profile) ? $profile : $user->abha_payload,
-            'abha_number' => data_get($profile, 'abhaNumber') ?? data_get($profile, 'healthIdNumber') ?? $user->abha_number,
-            'abha_address' => data_get($profile, 'abhaAddress') ?? data_get($profile, 'healthId') ?? $user->abha_address,
+            'abha_number' => data_get($profile, 'abhaNumber') ?? $user->abha_number,
+            'abha_address' => data_get($profile, 'abhaAddress') ?? $user->abha_address,
         ])->save();
 
         return response()->json([
             'message' => 'ABHA profile synced successfully.',
             'data' => $this->serializeUserAbha($user->fresh()),
         ]);
+    }
+
+    public function qrCode(Request $request): JsonResponse
+    {
+        try {
+            $qr = $this->abhaService->fetchQrCodeForUser((int) $request->user()->id);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'data' => $qr,
+        ]);
+    }
+
+    public function card(Request $request)
+    {
+        try {
+            $card = $this->abhaService->fetchCardForUser((int) $request->user()->id);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+
+        return response($card['body'] ?? base64_decode((string) ($card['raw'] ?? '')), 200, [
+            'Content-Type' => $card['content_type'] ?? 'application/octet-stream',
+            'Content-Disposition' => 'inline; filename="abha-card"',
+        ]);
+    }
+
+    private function persistLinkedProfile($user, array $result): void
+    {
+        $profile = $result['profile'] ?? [];
+
+        $user->forceFill([
+            'abha_number' => $result['abha_number'] ?? $user->abha_number,
+            'abha_address' => $result['abha_address'] ?? $user->abha_address,
+            'abha_status' => 'verified',
+            'abha_reference_id' => $result['reference_id'] ?? $user->abha_reference_id,
+            'abha_verified_at' => now(),
+            'abha_last_synced_at' => now(),
+            'abha_payload' => !empty($profile) ? $profile : ($result['raw'] ?? null),
+        ])->save();
     }
 
     private function serializeUserAbha($user): array
