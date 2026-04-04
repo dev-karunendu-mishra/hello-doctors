@@ -108,8 +108,8 @@ export default function DoctorProfile({ auth, doctor }) {
             <PublicLayout auth={auth} title={metaTitle}>
                 <div className="min-h-screen bg-gray-50 py-8">
                 <div className="container mx-auto px-4">
-                    <Link href="/search">
-                        <Button className="mb-4">← Back to Search</Button>
+                    <Link href="/doctors">
+                        <Button className="mb-4">← Back to Doctors</Button>
                     </Link>
 
                     {/* Profile Header */}

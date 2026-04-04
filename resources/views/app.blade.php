@@ -8,7 +8,9 @@
 
         <!-- SEO Meta Tags -->
         @php
-            $seoSettings = App\Models\SiteSetting::where('group', 'seo')->get()->pluck('value', 'key');
+            $seoSettings = \Illuminate\Support\Facades\Schema::hasTable('site_settings')
+                ? App\Models\SiteSetting::where('group', 'seo')->get()->pluck('value', 'key')
+                : collect();
         @endphp
         
         <meta name="description" content="{{ $seoSettings['meta_description'] ?? 'Find the best doctors and healthcare professionals' }}">

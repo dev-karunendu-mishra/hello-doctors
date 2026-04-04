@@ -1,156 +1,62 @@
 import { Head, Link } from '@inertiajs/react';
-import {
-    AimOutlined,
-    ArrowRightOutlined,
-    CheckCircleOutlined,
-    ClockCircleOutlined,
-    EnvironmentOutlined,
-    HeartFilled,
-    HomeOutlined,
-    MedicineBoxOutlined,
-    PhoneOutlined,
-    SafetyCertificateOutlined,
-    SearchOutlined,
-    ThunderboltFilled,
-    UserOutlined,
-} from '@ant-design/icons';
-import { message } from 'antd';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import PublicLayout from '@/Layouts/PublicLayout';
 
-const fallbackServiceCards = [
+const fallbackSpecialties = [
+    { id: 'cardiology', name: 'Cardiovascular Medicine', image_url: '/clinic-assets/cardiology-1.webp', doctors_count: 24 },
+    { id: 'neurology', name: 'Neurological Sciences', image_url: '/clinic-assets/neurology-4.webp', doctors_count: 18 },
+    { id: 'orthopedics', name: 'Orthopedic Surgery', doctors_count: 16 },
+    { id: 'pediatrics', name: 'Pediatric Care', doctors_count: 14 },
+    { id: 'oncology', name: 'Cancer Treatment', doctors_count: 11 },
+    { id: 'dermatology', name: 'Dermatology Care', doctors_count: 9 },
+];
+
+const fallbackServices = [
     {
-        id: 'sample-collection',
-        name: 'Sample Collection',
-        category_name: 'Diagnostics',
-        duration_minutes: 30,
-        base_price: 499,
-        providers_count: 12,
+        id: 'dermatology',
+        name: 'Dermatology Clinic',
+        category_name: 'Skin & Wellness',
+        description: 'Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas.',
+        icon: 'bi-capsule',
+        link: '/doctors',
     },
     {
-        id: 'nursing-support',
-        name: 'Nursing Support',
-        category_name: 'Home Care',
-        duration_minutes: 60,
-        base_price: 899,
-        providers_count: 8,
+        id: 'surgery',
+        name: 'Surgery Center',
+        category_name: 'Advanced Procedures',
+        description: 'Donec rutrum congue leo eget malesuada curabitur arcu erat accumsan id imperdiet et porttitor at sem.',
+        icon: 'bi-bandaid',
+        link: '/doctors',
     },
     {
-        id: 'elder-care',
-        name: 'Elder Care Visit',
-        category_name: 'Wellness',
-        duration_minutes: 45,
-        base_price: 699,
-        providers_count: 6,
+        id: 'diagnostics',
+        name: 'Diagnostics Lab',
+        category_name: 'Testing & Reports',
+        description: 'Vestibulum ac diam sit amet quam vehicula elementum sed sit amet dui cras ultricies ligula sed magna.',
+        icon: 'bi-activity',
+        link: '/contact',
     },
 ];
 
-const specialtyFallbackImages = [
-    '/clinic-assets/cardiology-1.webp',
-    '/clinic-assets/neurology-4.webp',
-    '/clinic-assets/pediatrics-4.webp',
-    '/clinic-assets/orthopedics-1.webp',
-    '/clinic-assets/oncology-2.webp',
-    '/clinic-assets/dermatology-4.webp',
+const fallbackDoctors = [
+    { name: 'Dr. Amanda Foster', specialty: 'Cardiology Specialist', image: '/clinic-assets/staff-2.webp', status: 'available', rating: '4.9', reviews: 127, experience: '14 years experience' },
+    { name: 'Dr. Marcus Johnson', specialty: 'Neurology Expert', image: '/clinic-assets/staff-6.webp', status: 'busy', rating: '4.8', reviews: 89, experience: '16 years experience' },
+    { name: 'Dr. Rachel Williams', specialty: 'Pediatrics Care', image: '/clinic-assets/staff-4.webp', status: 'available', rating: '5.0', reviews: 203, experience: '11 years experience' },
+    { name: 'Dr. David Chen', specialty: 'Orthopedic Surgery', image: '/clinic-assets/staff-8.webp', status: 'offline', rating: '4.7', reviews: 156, experience: '22 years experience' },
+    { name: 'Dr. Victoria Torres', specialty: 'Dermatology Care', image: '/clinic-assets/staff-11.webp', status: 'available', rating: '4.5', reviews: 74, experience: '9 years experience' },
+    { name: 'Dr. Benjamin Lee', specialty: 'Oncology Treatment', image: '/clinic-assets/staff-14.webp', status: 'available', rating: '4.9', reviews: 194, experience: '19 years experience' },
 ];
 
-const doctorRatings = ['4.9', '4.8', '5.0', '4.7', '4.8', '4.9'];
+const specialtyShowcase = [
+    { title: 'Maternal Care', image: '/clinic-assets/maternal-2.webp', text: 'Expert pregnancy & delivery support' },
+    { title: 'Vaccination', image: '/clinic-assets/vaccination-3.webp', text: 'Complete immunization programs' },
+    { title: 'Emergency Care', image: '/clinic-assets/emergency-1.webp', text: '24/7 critical care services' },
+    { title: 'Advanced Technology', image: '/clinic-assets/facilities-6.webp', text: 'State-of-the-art medical equipment' },
+];
 
-export default function Home({ auth, site, seo, cities, specialties, featuredDoctors, stats, homeServices = [], homeServicesStats = {} }) {
+export default function Home({ auth, site, seo, specialties = [], featuredDoctors = [], stats = {}, homeServices = [], homeServicesStats = {} }) {
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedCity, setSelectedCity] = useState(null);
-    const [citySearchText, setCitySearchText] = useState('');
-    const [detectingLocation, setDetectingLocation] = useState(false);
-
-    useEffect(() => {
-        detectUserLocation();
-    }, []);
-
-    const detectUserLocation = async () => {
-        setDetectingLocation(true);
-
-        if (!navigator.geolocation) {
-            message.info('Geolocation is not supported by your browser');
-            setDetectingLocation(false);
-            return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-            async (position) => {
-                try {
-                    const { latitude, longitude } = position.coords;
-                    const response = await fetch(
-                        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-                    );
-                    const data = await response.json();
-
-                    const detectedCity = data.address?.city
-                        || data.address?.town
-                        || data.address?.village
-                        || data.address?.state_district;
-
-                    if (detectedCity) {
-                        const matchedCity = cities.find(
-                            (city) => city.name.toLowerCase() === detectedCity.toLowerCase()
-                        );
-
-                        if (matchedCity) {
-                            setSelectedCity(matchedCity.id);
-                            setCitySearchText(matchedCity.name);
-                            message.success(`Location detected: ${matchedCity.name}`);
-                        } else {
-                            setSelectedCity(null);
-                            setCitySearchText(detectedCity);
-                            message.success(`Location detected: ${detectedCity}`);
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error getting location name:', error);
-                    message.error('Could not detect your city');
-                } finally {
-                    setDetectingLocation(false);
-                }
-            },
-            (error) => {
-                console.error('Geolocation error:', error);
-                if (error.code === error.PERMISSION_DENIED) {
-                    message.warning('Location access denied. Please select city manually.');
-                } else {
-                    message.error('Could not detect your location');
-                }
-                setDetectingLocation(false);
-            }
-        );
-    };
-
-    const handleCityInput = (value) => {
-        setCitySearchText(value);
-
-        const matchedCity = cities.find(
-            (city) => city.name.toLowerCase() === value.toLowerCase()
-        );
-
-        setSelectedCity(matchedCity ? matchedCity.id : null);
-    };
-
-    const handleSearch = () => {
-        const params = new URLSearchParams();
-
-        if (searchQuery) {
-            params.append('search', searchQuery);
-        }
-
-        if (selectedCity) {
-            const selectedCityObj = cities.find((city) => city.id === selectedCity);
-            if (selectedCityObj) {
-                params.append('city_name', selectedCityObj.name);
-            }
-        } else if (citySearchText) {
-            params.append('city_name', citySearchText);
-        }
-
-        window.location.href = `/search?${params.toString()}`;
-    };
+    const [selectedSpecialty, setSelectedSpecialty] = useState('');
 
     const pageTitle = seo?.meta_title || (site?.name && site?.tagline ? `${site.name} - ${site.tagline}` : 'Hello Doctors - Find Best Doctors');
     const pageDescription = seo?.meta_description || 'Find and connect with verified healthcare professionals across Uttar Pradesh. Search by specialty, city, or doctor name.';
@@ -158,15 +64,98 @@ export default function Home({ auth, site, seo, cities, specialties, featuredDoc
     const ogTitle = seo?.og_title || pageTitle;
     const ogDescription = seo?.og_description || pageDescription;
     const canonicalUrl = typeof window !== 'undefined' ? window.location.origin : seo?.app_url || '';
-    const selectedCityName = selectedCity ? cities.find((city) => city.id === selectedCity)?.name || citySearchText : citySearchText;
-    const displayedServices = (homeServices?.length ? homeServices : fallbackServiceCards).slice(0, 4);
-    const displayedSpecialties = (specialties || []).slice(0, 6);
-    const displayedDoctors = (featuredDoctors || []).slice(0, 6);
-    const isPatient = auth?.user?.role === 'patient';
-    const homePrimaryHref = isPatient ? '/patient/home-services/book' : '/search';
-    const homeSecondaryHref = isPatient ? '/patient/home-services' : '/register-provider';
 
-    const formatPrice = (value) => new Intl.NumberFormat('en-IN').format(Number(value || 0));
+    const displayedSpecialties = (specialties.length ? specialties : fallbackSpecialties).slice(0, 6);
+    const displayedDoctors = fallbackDoctors.map((fallbackDoctor, index) => {
+        const doctor = featuredDoctors[index];
+
+        return {
+            id: doctor?.id || fallbackDoctor.name,
+            slug: doctor?.slug || '',
+            name: doctor?.name || fallbackDoctor.name,
+            specialty: doctor?.specialty || fallbackDoctor.specialty,
+            image: doctor?.image || fallbackDoctor.image,
+            bio: doctor?.bio || 'Experienced, compassionate, and dedicated to personalized patient care.',
+            status: fallbackDoctor.status,
+            rating: fallbackDoctor.rating,
+            reviews: fallbackDoctor.reviews,
+            experience: fallbackDoctor.experience,
+        };
+    });
+
+    const departmentCards = [
+        {
+            title: displayedSpecialties[0]?.name || 'Cardiovascular Medicine',
+            label: 'Specialized Care',
+            description: 'Advanced diagnostic imaging and interventional procedures for comprehensive heart health management with personalized treatment protocols.',
+            features: ['24/7 Emergency Cardiac Care', 'Minimally Invasive Procedures'],
+            image: displayedSpecialties[0]?.image_url || '/clinic-assets/cardiology-1.webp',
+            icon: 'bi-heart-pulse',
+            link: displayedSpecialties[0]?.id ? `/doctors?specialty=${displayedSpecialties[0].id}` : '/doctors',
+        },
+        {
+            title: displayedSpecialties[1]?.name || 'Neurological Sciences',
+            label: 'Expert Care',
+            description: 'Cutting-edge neuroimaging and neurosurgical expertise for complex brain and spinal cord conditions with innovative treatment approaches.',
+            features: ['Advanced Brain Imaging', 'Robotic Surgery'],
+            image: displayedSpecialties[1]?.image_url || '/clinic-assets/neurology-4.webp',
+            icon: 'bi-cpu',
+            link: displayedSpecialties[1]?.id ? `/doctors?specialty=${displayedSpecialties[1].id}` : '/doctors',
+        },
+    ];
+
+    const departmentHighlights = [
+        {
+            title: displayedSpecialties[2]?.name || 'Orthopedic Surgery',
+            description: 'Comprehensive musculoskeletal care utilizing advanced arthroscopic techniques and joint replacement procedures.',
+            list: ['Sports Medicine', 'Joint Replacement', 'Spine Surgery'],
+            icon: 'bi-shield-plus',
+            link: displayedSpecialties[2]?.id ? `/doctors?specialty=${displayedSpecialties[2].id}` : '/doctors',
+        },
+        {
+            title: displayedSpecialties[3]?.name || 'Pediatric Care',
+            description: 'Child-centered healthcare services from newborn to adolescence with family-focused treatment approaches.',
+            list: ['Neonatal Intensive Care', 'Developmental Pediatrics', 'Pediatric Surgery'],
+            icon: 'bi-people',
+            link: displayedSpecialties[3]?.id ? `/doctors?specialty=${displayedSpecialties[3].id}` : '/doctors',
+        },
+        {
+            title: displayedSpecialties[4]?.name || 'Cancer Treatment',
+            description: 'Multidisciplinary oncology program offering personalized cancer care with latest therapeutic innovations.',
+            list: ['Precision Medicine', 'Immunotherapy', 'Radiation Oncology'],
+            icon: 'bi-activity',
+            link: displayedSpecialties[4]?.id ? `/doctors?specialty=${displayedSpecialties[4].id}` : '/doctors',
+        },
+    ];
+
+    const serviceItems = (homeServices.length ? homeServices : fallbackServices).slice(0, 3).map((service, index) => ({
+        id: service.id,
+        name: service.name,
+        description: service.description || `${service.category_name || 'Healthcare'} services delivered with verified support and reliable scheduling.`,
+        icon: fallbackServices[index]?.icon || 'bi-heart-pulse',
+        link: '/doctors',
+    }));
+
+    const homePrimaryHref = auth?.user?.role === 'patient' ? '/patient/home-services/book' : '/doctors';
+    const homeSecondaryHref = auth?.user?.role === 'patient' ? '/patient/home-services' : '/contact';
+    const heroPatientsCount = Math.max((stats.total_doctors || 50) * 100, 5000);
+    const aboutPatientsCount = Math.max((stats.total_doctors || 50) * 300, 15000);
+
+    const handleDoctorSearch = (event) => {
+        event.preventDefault();
+
+        const params = new URLSearchParams();
+
+        if (searchQuery) {
+            params.append('search', searchQuery);
+        }
+
+        if (selectedSpecialty) {
+            params.append('specialty', selectedSpecialty);
+        }
+
+        window.location.href = `/doctors?${params.toString()}`;
+    };
 
     return (
         <>
@@ -186,395 +175,492 @@ export default function Home({ auth, site, seo, cities, specialties, featuredDoc
             </Head>
 
             <PublicLayout auth={auth} title={pageTitle}>
-                <div className="bg-slate-50">
-                    <section id="hero" className="relative overflow-hidden bg-gradient-to-br from-sky-950 via-sky-900 to-cyan-800 text-white">
-                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.12),transparent_24%)]" />
-                        <div className="relative mx-auto grid max-w-7xl gap-10 px-4 py-16 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:py-24">
-                            <div>
-                                <div className="mb-5 flex flex-wrap gap-3 text-sm">
-                                    <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-cyan-100">
-                                        <SafetyCertificateOutlined /> Verified doctors
-                                    </span>
-                                    <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-cyan-100">
-                                        <HeartFilled /> Compassion-first care
-                                    </span>
-                                    <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-cyan-100">
-                                        <ThunderboltFilled /> Fast discovery
-                                    </span>
-                                </div>
-
-                                <h1 className="max-w-2xl text-4xl font-black leading-tight tracking-tight sm:text-5xl">
-                                    Excellence in <span className="text-cyan-300">Healthcare</span> with compassionate care.
-                                </h1>
-
-                                <p className="mt-5 max-w-2xl text-base leading-7 text-sky-100 sm:text-lg">
-                                    Search trusted specialists, compare services, and discover quality medical support across your city—from clinic visits to in-home care.
-                                </p>
-
-                                <div className="mt-8 rounded-[28px] bg-white p-4 text-slate-900 shadow-2xl shadow-sky-950/20">
-                                    <div className="grid gap-3 md:grid-cols-[1.2fr_1fr_auto]">
-                                        <label className="rounded-2xl border border-slate-200 px-4 py-3">
-                                            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Doctor or specialty</span>
-                                            <div className="flex items-center gap-2">
-                                                <SearchOutlined className="text-sky-600" />
-                                                <input
-                                                    type="text"
-                                                    value={searchQuery}
-                                                    onChange={(event) => setSearchQuery(event.target.value)}
-                                                    onKeyDown={(event) => event.key === 'Enter' && handleSearch()}
-                                                    placeholder="Cardiologist, pediatrics, skin care..."
-                                                    className="w-full border-0 bg-transparent p-0 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
-                                                />
-                                            </div>
-                                        </label>
-
-                                        <label className="rounded-2xl border border-slate-200 px-4 py-3">
-                                            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">City</span>
-                                            <div className="flex items-center gap-2">
-                                                <EnvironmentOutlined className="text-cyan-600" />
-                                                <input
-                                                    list="clinic-city-list"
-                                                    value={selectedCityName || ''}
-                                                    onChange={(event) => handleCityInput(event.target.value)}
-                                                    placeholder={detectingLocation ? 'Detecting your city...' : 'Enter or select a city'}
-                                                    className="w-full border-0 bg-transparent p-0 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
-                                                />
-                                            </div>
-                                        </label>
-
-                                        <button
-                                            type="button"
-                                            onClick={handleSearch}
-                                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-600 to-cyan-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-100 transition hover:from-sky-700 hover:to-cyan-600"
-                                        >
-                                            <SearchOutlined />
-                                            Search
-                                        </button>
+                <section id="hero" className="hero section">
+                    <div className="container" data-aos="fade-up" data-aos-delay="100">
+                        <div className="row align-items-center">
+                            <div className="col-lg-6">
+                                <div className="hero-content">
+                                    <div className="trust-badges mb-4" data-aos="fade-right" data-aos-delay="200">
+                                        <div className="badge-item">
+                                            <i className="bi bi-shield-check" />
+                                            <span>Accredited</span>
+                                        </div>
+                                        <div className="badge-item">
+                                            <i className="bi bi-clock" />
+                                            <span>24/7 Emergency</span>
+                                        </div>
+                                        <div className="badge-item">
+                                            <i className="bi bi-star-fill" />
+                                            <span>4.9/5 Rating</span>
+                                        </div>
                                     </div>
 
-                                    <datalist id="clinic-city-list">
-                                        {cities.map((city) => (
-                                            <option key={city.id} value={city.name} />
-                                        ))}
-                                    </datalist>
+                                    <h1 data-aos="fade-right" data-aos-delay="300">
+                                        Excellence in <span className="highlight">Healthcare</span> With Compassionate Care
+                                    </h1>
 
-                                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                                        <span>Search by doctor name, specialty, or city.</span>
-                                        <button
-                                            type="button"
-                                            onClick={detectUserLocation}
-                                            className="inline-flex items-center gap-1 font-semibold text-sky-700 hover:text-sky-900"
-                                        >
-                                            <AimOutlined spin={detectingLocation} />
-                                            {detectingLocation ? 'Detecting location...' : 'Use my current location'}
-                                        </button>
-                                    </div>
-                                </div>
+                                    <p className="hero-description" data-aos="fade-right" data-aos-delay="400">
+                                        Discover verified doctors, trusted specialties, and modern healthcare support designed to help patients move from search to care with confidence.
+                                    </p>
 
-                                <div className="mt-8 grid gap-3 sm:grid-cols-3">
-                                    <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-4 backdrop-blur-sm">
-                                        <div className="text-3xl font-bold">{stats.total_doctors || 0}+</div>
-                                        <div className="text-sm text-cyan-100">Verified doctors</div>
+                                    <div className="hero-stats mb-4" data-aos="fade-right" data-aos-delay="500">
+                                        <div className="stat-item">
+                                            <h3><span>{15}</span>+</h3>
+                                            <p>Years Experience</p>
+                                        </div>
+                                        <div className="stat-item">
+                                            <h3><span>{heroPatientsCount}</span>+</h3>
+                                            <p>Patients Treated</p>
+                                        </div>
+                                        <div className="stat-item">
+                                            <h3><span>{stats.total_doctors || 50}</span>+</h3>
+                                            <p>Medical Experts</p>
+                                        </div>
                                     </div>
-                                    <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-4 backdrop-blur-sm">
-                                        <div className="text-3xl font-bold">{stats.total_cities || 0}+</div>
-                                        <div className="text-sm text-cyan-100">Cities covered</div>
+
+                                    <div className="hero-actions" data-aos="fade-right" data-aos-delay="600">
+                                        <Link href={homePrimaryHref} className="btn btn-primary">Book Appointment</Link>
+                                        <a href="https://www.youtube.com/watch?v=Y7f98aduVJ8" className="btn btn-outline glightbox">
+                                            <i className="bi bi-play-circle me-2" />
+                                            Watch Our Story
+                                        </a>
                                     </div>
-                                    <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-4 backdrop-blur-sm">
-                                        <div className="text-3xl font-bold">{stats.total_specialties || 0}+</div>
-                                        <div className="text-sm text-cyan-100">Care specialties</div>
+
+                                    <div className="emergency-contact" data-aos="fade-right" data-aos-delay="700">
+                                        <div className="emergency-icon">
+                                            <i className="bi bi-telephone-fill" />
+                                        </div>
+                                        <div className="emergency-info">
+                                            <small>Emergency Hotline</small>
+                                            <strong>+91 (555) 911-2468</strong>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="relative">
-                                <div className="overflow-hidden rounded-[32px] border border-white/15 bg-white/10 p-3 shadow-2xl backdrop-blur-sm">
-                                    <img
-                                        src="/clinic-assets/staff-10.webp"
-                                        alt="Modern healthcare facility"
-                                        className="h-[480px] w-full rounded-[24px] object-cover"
-                                    />
+                            <div className="col-lg-6">
+                                <div className="hero-visual" data-aos="fade-left" data-aos-delay="400">
+                                    <div className="main-image">
+                                        <img src="/clinic-assets/staff-10.webp" alt="Modern Healthcare Facility" className="img-fluid" />
+                                        <div className="floating-card appointment-card">
+                                            <div className="card-icon">
+                                                <i className="bi bi-calendar-check" />
+                                            </div>
+                                            <div className="card-content">
+                                                <h6>Next Available</h6>
+                                                <p>Today 2:30 PM</p>
+                                                <small>{displayedDoctors[0]?.name || 'Dr. Sarah Johnson'}</small>
+                                            </div>
+                                        </div>
+                                        <div className="floating-card rating-card">
+                                            <div className="card-content">
+                                                <div className="rating-stars">
+                                                    <i className="bi bi-star-fill" />
+                                                    <i className="bi bi-star-fill" />
+                                                    <i className="bi bi-star-fill" />
+                                                    <i className="bi bi-star-fill" />
+                                                    <i className="bi bi-star-fill" />
+                                                </div>
+                                                <h6>4.9/5</h6>
+                                                <small>1,234 Reviews</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="background-elements">
+                                        <div className="element element-1" />
+                                        <div className="element element-2" />
+                                        <div className="element element-3" />
+                                    </div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
 
-                                <div className="absolute -left-2 top-8 rounded-2xl bg-white px-4 py-3 text-slate-900 shadow-xl sm:-left-10">
-                                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Appointment Desk</div>
-                                    <div className="mt-1 text-lg font-bold">Open today · 9 AM - 8 PM</div>
+                <section id="home-about" className="home-about section">
+                    <div className="container" data-aos="fade-up" data-aos-delay="100">
+                        <div className="row align-items-center">
+                            <div className="col-lg-6 mb-5 mb-lg-0" data-aos="fade-right" data-aos-delay="200">
+                                <div className="about-content">
+                                    <h2 className="section-heading">Compassionate Care, Advanced Medicine</h2>
+                                    <p className="lead-text">
+                                        For over two decades, we&apos;ve been dedicated to providing exceptional healthcare that combines cutting-edge medical technology with the personal touch our patients deserve.
+                                    </p>
+
+                                    <p>
+                                        Our multidisciplinary team of specialists works collaboratively to ensure every patient receives comprehensive care tailored to their unique needs. From preventive services to complex procedures, we maintain the highest standards of medical excellence while fostering an environment of trust and healing.
+                                    </p>
+
+                                    <div className="stats-grid">
+                                        <div className="stat-item">
+                                            <div className="stat-number">{aboutPatientsCount}</div>
+                                            <div className="stat-label">Patients Served</div>
+                                        </div>
+                                        <div className="stat-item">
+                                            <div className="stat-number">25</div>
+                                            <div className="stat-label">Years of Excellence</div>
+                                        </div>
+                                        <div className="stat-item">
+                                            <div className="stat-number">{stats.total_specialties || 50}</div>
+                                            <div className="stat-label">Medical Specialists</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="cta-section">
+                                        <Link href="/about" className="btn-primary">Learn More About Us</Link>
+                                    </div>
                                 </div>
+                            </div>
 
-                                <div className="absolute -bottom-3 right-0 rounded-2xl bg-slate-950/90 px-4 py-3 text-white shadow-xl sm:-right-6">
-                                    <div className="text-xs font-semibold uppercase tracking-wide text-cyan-200">Emergency help</div>
-                                    <a href="tel:+915551234567" className="mt-1 inline-flex items-center gap-2 text-sm font-semibold text-white">
-                                        <PhoneOutlined /> +91 55512 34567
+                            <div className="col-lg-6" data-aos="fade-left" data-aos-delay="300">
+                                <div className="about-visual">
+                                    <div className="main-image">
+                                        <img src="/clinic-assets/facilities-9.webp" alt="Modern medical facility" className="img-fluid" />
+                                    </div>
+                                    <div className="floating-card">
+                                        <div className="card-content">
+                                            <div className="icon">
+                                                <i className="bi bi-heart-pulse" />
+                                            </div>
+                                            <div className="card-text">
+                                                <h4>24/7 Emergency Care</h4>
+                                                <p>Always here when you need us most</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="experience-badge">
+                                        <div className="badge-content">
+                                            <span className="years">25+</span>
+                                            <span className="text">Years of Trusted Care</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="featured-departments" className="featured-departments section">
+                    <div className="container section-title" data-aos="fade-up">
+                        <h2>Featured Departments</h2>
+                        <p>Explore our most sought-after specialties and discover expert-led care paths tailored to patient needs.</p>
+                    </div>
+
+                    <div className="container" data-aos="fade-up" data-aos-delay="100">
+                        <div className="row g-5">
+                            {departmentCards.map((department, index) => (
+                                <div className="col-lg-6" data-aos="zoom-in" data-aos-delay={100 + (index * 100)} key={department.title}>
+                                    <div className="specialty-card">
+                                        <div className="specialty-content">
+                                            <div className="specialty-meta">
+                                                <span className="specialty-label">{department.label}</span>
+                                            </div>
+                                            <h3>{department.title}</h3>
+                                            <p>{department.description}</p>
+                                            <div className="specialty-features">
+                                                {department.features.map((feature) => (
+                                                    <span key={feature}><i className="bi bi-check-circle-fill" />{feature}</span>
+                                                ))}
+                                            </div>
+                                            <Link href={department.link} className="specialty-link">
+                                                Explore {department.title.split(' ')[0]} <i className="bi bi-arrow-right" />
+                                            </Link>
+                                        </div>
+                                        <div className="specialty-visual">
+                                            <img src={department.image} alt={department.title} className="img-fluid" />
+                                            <div className="visual-overlay">
+                                                <i className={`bi ${department.icon}`} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+
+                            {departmentHighlights.map((department, index) => (
+                                <div className="col-lg-4" data-aos="fade-up" data-aos-delay={100 + (index * 100)} key={department.title}>
+                                    <div className="department-highlight">
+                                        <div className="highlight-icon">
+                                            <i className={`bi ${department.icon}`} />
+                                        </div>
+                                        <h4>{department.title}</h4>
+                                        <p>{department.description}</p>
+                                        <ul className="highlight-list">
+                                            {department.list.map((item) => <li key={item}>{item}</li>)}
+                                        </ul>
+                                        <Link href={department.link} className="highlight-cta">Learn More</Link>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="emergency-banner" data-aos="fade-up" data-aos-delay="400">
+                            <div className="row align-items-center">
+                                <div className="col-lg-8">
+                                    <div className="emergency-content">
+                                        <h3>Emergency Services Available 24/7</h3>
+                                        <p>Our emergency department is equipped with state-of-the-art technology and staffed by board-certified emergency physicians ready to provide immediate care.</p>
+                                    </div>
+                                </div>
+                                <div className="col-lg-4 text-lg-end">
+                                    <a href="tel:+915551234567" className="emergency-btn">
+                                        <i className="bi bi-telephone-fill" />
+                                        Call Emergency: +91 55512 34567
                                     </a>
                                 </div>
                             </div>
                         </div>
-                    </section>
+                    </div>
+                </section>
 
-                    <section id="home-about" className="py-16 lg:py-20">
-                        <div className="mx-auto grid max-w-7xl gap-10 px-4 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
-                            <div className="relative">
-                                <img
-                                    src="/clinic-assets/facilities-9.webp"
-                                    alt="Modern medical facility"
-                                    className="h-full min-h-[360px] w-full rounded-[30px] object-cover shadow-xl"
-                                />
-                                <div className="absolute bottom-6 left-6 rounded-2xl bg-white px-4 py-3 shadow-lg">
-                                    <div className="text-sm font-semibold text-sky-700">20+ years of care excellence</div>
-                                    <div className="text-xs text-slate-500">Trusted by patients and providers</div>
-                                </div>
-                            </div>
+                <section id="featured-services" className="featured-services section">
+                    <div className="container section-title" data-aos="fade-up">
+                        <h2>Featured Services</h2>
+                        <p>From clinic discovery to home support, Hello Doctors helps patients access care with speed and confidence.</p>
+                    </div>
 
-                            <div>
-                                <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-sm font-semibold text-sky-700">
-                                    <HeartFilled /> Compassionate Care, Advanced Medicine
-                                </span>
-                                <h2 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
-                                    A modern care experience built around patient trust.
-                                </h2>
-                                <p className="mt-4 text-base leading-7 text-slate-600">
-                                    We bring together doctors, clinics, and home-care professionals on one platform so patients can discover the right care faster—without the usual friction.
-                                </p>
-                                <p className="mt-3 text-base leading-7 text-slate-600">
-                                    From specialist discovery to reliable home services, Hello Doctors combines verified data, local reach, and friendly design for a stronger healthcare journey.
-                                </p>
-
-                                <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                                        <div className="text-2xl font-bold text-sky-700">{stats.total_doctors || 0}+</div>
-                                        <div className="text-sm text-slate-500">Active doctors</div>
-                                    </div>
-                                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                                        <div className="text-2xl font-bold text-sky-700">{stats.total_cities || 0}+</div>
-                                        <div className="text-sm text-slate-500">Reachable cities</div>
-                                    </div>
-                                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                                        <div className="text-2xl font-bold text-sky-700">{homeServicesStats?.services_count || 0}+</div>
-                                        <div className="text-sm text-slate-500">Home services</div>
-                                    </div>
-                                </div>
-
-                                <div className="mt-7">
-                                    <Link href="/about" className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700">
-                                        Learn more about us
-                                        <ArrowRightOutlined />
-                                    </Link>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section id="featured-departments" className="bg-white py-16 lg:py-20">
-                        <div className="mx-auto max-w-7xl px-4">
-                            <div className="mx-auto max-w-2xl text-center">
-                                <span className="inline-flex rounded-full bg-cyan-50 px-3 py-1 text-sm font-semibold text-cyan-700">Featured Departments</span>
-                                <h2 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">Explore care across top specialties.</h2>
-                                <p className="mt-3 text-slate-600">
-                                    Browse high-demand medical departments and connect with verified doctors in your city.
-                                </p>
-                            </div>
-
-                            <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                                {displayedSpecialties.map((specialty, index) => (
-                                    <article key={specialty.id} className="overflow-hidden rounded-[28px] border border-slate-200 bg-slate-50 shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
-                                        <img
-                                            src={specialty.image_url || specialtyFallbackImages[index % specialtyFallbackImages.length]}
-                                            alt={specialty.name}
-                                            className="h-52 w-full object-cover"
-                                        />
-                                        <div className="p-5">
-                                            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-sky-700 shadow-sm">
-                                                <MedicineBoxOutlined />
-                                                {specialty.doctors_count || 0} doctors available
+                    <div className="container" data-aos="fade-up" data-aos-delay="100">
+                        <div className="row g-0">
+                            <div className="col-lg-8" data-aos="fade-right" data-aos-delay="200">
+                                <div className="featured-service-main">
+                                    <div className="service-image-wrapper">
+                                        <img src="/clinic-assets/consultation-4.webp" alt="Premier Healthcare Services" className="img-fluid" loading="lazy" />
+                                        <div className="service-overlay">
+                                            <div className="service-badge">
+                                                <i className="bi bi-heart-pulse" />
+                                                <span>Emergency Care</span>
                                             </div>
-                                            <h3 className="text-xl font-bold text-slate-900">{specialty.name}</h3>
-                                            <p className="mt-2 text-sm leading-6 text-slate-600">
-                                                Verified consultations, local availability, and easier discovery for {specialty.name.toLowerCase()} care.
-                                            </p>
-                                            <ul className="mt-4 space-y-2 text-sm text-slate-600">
-                                                <li className="flex items-center gap-2"><CheckCircleOutlined className="text-cyan-600" /> Specialist consultations</li>
-                                                <li className="flex items-center gap-2"><CheckCircleOutlined className="text-cyan-600" /> Verified profiles</li>
-                                                <li className="flex items-center gap-2"><CheckCircleOutlined className="text-cyan-600" /> Easy city-based search</li>
-                                            </ul>
-                                            <Link href={`/search?specialty=${specialty.id}`} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-sky-700 hover:text-sky-900">
-                                                Explore doctors <ArrowRightOutlined />
-                                            </Link>
                                         </div>
-                                    </article>
-                                ))}
-                            </div>
-                        </div>
-                    </section>
-
-                    <section id="featured-services" className="py-16 lg:py-20">
-                        <div className="mx-auto max-w-7xl px-4">
-                            <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
-                                <div className="overflow-hidden rounded-[32px] bg-gradient-to-br from-sky-900 via-sky-800 to-cyan-700 text-white shadow-2xl">
-                                    <img
-                                        src="/clinic-assets/consultation-4.webp"
-                                        alt="Healthcare consultation"
-                                        className="h-72 w-full object-cover opacity-80"
-                                    />
-                                    <div className="p-6 sm:p-8">
-                                        <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-cyan-100">
-                                            <HomeOutlined /> Featured Services
-                                        </span>
-                                        <h2 className="mt-4 text-3xl font-black tracking-tight">Comprehensive healthcare support, online and at home.</h2>
-                                        <p className="mt-3 max-w-2xl text-sm leading-7 text-sky-100 sm:text-base">
-                                            From doctor discovery to diagnostics and on-demand support, the platform helps patients take the next step with confidence.
+                                    </div>
+                                    <div className="service-details">
+                                        <h2>Comprehensive Healthcare Excellence</h2>
+                                        <p>
+                                            Explore trusted doctors, specialist support, and verified home services in one patient-friendly platform built for modern healthcare journeys.
                                         </p>
-                                        <div className="mt-6 flex flex-wrap gap-3">
-                                            <Link href={homePrimaryHref} className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-sky-800 transition hover:bg-sky-50">
-                                                Book a service
-                                            </Link>
-                                            <Link href="/search" className="rounded-full border border-white/30 px-5 py-3 text-sm font-semibold text-white transition hover:border-white">
-                                                Explore doctors
-                                            </Link>
-                                        </div>
+                                        <Link href={homeSecondaryHref} className="main-cta">Explore Our Services</Link>
                                     </div>
                                 </div>
+                            </div>
 
-                                <div className="space-y-4">
-                                    {displayedServices.map((service) => (
-                                        <div key={service.id} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
-                                            <div className="flex items-start justify-between gap-4">
-                                                <div>
-                                                    <div className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">
-                                                        {service.category_name || 'Healthcare service'}
-                                                    </div>
-                                                    <h3 className="mt-2 text-lg font-bold text-slate-900">{service.name}</h3>
-                                                </div>
-                                                <div className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
-                                                    ₹{formatPrice(service.base_price)}
-                                                </div>
+                            <div className="col-lg-4" data-aos="fade-left" data-aos-delay="300">
+                                <div className="services-sidebar">
+                                    {serviceItems.map((service, index) => (
+                                        <div className="service-item" data-aos="fade-up" data-aos-delay={400 + (index * 100)} key={service.id}>
+                                            <div className="service-icon-wrapper">
+                                                <i className={`bi ${service.icon}`} />
                                             </div>
-
-                                            <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate-600">
-                                                <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1">
-                                                    <ClockCircleOutlined /> {service.duration_minutes || 0} min
-                                                </span>
-                                                <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1">
-                                                    <UserOutlined /> {service.providers_count || 0} providers
-                                                </span>
+                                            <div className="service-info">
+                                                <h4>{service.name}</h4>
+                                                <p>{service.description}</p>
+                                                <Link href={service.link} className="service-link">Learn More</Link>
                                             </div>
                                         </div>
                                     ))}
-
-                                    <div className="rounded-[24px] border border-dashed border-cyan-200 bg-cyan-50 p-5 text-sm text-cyan-900">
-                                        <div className="font-semibold">Need support beyond clinic hours?</div>
-                                        <p className="mt-2 leading-6 text-cyan-800">
-                                            Use Hello Doctors to discover home visits, nursing support, and follow-up care with verified providers.
-                                        </p>
-                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </section>
 
-                    <section id="find-a-doctor" className="bg-slate-950 py-16 text-white lg:py-20">
-                        <div className="mx-auto max-w-7xl px-4">
-                            <div className="mx-auto max-w-2xl text-center">
-                                <span className="inline-flex rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-cyan-200">Find A Doctor</span>
-                                <h2 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">Meet experienced professionals across specialties.</h2>
-                                <p className="mt-3 text-slate-300">
-                                    Browse featured doctors and jump straight to their profile details.
-                                </p>
-                            </div>
-
-                            <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                                {displayedDoctors.map((doctor, index) => (
-                                    <article key={doctor.id} className="rounded-[28px] border border-white/10 bg-white/5 p-5 backdrop-blur-sm transition hover:border-cyan-400/50 hover:bg-white/10">
-                                        <div className="flex items-center gap-4">
-                                            <img
-                                                src={doctor.image || `/clinic-assets/staff-${(index % 6) + 1}.webp`}
-                                                alt={doctor.name}
-                                                className="h-20 w-20 rounded-2xl object-cover"
-                                            />
-                                            <div>
-                                                <h3 className="text-lg font-bold">{doctor.name}</h3>
-                                                <p className="text-sm text-cyan-200">{doctor.specialty}</p>
-                                                <p className="mt-1 text-xs text-slate-300">{doctor.cities}</p>
+                        <div className="specialties-grid" data-aos="fade-up" data-aos-delay="300">
+                            <div className="row align-items-center">
+                                {specialtyShowcase.map((item) => (
+                                    <div className="col-lg-3 col-md-6" key={item.title}>
+                                        <div className="specialty-card">
+                                            <div className="specialty-image">
+                                                <img src={item.image} alt={item.title} className="img-fluid" loading="lazy" />
+                                            </div>
+                                            <div className="specialty-content">
+                                                <h5>{item.title}</h5>
+                                                <span>{item.text}</span>
                                             </div>
                                         </div>
-
-                                        <div className="mt-4 flex items-center justify-between text-sm">
-                                            <span className="rounded-full bg-emerald-500/15 px-3 py-1 font-semibold text-emerald-300">Available</span>
-                                            <span className="font-semibold text-amber-300">★ {doctorRatings[index % doctorRatings.length]}</span>
-                                        </div>
-
-                                        <p className="mt-4 text-sm leading-6 text-slate-300">{doctor.bio}</p>
-
-                                        <div className="mt-5 flex gap-3">
-                                            <Link href={`/doctors/${doctor.slug}`} className="inline-flex flex-1 items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-cyan-50">
-                                                View details
-                                            </Link>
-                                            <Link href="/contact" className="inline-flex flex-1 items-center justify-center rounded-full border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-cyan-300">
-                                                Contact
-                                            </Link>
-                                        </div>
-                                    </article>
+                                    </div>
                                 ))}
                             </div>
-
-                            <div className="mt-8 text-center">
-                                <Link href="/search" className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-sky-600 to-cyan-500 px-6 py-3 text-sm font-semibold text-white transition hover:from-sky-700 hover:to-cyan-600">
-                                    View all doctors
-                                    <ArrowRightOutlined />
-                                </Link>
-                            </div>
                         </div>
-                    </section>
+                    </div>
+                </section>
 
-                    <section id="call-to-action" className="py-16 lg:py-20">
-                        <div className="mx-auto max-w-7xl px-4">
-                            <div className="grid gap-8 overflow-hidden rounded-[32px] bg-white shadow-2xl lg:grid-cols-[1fr_0.9fr] lg:items-center">
-                                <div className="p-6 sm:p-8 lg:p-10">
-                                    <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-sm font-semibold text-sky-700">
-                                        <PhoneOutlined /> Need immediate medical assistance?
-                                    </span>
-                                    <h2 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
-                                        Care discovery for patients, and growth opportunities for doctors.
-                                    </h2>
-                                    <p className="mt-4 text-base leading-7 text-slate-600">
-                                        Whether you need a consultation or want to join the platform as a provider, Hello Doctors helps you move forward with clarity and confidence.
-                                    </p>
+                <section id="find-a-doctor" className="find-a-doctor section">
+                    <div className="container section-title" data-aos="fade-up">
+                        <h2>Find A Doctor</h2>
+                        <p>Search through our trusted directory of experienced medical professionals across specialties.</p>
+                    </div>
 
-                                    <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                                        <div className="rounded-2xl bg-slate-50 p-4">
-                                            <div className="text-xl font-bold text-sky-700">24/7</div>
-                                            <div className="text-sm text-slate-500">Support ready</div>
+                    <div className="container" data-aos="fade-up" data-aos-delay="100">
+                        <div className="row justify-content-center mb-5" data-aos="fade-up" data-aos-delay="200">
+                            <div className="col-lg-8 text-center">
+                                <div className="search-section">
+                                    <h3 className="search-title">Find Your Perfect Healthcare Provider</h3>
+                                    <p className="search-subtitle">Search through our comprehensive directory of experienced medical professionals</p>
+                                    <form className="search-form" onSubmit={handleDoctorSearch}>
+                                        <div className="search-input-group">
+                                            <div className="input-wrapper">
+                                                <i className="bi bi-person" />
+                                                <input
+                                                    type="text"
+                                                    className="form-control"
+                                                    name="doctor_name"
+                                                    placeholder="Enter doctor name"
+                                                    value={searchQuery}
+                                                    onChange={(event) => setSearchQuery(event.target.value)}
+                                                />
+                                            </div>
+                                            <div className="select-wrapper">
+                                                <i className="bi bi-heart-pulse" />
+                                                <select
+                                                    className="form-select"
+                                                    name="specialty"
+                                                    value={selectedSpecialty}
+                                                    onChange={(event) => setSelectedSpecialty(event.target.value)}
+                                                >
+                                                    <option value="">All Specialties</option>
+                                                    {displayedSpecialties.map((specialty) => (
+                                                        <option key={specialty.id} value={specialty.id}>{specialty.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <button type="submit" className="search-btn">
+                                                <i className="bi bi-search" />
+                                                Find Doctors
+                                            </button>
                                         </div>
-                                        <div className="rounded-2xl bg-slate-50 p-4">
-                                            <div className="text-xl font-bold text-sky-700">{homeServicesStats?.providers_count || 0}+</div>
-                                            <div className="text-sm text-slate-500">Verified providers</div>
-                                        </div>
-                                        <div className="rounded-2xl bg-slate-50 p-4">
-                                            <div className="text-xl font-bold text-sky-700">{stats.total_specialties || 0}+</div>
-                                            <div className="text-sm text-slate-500">Medical fields</div>
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-7 flex flex-wrap gap-3">
-                                        <Link href="/search" className="rounded-full bg-gradient-to-r from-sky-600 to-cyan-500 px-5 py-3 text-sm font-semibold text-white transition hover:from-sky-700 hover:to-cyan-600">
-                                            Find a doctor
-                                        </Link>
-                                        <Link href="/register-doctor" className="rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-sky-300 hover:text-sky-700">
-                                            Join as doctor
-                                        </Link>
-                                    </div>
-                                </div>
-
-                                <div className="h-full">
-                                    <img
-                                        src="/clinic-assets/facilities-6.webp"
-                                        alt="Medical excellence"
-                                        className="h-full min-h-[320px] w-full object-cover"
-                                    />
+                                    </form>
                                 </div>
                             </div>
                         </div>
-                    </section>
-                </div>
+
+                        <div className="doctors-grid" data-aos="fade-up" data-aos-delay="300">
+                            {displayedDoctors.map((doctor, index) => (
+                                <div className="doctor-profile" data-aos="zoom-in" data-aos-delay={100 + (index * 100)} key={doctor.id}>
+                                    <div className="profile-header">
+                                        <div className="doctor-avatar">
+                                            <img src={doctor.image} alt={doctor.name} className="img-fluid" />
+                                            <div className={`status-indicator ${doctor.status}`} />
+                                        </div>
+                                        <div className="doctor-details">
+                                            <h4>{doctor.name}</h4>
+                                            <span className="specialty-tag">{doctor.specialty}</span>
+                                            <div className="experience-info">
+                                                <i className="bi bi-award" />
+                                                <span>{doctor.experience}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="rating-section">
+                                        <div className="stars">
+                                            <i className="bi bi-star-fill" />
+                                            <i className="bi bi-star-fill" />
+                                            <i className="bi bi-star-fill" />
+                                            <i className="bi bi-star-fill" />
+                                            <i className={`bi ${doctor.rating === '4.5' || doctor.rating === '4.7' || doctor.rating === '4.8' ? 'bi-star-half' : 'bi-star-fill'}`} />
+                                        </div>
+                                        <span className="rating-score">{doctor.rating}</span>
+                                        <span className="review-count">({doctor.reviews} reviews)</span>
+                                    </div>
+                                    <div className="action-buttons">
+                                        <Link href={doctor.slug ? `/doctors/${doctor.slug}` : '/doctors'} className="btn-secondary">View Details</Link>
+                                        <Link href={homePrimaryHref} className="btn-primary">Book Now</Link>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="text-center mt-5" data-aos="fade-up" data-aos-delay="700">
+                            <Link href="/doctors" className="btn-view-all">
+                                View All Doctors
+                                <i className="bi bi-arrow-right" />
+                            </Link>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="call-to-action" className="call-to-action section light-background">
+                    <div className="container" data-aos="fade-up" data-aos-delay="100">
+                        <div className="hero-content">
+                            <div className="row align-items-center">
+                                <div className="col-lg-6">
+                                    <div className="content-wrapper" data-aos="fade-up" data-aos-delay="200">
+                                        <h1>Excellence in Medical Care, Every Day</h1>
+                                        <p>
+                                            Hello Doctors supports every step of the patient journey—from doctor discovery and appointment planning to trusted home-based healthcare services.
+                                        </p>
+
+                                        <div className="cta-wrapper">
+                                            <Link href={homePrimaryHref} className="primary-cta">
+                                                <span>Schedule Consultation</span>
+                                                <i className="bi bi-arrow-right" />
+                                            </Link>
+                                            <Link href={homeSecondaryHref} className="secondary-cta">
+                                                <span>Explore Services</span>
+                                                <i className="bi bi-arrow-right" />
+                                            </Link>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="col-lg-6">
+                                    <div className="image-container" data-aos="fade-left" data-aos-delay="300">
+                                        <img src="/clinic-assets/facilities-9.webp" alt="Medical Excellence" className="img-fluid" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="features-section">
+                            <div className="row g-0">
+                                <div className="col-lg-4">
+                                    <div className="feature-block" data-aos="fade-up" data-aos-delay="200">
+                                        <div className="feature-icon">
+                                            <i className="bi bi-shield-check" />
+                                        </div>
+                                        <h3>Advanced Technology</h3>
+                                        <p>Modern discovery tools and verified profiles help patients make informed healthcare decisions faster.</p>
+                                    </div>
+                                </div>
+
+                                <div className="col-lg-4">
+                                    <div className="feature-block" data-aos="fade-up" data-aos-delay="300">
+                                        <div className="feature-icon">
+                                            <i className="bi bi-clock" />
+                                        </div>
+                                        <h3>24/7 Availability</h3>
+                                        <p>Patients can explore doctors, services, and emergency support options whenever they need care guidance.</p>
+                                    </div>
+                                </div>
+
+                                <div className="col-lg-4">
+                                    <div className="feature-block" data-aos="fade-up" data-aos-delay="400">
+                                        <div className="feature-icon">
+                                            <i className="bi bi-people" />
+                                        </div>
+                                        <h3>Expert Team</h3>
+                                        <p>Connect with experienced professionals across specialties through one unified and patient-friendly platform.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="contact-block">
+                            <div className="row">
+                                <div className="col-lg-8">
+                                    <div className="contact-content" data-aos="fade-up" data-aos-delay="200">
+                                        <h2>Need Immediate Medical Assistance?</h2>
+                                        <p>Our emergency response team is available around the clock to provide immediate medical support when you need it most.</p>
+                                    </div>
+                                </div>
+
+                                <div className="col-lg-4">
+                                    <div className="contact-actions" data-aos="fade-up" data-aos-delay="300">
+                                        <a href="tel:+915551234567" className="emergency-call">
+                                            <i className="bi bi-telephone" />
+                                            <span>+91 55512 34567</span>
+                                        </a>
+                                        <Link href="/contact" className="contact-link">Find Location</Link>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </PublicLayout>
         </>
     );

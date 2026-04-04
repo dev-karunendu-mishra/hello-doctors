@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\SiteSetting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Middleware;
 use Tighten\Ziggy\Ziggy;
 
@@ -31,21 +32,22 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        // Get SEO settings from database (with caching)
-        $seoSettings = cache()->remember('seo_settings', 3600, function () {
-            return SiteSetting::where('group', 'seo')
-                ->get()
-                ->pluck('value', 'key')
-                ->toArray();
-        });
+        $getSiteSettings = function (string $group): array {
+            if (!Schema::hasTable('site_settings')) {
+                return [];
+            }
 
-        // Get general site settings (with caching)
-        $generalSettings = cache()->remember('general_settings', 3600, function () {
-            return SiteSetting::where('group', 'general')
-                ->get()
-                ->pluck('value', 'key')
-                ->toArray();
-        });
+            return cache()->remember("{$group}_settings", 3600, function () use ($group) {
+                return SiteSetting::where('group', $group)
+                    ->get()
+                    ->pluck('value', 'key')
+                    ->toArray();
+            });
+        };
+
+        // Get SEO and general settings from database when available
+        $seoSettings = $getSiteSettings('seo');
+        $generalSettings = $getSiteSettings('general');
 
         return [
             ...parent::share($request),
