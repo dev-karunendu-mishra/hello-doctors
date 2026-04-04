@@ -6,14 +6,14 @@ export default function PublicLayout({ auth, title, children }) {
     return (
         <>
             <Head title={title || 'Hello Doctors'} />
-            
-            <div className="min-h-screen bg-gray-50 flex flex-col">
+
+            <div className="clinic-public min-h-screen bg-slate-50 text-slate-900 flex flex-col">
                 <Header auth={auth} />
-                
-                <main className="flex-grow">
+
+                <main className="flex-grow overflow-x-hidden">
                     {children}
                 </main>
-                
+
                 <Footer />
             </div>
         </>

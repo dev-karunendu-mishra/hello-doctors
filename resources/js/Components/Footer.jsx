@@ -1,24 +1,22 @@
 import { Link, useForm } from '@inertiajs/react';
-import { Row, Col, Input, Button, Typography, message } from 'antd';
-import { 
-    FacebookOutlined, 
-    TwitterOutlined, 
-    LinkedinOutlined, 
-    InstagramOutlined, 
-    YoutubeOutlined,
-    MailOutlined
+import {
+    FacebookOutlined,
+    InstagramOutlined,
+    LinkedinOutlined,
+    MailOutlined,
+    PhoneOutlined,
+    TwitterOutlined,
 } from '@ant-design/icons';
-
-const { Title, Text } = Typography;
+import { message } from 'antd';
 
 export default function Footer() {
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { data, setData, post, processing, reset } = useForm({
         email: '',
     });
 
-    const handleSubscribe = (e) => {
-        e.preventDefault();
-        
+    const handleSubscribe = (event) => {
+        event.preventDefault();
+
         post('/subscribe', {
             preserveScroll: true,
             onSuccess: () => {
@@ -26,171 +24,112 @@ export default function Footer() {
                 reset('email');
             },
             onError: (errors) => {
-                if (errors.email) {
-                    message.error(errors.email);
-                } else {
-                    message.error('Failed to subscribe. Please try again.');
-                }
-            }
+                message.error(errors.email || 'Failed to subscribe. Please try again.');
+            },
         });
     };
 
     return (
-        <footer className="bg-gray-800 text-white">
-            <div className="container mx-auto px-4 py-12">
-                <Row gutter={[32, 32]}>
-                    {/* For Patients */}
-                    <Col xs={24} sm={12} lg={6}>
-                        <Title level={4} className="text-slate-300 font-semibold mb-4" style={{ color: '#cbd5e1' }}>
-                            FOR PATIENTS
-                        </Title>
-                        <div className="flex flex-col space-y-2">
-                            <Link href="/find-doctor" className="text-gray-300 hover:text-white transition-colors">
-                                Find right doctor
-                            </Link>
-                            <Link href="/find-hospital" className="text-gray-300 hover:text-white transition-colors">
-                                Find right hospital
-                            </Link>
-                            <Link href="/find-blood-donor" className="text-gray-300 hover:text-white transition-colors">
-                                Find blood donor
-                            </Link>
+        <footer className="bg-slate-950 text-slate-200">
+            <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 md:grid-cols-2 xl:grid-cols-4">
+                <div>
+                    <Link href="/" className="inline-flex items-center gap-3 text-white">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-600 to-cyan-500 text-lg font-bold">
+                            +
                         </div>
-                    </Col>
-
-                    {/* For Partners */}
-                    <Col xs={24} sm={12} lg={6}>
-                        <Title level={4} className="text-slate-300 font-semibold mb-4" style={{ color: '#cbd5e1' }}>
-                            FOR PARTNERS
-                        </Title>
-                        <div className="flex flex-col space-y-2">
-                            <Link href="/health-grade" className="text-gray-300 hover:text-white transition-colors">
-                                Health grade for hospitals
-                            </Link>
-                            <Link href="/login" className="text-gray-300 hover:text-white transition-colors">
-                                Hospital client login
-                            </Link>
-                            <Link href="/advertise" className="text-gray-300 hover:text-white transition-colors">
-                                Advertise with us
-                            </Link>
+                        <div>
+                            <div className="text-lg font-bold">Hello Doctors</div>
+                            <div className="text-xs text-slate-400">Clinic discovery & care booking</div>
                         </div>
-                    </Col>
+                    </Link>
 
-                    {/* Register Here */}
-                    <Col xs={24} sm={12} lg={6}>
-                        <Title level={4} className="text-slate-300 font-semibold mb-4" style={{ color: '#cbd5e1' }}>
-                            REGISTER HERE
-                        </Title>
-                        <div className="flex flex-col space-y-2">
-                            <Link href="/register?type=doctor" className="text-gray-300 hover:text-white transition-colors">
-                                Register as a Doctor
-                            </Link>
-                            <Link href="/register?type=hospital" className="text-gray-300 hover:text-white transition-colors">
-                                Register as a Hospital
-                            </Link>
-                            <Link href="/register?type=blood-donor" className="text-gray-300 hover:text-white transition-colors">
-                                Register as a Blood donor
-                            </Link>
-                        </div>
-                    </Col>
+                    <p className="mt-4 max-w-sm text-sm leading-6 text-slate-400">
+                        Compassionate digital healthcare for patients, families, and providers—designed to make finding care simple and trustworthy.
+                    </p>
 
-                    {/* About Us & Subscribe */}
-                    <Col xs={24} sm={12} lg={6}>
-                        <Title level={4} className="text-slate-300 font-semibold mb-4" style={{ color: '#cbd5e1' }}>
-                            ABOUT US
-                        </Title>
-                        <div className="flex flex-col space-y-2 mb-6">
-                            <Link href="/terms" className="text-gray-300 hover:text-white transition-colors">
-                                Terms and conditions
-                            </Link>
-                            <Link href="/career" className="text-gray-300 hover:text-white transition-colors">
-                                Career
-                            </Link>
-                            <Link href="/contact" className="text-gray-300 hover:text-white transition-colors">
-                                Contact Us
-                            </Link>
-                        </div>
+                    <div className="mt-5 space-y-2 text-sm text-slate-300">
+                        <a href="mailto:support@hellodoctors.in" className="flex items-center gap-2 hover:text-cyan-300">
+                            <MailOutlined /> support@hellodoctors.in
+                        </a>
+                        <a href="tel:+915551234567" className="flex items-center gap-2 hover:text-cyan-300">
+                            <PhoneOutlined /> +91 55512 34567
+                        </a>
+                    </div>
+                </div>
 
-                        <Title level={5} className="text-slate-300 font-semibold mb-3" style={{ color: '#cbd5e1' }}>
-                            SUBSCRIBE FOR UPDATES
-                        </Title>
-                        <form onSubmit={handleSubscribe} className="flex flex-col space-y-2">
-                            <Input
+                <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">Quick Links</h3>
+                    <div className="mt-4 flex flex-col gap-3 text-sm text-slate-400">
+                        <Link href="/">Home</Link>
+                        <Link href="/about">About Us</Link>
+                        <Link href="/search">Find Doctors</Link>
+                        <Link href="/contact">Contact</Link>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">Services</h3>
+                    <div className="mt-4 flex flex-col gap-3 text-sm text-slate-400">
+                        <Link href="/search">Doctor Consultation</Link>
+                        <Link href="/register-doctor">Doctor Registration</Link>
+                        <Link href="/register-provider">Home Service Providers</Link>
+                        <Link href="/login">Patient Login</Link>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">Newsletter</h3>
+                    <p className="mt-4 text-sm leading-6 text-slate-400">
+                        Get care tips, updates, and the latest doctor onboarding news.
+                    </p>
+
+                    <form onSubmit={handleSubscribe} className="mt-4 space-y-3">
+                        <div className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3">
+                            <label htmlFor="footer-email" className="mb-1 block text-xs font-medium text-slate-400">
+                                Email address
+                            </label>
+                            <input
+                                id="footer-email"
                                 type="email"
-                                placeholder="Email"
-                                prefix={<MailOutlined />}
+                                placeholder="you@example.com"
                                 value={data.email}
-                                onChange={(e) => setData('email', e.target.value)}
+                                onChange={(event) => setData('email', event.target.value)}
                                 required
-                                className="bg-white"
                                 disabled={processing}
+                                className="w-full border-0 bg-transparent p-0 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-0"
                             />
-                            <Button 
-                                type="primary" 
-                                htmlType="submit"
-                                block
-                                loading={processing}
-                                className="bg-blue-600 hover:bg-blue-700"
-                            >
-                                Subscribe →
-                            </Button>
-                        </form>
-
-                        {/* Social Media Icons */}
-                        <div className="flex space-x-3 mt-4">
-                            <a 
-                                href="https://facebook.com" 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="w-10 h-10 rounded-full bg-gray-700 hover:bg-blue-600 flex items-center justify-center transition-colors"
-                            >
-                                <FacebookOutlined className="text-white text-lg" />
-                            </a>
-                            <a 
-                                href="https://twitter.com" 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="w-10 h-10 rounded-full bg-gray-700 hover:bg-blue-400 flex items-center justify-center transition-colors"
-                            >
-                                <TwitterOutlined className="text-white text-lg" />
-                            </a>
-                            <a 
-                                href="https://linkedin.com" 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="w-10 h-10 rounded-full bg-gray-700 hover:bg-blue-700 flex items-center justify-center transition-colors"
-                            >
-                                <LinkedinOutlined className="text-white text-lg" />
-                            </a>
-                            <a 
-                                href="https://instagram.com" 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="w-10 h-10 rounded-full bg-gray-700 hover:bg-pink-600 flex items-center justify-center transition-colors"
-                            >
-                                <InstagramOutlined className="text-white text-lg" />
-                            </a>
-                            <a 
-                                href="https://youtube.com" 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="w-10 h-10 rounded-full bg-gray-700 hover:bg-red-600 flex items-center justify-center transition-colors"
-                            >
-                                <YoutubeOutlined className="text-white text-lg" />
-                            </a>
                         </div>
-                    </Col>
-                </Row>
+
+                        <button
+                            type="submit"
+                            disabled={processing}
+                            className="w-full rounded-full bg-gradient-to-r from-sky-600 to-cyan-500 px-4 py-3 text-sm font-semibold text-white transition hover:from-sky-700 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                            {processing ? 'Subscribing...' : 'Subscribe for updates'}
+                        </button>
+                    </form>
+
+                    <div className="mt-5 flex gap-3 text-lg">
+                        <a href="https://facebook.com" target="_blank" rel="noreferrer" className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 bg-slate-900 hover:border-cyan-500 hover:text-cyan-300">
+                            <FacebookOutlined />
+                        </a>
+                        <a href="https://twitter.com" target="_blank" rel="noreferrer" className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 bg-slate-900 hover:border-cyan-500 hover:text-cyan-300">
+                            <TwitterOutlined />
+                        </a>
+                        <a href="https://instagram.com" target="_blank" rel="noreferrer" className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 bg-slate-900 hover:border-cyan-500 hover:text-cyan-300">
+                            <InstagramOutlined />
+                        </a>
+                        <a href="https://linkedin.com" target="_blank" rel="noreferrer" className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 bg-slate-900 hover:border-cyan-500 hover:text-cyan-300">
+                            <LinkedinOutlined />
+                        </a>
+                    </div>
+                </div>
             </div>
 
-            {/* Bottom Bar */}
-            <div className="border-t border-gray-700 py-6">
-                <div className="container mx-auto px-4">
-                    <div className="text-center text-gray-400">
-                        <Text className="text-gray-400">
-                            powered by <span className="text-white font-semibold">DayDreams</span>
-                            [An ISO Certified company]. All rights reserved.
-                        </Text>
-                    </div>
+            <div className="border-t border-slate-900">
+                <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-5 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+                    <p>© 2026 Hello Doctors. All rights reserved.</p>
+                    <p>Designed for faster access to trusted healthcare.</p>
                 </div>
             </div>
         </footer>

@@ -1,8 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { Card, Row, Col, Typography, Descriptions, Tag, Avatar, Divider, Button } from 'antd';
 import { UserOutlined, PhoneOutlined, MailOutlined, GlobalOutlined, EnvironmentOutlined, MedicineBoxOutlined, ClockCircleOutlined } from '@ant-design/icons';
-import Header from '@/Components/Header';
-import Footer from '@/Components/Footer';
+import PublicLayout from '@/Layouts/PublicLayout';
 
 const { Title, Paragraph } = Typography;
 
@@ -106,9 +105,8 @@ export default function DoctorProfile({ auth, doctor }) {
                 </script>
             </Head>
             
-            <Header auth={auth} />
-            
-            <div className="min-h-screen bg-gray-50 py-8">
+            <PublicLayout auth={auth} title={metaTitle}>
+                <div className="min-h-screen bg-gray-50 py-8">
                 <div className="container mx-auto px-4">
                     <Link href="/search">
                         <Button className="mb-4">← Back to Search</Button>
@@ -312,8 +310,7 @@ export default function DoctorProfile({ auth, doctor }) {
                     </Card>
                 </div>
             </div>
-            
-            <Footer />
+            </PublicLayout>
         </>
     );
 }

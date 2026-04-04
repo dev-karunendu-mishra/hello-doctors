@@ -2,8 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { Card, Row, Col, Typography, Button, Input, Select, Pagination, Tag, Empty, Avatar, message } from 'antd';
 import { SearchOutlined, EnvironmentOutlined, MedicineBoxOutlined, PhoneOutlined, GlobalOutlined, UserOutlined, AimOutlined } from '@ant-design/icons';
 import { useState, useEffect } from 'react';
-import Header from '@/Components/Header';
-import Footer from '@/Components/Footer';
+import PublicLayout from '@/Layouts/PublicLayout';
 
 const { Title } = Typography;
 
@@ -194,9 +193,8 @@ export default function Search({ auth, doctors, cities, specialties, filters }) 
                 <link rel="canonical" href={`${window.location.origin}/search`} />
             </Head>
             
-            <Header auth={auth} />
-            
-            <div className="min-h-screen bg-gray-50 py-8">
+            <PublicLayout auth={auth} title="Search Doctors">
+                <div className="min-h-screen bg-gray-50 py-8">
                 <div className="container mx-auto px-4">
                     <Title level={2} className="mb-6">Find Doctors</Title>
 
@@ -426,8 +424,7 @@ export default function Search({ auth, doctors, cities, specialties, filters }) 
                     )}
                 </div>
             </div>
-            
-            <Footer />
+            </PublicLayout>
         </>
     );
 }

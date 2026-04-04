@@ -1,22 +1,60 @@
 import { Head, Link } from '@inertiajs/react';
-import { Card, Row, Col, Typography, Button, Input, Select, Statistic, message } from 'antd';
 import {
-    SearchOutlined,
-    MedicineBoxOutlined,
-    EnvironmentOutlined,
-    UserOutlined,
     AimOutlined,
-    HomeOutlined,
-    ClockCircleOutlined,
+    ArrowRightOutlined,
     CheckCircleOutlined,
+    ClockCircleOutlined,
+    EnvironmentOutlined,
+    HeartFilled,
+    HomeOutlined,
+    MedicineBoxOutlined,
+    PhoneOutlined,
+    SafetyCertificateOutlined,
+    SearchOutlined,
+    ThunderboltFilled,
+    UserOutlined,
 } from '@ant-design/icons';
-import { useState, useEffect } from 'react';
-import Header from '@/Components/Header';
-import Footer from '@/Components/Footer';
-import IndiaMap from '@/Components/IndiaMap';
+import { message } from 'antd';
+import { useEffect, useState } from 'react';
+import PublicLayout from '@/Layouts/PublicLayout';
 
-const { Title, Paragraph } = Typography;
-const { Search } = Input;
+const fallbackServiceCards = [
+    {
+        id: 'sample-collection',
+        name: 'Sample Collection',
+        category_name: 'Diagnostics',
+        duration_minutes: 30,
+        base_price: 499,
+        providers_count: 12,
+    },
+    {
+        id: 'nursing-support',
+        name: 'Nursing Support',
+        category_name: 'Home Care',
+        duration_minutes: 60,
+        base_price: 899,
+        providers_count: 8,
+    },
+    {
+        id: 'elder-care',
+        name: 'Elder Care Visit',
+        category_name: 'Wellness',
+        duration_minutes: 45,
+        base_price: 699,
+        providers_count: 6,
+    },
+];
+
+const specialtyFallbackImages = [
+    '/clinic-assets/cardiology-1.webp',
+    '/clinic-assets/neurology-4.webp',
+    '/clinic-assets/pediatrics-4.webp',
+    '/clinic-assets/orthopedics-1.webp',
+    '/clinic-assets/oncology-2.webp',
+    '/clinic-assets/dermatology-4.webp',
+];
+
+const doctorRatings = ['4.9', '4.8', '5.0', '4.7', '4.8', '4.9'];
 
 export default function Home({ auth, site, seo, cities, specialties, featuredDoctors, stats, homeServices = [], homeServicesStats = {} }) {
     const [searchQuery, setSearchQuery] = useState('');
@@ -24,14 +62,13 @@ export default function Home({ auth, site, seo, cities, specialties, featuredDoc
     const [citySearchText, setCitySearchText] = useState('');
     const [detectingLocation, setDetectingLocation] = useState(false);
 
-    // Auto-detect user location on component mount
     useEffect(() => {
         detectUserLocation();
     }, []);
 
     const detectUserLocation = async () => {
         setDetectingLocation(true);
-        
+
         if (!navigator.geolocation) {
             message.info('Geolocation is not supported by your browser');
             setDetectingLocation(false);
@@ -42,30 +79,26 @@ export default function Home({ auth, site, seo, cities, specialties, featuredDoc
             async (position) => {
                 try {
                     const { latitude, longitude } = position.coords;
-                    
-                    // Use reverse geocoding to get city name
                     const response = await fetch(
                         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
                     );
                     const data = await response.json();
-                    
-                    const detectedCity = data.address?.city || 
-                                       data.address?.town || 
-                                       data.address?.village || 
-                                       data.address?.state_district;
-                    
+
+                    const detectedCity = data.address?.city
+                        || data.address?.town
+                        || data.address?.village
+                        || data.address?.state_district;
+
                     if (detectedCity) {
-                        // Try to match with database cities
                         const matchedCity = cities.find(
-                            city => city.name.toLowerCase() === detectedCity.toLowerCase()
+                            (city) => city.name.toLowerCase() === detectedCity.toLowerCase()
                         );
-                        
+
                         if (matchedCity) {
                             setSelectedCity(matchedCity.id);
-                            setCitySearchText(''); // Clear custom text for DB cities
+                            setCitySearchText(matchedCity.name);
                             message.success(`Location detected: ${matchedCity.name}`);
                         } else {
-                            // If not in database, set as custom text
                             setSelectedCity(null);
                             setCitySearchText(detectedCity);
                             message.success(`Location detected: ${detectedCity}`);
@@ -90,450 +123,459 @@ export default function Home({ auth, site, seo, cities, specialties, featuredDoc
         );
     };
 
-    const handleCityChange = (value, option) => {
-        setSelectedCity(value);
-        setCitySearchText(''); // Clear custom text when selecting from dropdown
-    };
-
-    const handleCitySearch = (value) => {
+    const handleCityInput = (value) => {
         setCitySearchText(value);
-        // If the text matches a city from database, select it
+
         const matchedCity = cities.find(
-            city => city.name.toLowerCase() === value.toLowerCase()
+            (city) => city.name.toLowerCase() === value.toLowerCase()
         );
-        if (matchedCity) {
-            setSelectedCity(matchedCity.id);
-        } else {
-            setSelectedCity(null);
-        }
+
+        setSelectedCity(matchedCity ? matchedCity.id : null);
     };
 
     const handleSearch = () => {
         const params = new URLSearchParams();
-        if (searchQuery) params.append('search', searchQuery);
-        
-        // Use city name instead of ID for better URL readability
+
+        if (searchQuery) {
+            params.append('search', searchQuery);
+        }
+
         if (selectedCity) {
-            // Get city name from the selected ID
-            const selectedCityObj = cities.find(c => c.id === selectedCity);
+            const selectedCityObj = cities.find((city) => city.id === selectedCity);
             if (selectedCityObj) {
                 params.append('city_name', selectedCityObj.name);
             }
         } else if (citySearchText) {
-            // Use custom typed city name
             params.append('city_name', citySearchText);
         }
-        
+
         window.location.href = `/search?${params.toString()}`;
     };
 
-    // Priority: meta_title > (site_name + site_tagline) > default
-    const pageTitle = seo?.meta_title || (site?.name && site?.tagline ? `${site.name} - ${site.tagline}` : "Hello Doctors - Find Best Doctors");
-    const pageDescription = seo?.meta_description || "Find and connect with verified healthcare professionals across Uttar Pradesh. Search by specialty, city, or doctor name. Book appointments with experienced doctors.";
-    const pageKeywords = seo?.meta_keywords || "doctors, healthcare, medical professionals, find doctors, appointments, Uttar Pradesh, specialties, verified doctors";
+    const pageTitle = seo?.meta_title || (site?.name && site?.tagline ? `${site.name} - ${site.tagline}` : 'Hello Doctors - Find Best Doctors');
+    const pageDescription = seo?.meta_description || 'Find and connect with verified healthcare professionals across Uttar Pradesh. Search by specialty, city, or doctor name.';
+    const pageKeywords = seo?.meta_keywords || 'doctors, healthcare, medical professionals, find doctors, appointments, Uttar Pradesh';
     const ogTitle = seo?.og_title || pageTitle;
     const ogDescription = seo?.og_description || pageDescription;
+    const canonicalUrl = typeof window !== 'undefined' ? window.location.origin : seo?.app_url || '';
+    const selectedCityName = selectedCity ? cities.find((city) => city.id === selectedCity)?.name || citySearchText : citySearchText;
+    const displayedServices = (homeServices?.length ? homeServices : fallbackServiceCards).slice(0, 4);
+    const displayedSpecialties = (specialties || []).slice(0, 6);
+    const displayedDoctors = (featuredDoctors || []).slice(0, 6);
     const isPatient = auth?.user?.role === 'patient';
-    const homePrimaryHref = isPatient ? '/patient/home-services/book' : '/login';
-    const homeSecondaryHref = isPatient ? '/patient/home-services' : '/login';
+    const homePrimaryHref = isPatient ? '/patient/home-services/book' : '/search';
+    const homeSecondaryHref = isPatient ? '/patient/home-services' : '/register-provider';
+
+    const formatPrice = (value) => new Intl.NumberFormat('en-IN').format(Number(value || 0));
 
     return (
         <>
             <Head title={pageTitle}>
                 <meta name="description" content={pageDescription} />
                 <meta name="keywords" content={pageKeywords} />
-                <meta name="author" content={seo?.meta_author || site?.name || "Hello Doctors"} />
-                
-                {/* Open Graph / Facebook */}
+                <meta name="author" content={seo?.meta_author || site?.name || 'Hello Doctors'} />
                 <meta property="og:type" content="website" />
-                <meta property="og:url" content={seo?.app_url || window.location.href} />
+                <meta property="og:url" content={seo?.app_url || canonicalUrl} />
                 <meta property="og:title" content={ogTitle} />
                 <meta property="og:description" content={ogDescription} />
                 {seo?.og_image && <meta property="og:image" content={seo.og_image} />}
-                
-                {/* Twitter */}
-                <meta name="twitter:card" content={seo?.twitter_card || "summary_large_image"} />
-                <meta name="twitter:url" content={seo?.app_url || window.location.href} />
+                <meta name="twitter:card" content={seo?.twitter_card || 'summary_large_image'} />
                 <meta name="twitter:title" content={ogTitle} />
                 <meta name="twitter:description" content={ogDescription} />
-                {seo?.twitter_site && <meta name="twitter:site" content={seo.twitter_site} />}
-                {seo?.og_image && <meta name="twitter:image" content={seo.og_image} />}
-                
-                <link rel="canonical" href={seo?.app_url || window.location.origin} />
+                <link rel="canonical" href={seo?.app_url || canonicalUrl} />
             </Head>
-            
-            {/* Header */}
-            <Header auth={auth} />
-            
-            <div className="min-h-screen bg-gray-50">
-                {/* Hero Section */}
-                <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-20">
-                    <div className="container mx-auto px-4">
-                        <div className="max-w-4xl mx-auto text-center">
-                            <Title level={1} className="text-white mb-4">
-                                Find the Best Doctors Near You
-                            </Title>
-                            <Paragraph className="text-xl text-blue-100 mb-8">
-                                Connect with verified healthcare professionals across multiple cities
-                            </Paragraph>
 
-                            {/* Search Bar */}
-                            <Card className="shadow-2xl">
-                                <Row gutter={16}>
-                                    <Col xs={24} md={12}>
-                                        <Input
-                                            size="large"
-                                            placeholder="Search by doctor name, specialty..."
-                                            prefix={<SearchOutlined />}
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                            onPressEnter={handleSearch}
-                                        />
-                                    </Col>
-                                    <Col xs={24} md={8}>
-                                        <Select
-                                            size="large"
-                                            showSearch
-                                            placeholder={
-                                                <span>
-                                                    <EnvironmentOutlined /> {detectingLocation ? 'Detecting...' : 'Select or type city'}
-                                                </span>
-                                            }
-                                            className="w-full"
-                                            value={selectedCity}
-                                            onChange={handleCityChange}
-                                            onSearch={handleCitySearch}
-                                            searchValue={!selectedCity ? citySearchText : undefined}
-                                            allowClear
-                                            filterOption={(input, option) =>
-                                                (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
-                                            }
-                                            notFoundContent={
-                                                <div className="text-center py-2">
-                                                    <p>City not in list?</p>
-                                                    <p className="text-xs text-gray-500">Just type and press Enter</p>
-                                                </div>
-                                            }
-                                            suffixIcon={
-                                                detectingLocation ? (
-                                                    <AimOutlined spin />
-                                                ) : (
-                                                    <Button
-                                                        type="link"
-                                                        size="small"
-                                                        icon={<AimOutlined />}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            detectUserLocation();
-                                                        }}
-                                                        title="Detect my location"
-                                                    />
-                                                )
-                                            }
-                                        >
-                                            {cities.map(city => (
-                                                <Select.Option key={city.id} value={city.id}>
-                                                    {city.name}
-                                                </Select.Option>
-                                            ))}
-                                        </Select>
-                                    </Col>
-                                    <Col xs={24} md={4}>
-                                        <Button 
-                                            type="primary" 
-                                            size="large" 
-                                            block
-                                            onClick={handleSearch}
-                                            icon={<SearchOutlined />}
-                                        >
-                                            Search
-                                        </Button>
-                                    </Col>
-                                </Row>
-                            </Card>
-                        </div>
-                    </div>
-                </div>
+            <PublicLayout auth={auth} title={pageTitle}>
+                <div className="bg-slate-50">
+                    <section id="hero" className="relative overflow-hidden bg-gradient-to-br from-sky-950 via-sky-900 to-cyan-800 text-white">
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.12),transparent_24%)]" />
+                        <div className="relative mx-auto grid max-w-7xl gap-10 px-4 py-16 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:py-24">
+                            <div>
+                                <div className="mb-5 flex flex-wrap gap-3 text-sm">
+                                    <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-cyan-100">
+                                        <SafetyCertificateOutlined /> Verified doctors
+                                    </span>
+                                    <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-cyan-100">
+                                        <HeartFilled /> Compassion-first care
+                                    </span>
+                                    <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-cyan-100">
+                                        <ThunderboltFilled /> Fast discovery
+                                    </span>
+                                </div>
 
-                {/* Statistics */}
-                <div className="py-12 bg-white">
-                    <div className="container mx-auto px-4">
-                        <Row gutter={24} justify="center">
-                            <Col xs={24} sm={8} md={6}>
-                                <Card>
-                                    <Statistic 
-                                        title="Verified Doctors" 
-                                        value={stats.total_doctors}
-                                        prefix={<UserOutlined />}
-                                    />
-                                </Card>
-                            </Col>
-                            <Col xs={24} sm={8} md={6}>
-                                <Card>
-                                    <Statistic 
-                                        title="Cities Covered" 
-                                        value={stats.total_cities}
-                                        prefix={<EnvironmentOutlined />}
-                                    />
-                                </Card>
-                            </Col>
-                            <Col xs={24} sm={8} md={6}>
-                                <Card>
-                                    <Statistic 
-                                        title="Specialties" 
-                                        value={stats.total_specialties}
-                                        prefix={<MedicineBoxOutlined />}
-                                    />
-                                </Card>
-                            </Col>
-                        </Row>
-                    </div>
-                </div>
+                                <h1 className="max-w-2xl text-4xl font-black leading-tight tracking-tight sm:text-5xl">
+                                    Excellence in <span className="text-cyan-300">Healthcare</span> with compassionate care.
+                                </h1>
 
-                {/* Specialties */}
-                <div className="py-12">
-                    <div className="container mx-auto px-4">
-                        <Title level={2} className="text-center mb-8">
-                            Browse by Specialty
-                        </Title>
-                        <Row gutter={[16, 16]}>
-                            {specialties.map(specialty => (
-                                <Col xs={12} sm={8} md={6} lg={4} key={specialty.id}>
-                                    <Link href={`/search?specialty=${specialty.id}`}>
-                                        <Card 
-                                            hoverable 
-                                            className="text-center"
-                                            bodyStyle={{ padding: '20px 10px' }}
-                                        >
-                                            {specialty.image_url ? (
-                                                <img 
-                                                    src={specialty.image_url} 
-                                                    alt={specialty.name}
-                                                    style={{ width: 48, height: 48, margin: '0 auto', objectFit: 'contain' }}
-                                                    onError={(e) => {
-                                                        e.target.style.display = 'none';
-                                                        e.target.nextElementSibling.style.display = 'block';
-                                                    }}
+                                <p className="mt-5 max-w-2xl text-base leading-7 text-sky-100 sm:text-lg">
+                                    Search trusted specialists, compare services, and discover quality medical support across your city—from clinic visits to in-home care.
+                                </p>
+
+                                <div className="mt-8 rounded-[28px] bg-white p-4 text-slate-900 shadow-2xl shadow-sky-950/20">
+                                    <div className="grid gap-3 md:grid-cols-[1.2fr_1fr_auto]">
+                                        <label className="rounded-2xl border border-slate-200 px-4 py-3">
+                                            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Doctor or specialty</span>
+                                            <div className="flex items-center gap-2">
+                                                <SearchOutlined className="text-sky-600" />
+                                                <input
+                                                    type="text"
+                                                    value={searchQuery}
+                                                    onChange={(event) => setSearchQuery(event.target.value)}
+                                                    onKeyDown={(event) => event.key === 'Enter' && handleSearch()}
+                                                    placeholder="Cardiologist, pediatrics, skin care..."
+                                                    className="w-full border-0 bg-transparent p-0 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
                                                 />
-                                            ) : null}
-                                            <div style={{ display: specialty.image_url ? 'none' : 'block' }}>
-                                                {specialty.icon ? (
-                                                    <span style={{ fontSize: 32 }}>{specialty.icon}</span>
-                                                ) : (
-                                                    <MedicineBoxOutlined style={{ fontSize: 32, color: '#1890ff' }} />
-                                                )}
                                             </div>
-                                            <div className="mt-2 font-medium">{specialty.name}</div>
-                                            <div className="text-gray-500 text-sm">{specialty.doctors_count} doctors</div>
-                                        </Card>
-                                    </Link>
-                                </Col>
-                            ))}
-                        </Row>
-                    </div>
-                </div>
+                                        </label>
 
-                {/* Home Services Booking */}
-                <div className="py-14">
-                    <div className="container mx-auto px-4">
-                        <div className="rounded-3xl overflow-hidden shadow-2xl border border-slate-200">
-                            <div className="bg-gradient-to-br from-teal-700 via-cyan-700 to-blue-700 text-white px-6 md:px-10 py-10 relative">
-                                <div className="absolute -top-10 -right-10 w-44 h-44 rounded-full bg-white/10" />
-                                <div className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-white/5" />
-
-                                <Row gutter={[24, 24]} align="middle">
-                                    <Col xs={24} lg={14}>
-                                        <div className="relative z-10">
-                                            <div className="inline-flex items-center gap-2 bg-white/15 px-3 py-1 rounded-full mb-3">
-                                                <HomeOutlined />
-                                                <span className="text-sm font-medium">Home Care Services</span>
+                                        <label className="rounded-2xl border border-slate-200 px-4 py-3">
+                                            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">City</span>
+                                            <div className="flex items-center gap-2">
+                                                <EnvironmentOutlined className="text-cyan-600" />
+                                                <input
+                                                    list="clinic-city-list"
+                                                    value={selectedCityName || ''}
+                                                    onChange={(event) => handleCityInput(event.target.value)}
+                                                    placeholder={detectingLocation ? 'Detecting your city...' : 'Enter or select a city'}
+                                                    className="w-full border-0 bg-transparent p-0 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+                                                />
                                             </div>
+                                        </label>
 
-                                            <Title level={2} className="!text-white !mb-3">
-                                                Book Day-Care and Diagnostics at Home
-                                            </Title>
-                                            <Paragraph className="!text-cyan-100 !text-base md:!text-lg !mb-6">
-                                                Schedule trusted at-home support like nursing visits, attendants, sample collection, and vitals checkups in minutes.
-                                            </Paragraph>
+                                        <button
+                                            type="button"
+                                            onClick={handleSearch}
+                                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-600 to-cyan-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-100 transition hover:from-sky-700 hover:to-cyan-600"
+                                        >
+                                            <SearchOutlined />
+                                            Search
+                                        </button>
+                                    </div>
 
-                                            <Row gutter={[12, 12]} className="mb-6">
-                                                <Col xs={24} sm={8}>
-                                                    <Card className="!bg-white/10 !border-white/20" bodyStyle={{ padding: 12 }}>
-                                                        <Statistic
-                                                            title={<span style={{ color: 'rgba(255,255,255,0.8)' }}>Active Services</span>}
-                                                            value={homeServicesStats?.services_count || 0}
-                                                            valueStyle={{ color: '#fff' }}
-                                                        />
-                                                    </Card>
-                                                </Col>
-                                                <Col xs={24} sm={8}>
-                                                    <Card className="!bg-white/10 !border-white/20" bodyStyle={{ padding: 12 }}>
-                                                        <Statistic
-                                                            title={<span style={{ color: 'rgba(255,255,255,0.8)' }}>Verified Providers</span>}
-                                                            value={homeServicesStats?.providers_count || 0}
-                                                            valueStyle={{ color: '#fff' }}
-                                                        />
-                                                    </Card>
-                                                </Col>
-                                                <Col xs={24} sm={8}>
-                                                    <Card className="!bg-white/10 !border-white/20" bodyStyle={{ padding: 12 }}>
-                                                        <Statistic
-                                                            title={<span style={{ color: 'rgba(255,255,255,0.8)' }}>Starting From</span>}
-                                                            prefix={<span style={{ color: '#fff' }}>INR</span>}
-                                                            value={homeServicesStats?.starting_price || 0}
-                                                            precision={0}
-                                                            valueStyle={{ color: '#fff' }}
-                                                        />
-                                                    </Card>
-                                                </Col>
-                                            </Row>
+                                    <datalist id="clinic-city-list">
+                                        {cities.map((city) => (
+                                            <option key={city.id} value={city.name} />
+                                        ))}
+                                    </datalist>
 
-                                            <div className="flex flex-wrap gap-3">
-                                                <Link href={homePrimaryHref}>
-                                                    <Button type="primary" size="large" className="!bg-white !text-cyan-800 !border-white hover:!bg-cyan-50">
-                                                        Book Home Service
-                                                    </Button>
-                                                </Link>
-                                                <Link href={homeSecondaryHref}>
-                                                    <Button size="large" className="!bg-transparent !text-white !border-white/60 hover:!border-white hover:!text-white">
-                                                        Explore Services
-                                                    </Button>
-                                                </Link>
-                                            </div>
-                                        </div>
-                                    </Col>
+                                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                                        <span>Search by doctor name, specialty, or city.</span>
+                                        <button
+                                            type="button"
+                                            onClick={detectUserLocation}
+                                            className="inline-flex items-center gap-1 font-semibold text-sky-700 hover:text-sky-900"
+                                        >
+                                            <AimOutlined spin={detectingLocation} />
+                                            {detectingLocation ? 'Detecting location...' : 'Use my current location'}
+                                        </button>
+                                    </div>
+                                </div>
 
-                                    <Col xs={24} lg={10}>
-                                        <div className="relative z-10">
-                                            <Card className="!bg-white !border-0" bodyStyle={{ padding: 18 }}>
-                                                <Title level={4} className="!mb-4">Popular Home Services</Title>
-                                                <div className="space-y-3">
-                                                    {(homeServices || []).slice(0, 4).map((service) => (
-                                                        <div key={service.id} className="flex items-center justify-between gap-3 border border-slate-200 rounded-xl px-3 py-2">
-                                                            <div>
-                                                                <div className="font-semibold text-slate-900">{service.name}</div>
-                                                                <div className="text-xs text-slate-500">
-                                                                    {service.category_name || 'Home Care'} · {service.providers_count || 0} providers
-                                                                </div>
-                                                            </div>
-                                                            <div className="text-right">
-                                                                <div className="text-cyan-700 font-bold">INR {service.base_price || 0}</div>
-                                                                <div className="text-xs text-slate-500 inline-flex items-center gap-1">
-                                                                    <ClockCircleOutlined />
-                                                                    {service.duration_minutes || 0} min
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
+                                <div className="mt-8 grid gap-3 sm:grid-cols-3">
+                                    <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-4 backdrop-blur-sm">
+                                        <div className="text-3xl font-bold">{stats.total_doctors || 0}+</div>
+                                        <div className="text-sm text-cyan-100">Verified doctors</div>
+                                    </div>
+                                    <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-4 backdrop-blur-sm">
+                                        <div className="text-3xl font-bold">{stats.total_cities || 0}+</div>
+                                        <div className="text-sm text-cyan-100">Cities covered</div>
+                                    </div>
+                                    <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-4 backdrop-blur-sm">
+                                        <div className="text-3xl font-bold">{stats.total_specialties || 0}+</div>
+                                        <div className="text-sm text-cyan-100">Care specialties</div>
+                                    </div>
+                                </div>
+                            </div>
 
-                                                <div className="mt-4 bg-slate-50 rounded-xl px-3 py-2 text-slate-600 text-sm flex items-center gap-2">
-                                                    <CheckCircleOutlined style={{ color: '#0891b2' }} />
-                                                    Secure scheduling with verified professionals.
-                                                </div>
-                                            </Card>
-                                        </div>
-                                    </Col>
-                                </Row>
+                            <div className="relative">
+                                <div className="overflow-hidden rounded-[32px] border border-white/15 bg-white/10 p-3 shadow-2xl backdrop-blur-sm">
+                                    <img
+                                        src="/clinic-assets/staff-10.webp"
+                                        alt="Modern healthcare facility"
+                                        className="h-[480px] w-full rounded-[24px] object-cover"
+                                    />
+                                </div>
+
+                                <div className="absolute -left-2 top-8 rounded-2xl bg-white px-4 py-3 text-slate-900 shadow-xl sm:-left-10">
+                                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Appointment Desk</div>
+                                    <div className="mt-1 text-lg font-bold">Open today · 9 AM - 8 PM</div>
+                                </div>
+
+                                <div className="absolute -bottom-3 right-0 rounded-2xl bg-slate-950/90 px-4 py-3 text-white shadow-xl sm:-right-6">
+                                    <div className="text-xs font-semibold uppercase tracking-wide text-cyan-200">Emergency help</div>
+                                    <a href="tel:+915551234567" className="mt-1 inline-flex items-center gap-2 text-sm font-semibold text-white">
+                                        <PhoneOutlined /> +91 55512 34567
+                                    </a>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </section>
 
-                {/* Featured Doctors */}
-                {featuredDoctors.length > 0 && (
-                    <div className="py-12 bg-white">
-                        <div className="container mx-auto px-4">
-                            <Title level={2} className="text-center mb-8">
-                                Featured Doctors
-                            </Title>
-                            <Row gutter={[16, 16]}>
-                                {featuredDoctors.map(doctor => (
-                                    <Col xs={24} sm={12} md={8} lg={6} key={doctor.id}>
-                                        <Card
-                                            hoverable
-                                            cover={
-                                                doctor.image ? (
-                                                    <img alt={doctor.name} src={doctor.image} className="h-48 object-cover" />
-                                                ) : (
-                                                    <div className="h-48 bg-gray-200 flex items-center justify-center">
-                                                        <UserOutlined style={{ fontSize: 48, color: '#ccc' }} />
-                                                    </div>
-                                                )
-                                            }
-                                        >
-                                            <Card.Meta
-                                                title={doctor.name}
-                                                description={
-                                                    <>
-                                                        <div className="text-blue-600 font-medium">{doctor.specialty}</div>
-                                                        <div className="text-gray-500 text-sm mt-1">{doctor.cities}</div>
-                                                        <div className="text-gray-600 text-sm mt-2">{doctor.bio}</div>
-                                                    </>
-                                                }
-                                            />
-                                            <Link href={`/doctors/${doctor.slug}`}>
-                                                <Button type="primary" block className="mt-4">
-                                                    View Profile
-                                                </Button>
-                                            </Link>
-                                        </Card>
-                                    </Col>
-                                ))}
-                            </Row>
-                        </div>
-                    </div>
-                )}
+                    <section id="home-about" className="py-16 lg:py-20">
+                        <div className="mx-auto grid max-w-7xl gap-10 px-4 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+                            <div className="relative">
+                                <img
+                                    src="/clinic-assets/facilities-9.webp"
+                                    alt="Modern medical facility"
+                                    className="h-full min-h-[360px] w-full rounded-[30px] object-cover shadow-xl"
+                                />
+                                <div className="absolute bottom-6 left-6 rounded-2xl bg-white px-4 py-3 shadow-lg">
+                                    <div className="text-sm font-semibold text-sky-700">20+ years of care excellence</div>
+                                    <div className="text-xs text-slate-500">Trusted by patients and providers</div>
+                                </div>
+                            </div>
 
-                {/* Cities */}
-                <div className="py-12">
-                    <div className="container mx-auto px-4">
-                        <Title level={2} className="text-center mb-8">
-                            Find Doctors by City
-                        </Title>
-                        
-                        {/* Map View */}
-                        <div className="mb-8">
-                            <IndiaMap cities={cities} />
-                        </div>
+                            <div>
+                                <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-sm font-semibold text-sky-700">
+                                    <HeartFilled /> Compassionate Care, Advanced Medicine
+                                </span>
+                                <h2 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
+                                    A modern care experience built around patient trust.
+                                </h2>
+                                <p className="mt-4 text-base leading-7 text-slate-600">
+                                    We bring together doctors, clinics, and home-care professionals on one platform so patients can discover the right care faster—without the usual friction.
+                                </p>
+                                <p className="mt-3 text-base leading-7 text-slate-600">
+                                    From specialist discovery to reliable home services, Hello Doctors combines verified data, local reach, and friendly design for a stronger healthcare journey.
+                                </p>
 
-                        {/* Grid View */}
-                        <Row gutter={[16, 16]}>
-                            {cities.map(city => (
-                                <Col xs={12} sm={8} md={6} key={city.id}>
-                                    <Link href={`/search?city_name=${city.name}`}>
-                                        <Card hoverable className="text-center">
-                                            <EnvironmentOutlined style={{ fontSize: 32, color: '#52c41a' }} />
-                                            <div className="mt-2 font-medium">{city.name}</div>
-                                            <div className="text-gray-500 text-sm">{city.doctors_count} doctors</div>
-                                        </Card>
+                                <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                                        <div className="text-2xl font-bold text-sky-700">{stats.total_doctors || 0}+</div>
+                                        <div className="text-sm text-slate-500">Active doctors</div>
+                                    </div>
+                                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                                        <div className="text-2xl font-bold text-sky-700">{stats.total_cities || 0}+</div>
+                                        <div className="text-sm text-slate-500">Reachable cities</div>
+                                    </div>
+                                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                                        <div className="text-2xl font-bold text-sky-700">{homeServicesStats?.services_count || 0}+</div>
+                                        <div className="text-sm text-slate-500">Home services</div>
+                                    </div>
+                                </div>
+
+                                <div className="mt-7">
+                                    <Link href="/about" className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700">
+                                        Learn more about us
+                                        <ArrowRightOutlined />
                                     </Link>
-                                </Col>
-                            ))}
-                        </Row>
-                    </div>
-                </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
 
-                {/* CTA Section */}
-                <div className="bg-blue-600 text-white py-16">
-                    <div className="container mx-auto px-4 text-center">
-                        <Title level={2} className="text-white mb-4">
-                            Are you a doctor?
-                        </Title>
-                        <Paragraph className="text-xl text-blue-100 mb-6">
-                            Join our network and connect with patients across multiple cities
-                        </Paragraph>
-                        <Link href="/register-doctor">
-                            <Button type="default" size="large">
-                                Register as Doctor
-                            </Button>
-                        </Link>
-                    </div>
-                </div>
+                    <section id="featured-departments" className="bg-white py-16 lg:py-20">
+                        <div className="mx-auto max-w-7xl px-4">
+                            <div className="mx-auto max-w-2xl text-center">
+                                <span className="inline-flex rounded-full bg-cyan-50 px-3 py-1 text-sm font-semibold text-cyan-700">Featured Departments</span>
+                                <h2 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">Explore care across top specialties.</h2>
+                                <p className="mt-3 text-slate-600">
+                                    Browse high-demand medical departments and connect with verified doctors in your city.
+                                </p>
+                            </div>
 
-                {/* Footer */}
-                <Footer />
-            </div>
+                            <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                                {displayedSpecialties.map((specialty, index) => (
+                                    <article key={specialty.id} className="overflow-hidden rounded-[28px] border border-slate-200 bg-slate-50 shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+                                        <img
+                                            src={specialty.image_url || specialtyFallbackImages[index % specialtyFallbackImages.length]}
+                                            alt={specialty.name}
+                                            className="h-52 w-full object-cover"
+                                        />
+                                        <div className="p-5">
+                                            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-sky-700 shadow-sm">
+                                                <MedicineBoxOutlined />
+                                                {specialty.doctors_count || 0} doctors available
+                                            </div>
+                                            <h3 className="text-xl font-bold text-slate-900">{specialty.name}</h3>
+                                            <p className="mt-2 text-sm leading-6 text-slate-600">
+                                                Verified consultations, local availability, and easier discovery for {specialty.name.toLowerCase()} care.
+                                            </p>
+                                            <ul className="mt-4 space-y-2 text-sm text-slate-600">
+                                                <li className="flex items-center gap-2"><CheckCircleOutlined className="text-cyan-600" /> Specialist consultations</li>
+                                                <li className="flex items-center gap-2"><CheckCircleOutlined className="text-cyan-600" /> Verified profiles</li>
+                                                <li className="flex items-center gap-2"><CheckCircleOutlined className="text-cyan-600" /> Easy city-based search</li>
+                                            </ul>
+                                            <Link href={`/search?specialty=${specialty.id}`} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-sky-700 hover:text-sky-900">
+                                                Explore doctors <ArrowRightOutlined />
+                                            </Link>
+                                        </div>
+                                    </article>
+                                ))}
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="featured-services" className="py-16 lg:py-20">
+                        <div className="mx-auto max-w-7xl px-4">
+                            <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
+                                <div className="overflow-hidden rounded-[32px] bg-gradient-to-br from-sky-900 via-sky-800 to-cyan-700 text-white shadow-2xl">
+                                    <img
+                                        src="/clinic-assets/consultation-4.webp"
+                                        alt="Healthcare consultation"
+                                        className="h-72 w-full object-cover opacity-80"
+                                    />
+                                    <div className="p-6 sm:p-8">
+                                        <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-cyan-100">
+                                            <HomeOutlined /> Featured Services
+                                        </span>
+                                        <h2 className="mt-4 text-3xl font-black tracking-tight">Comprehensive healthcare support, online and at home.</h2>
+                                        <p className="mt-3 max-w-2xl text-sm leading-7 text-sky-100 sm:text-base">
+                                            From doctor discovery to diagnostics and on-demand support, the platform helps patients take the next step with confidence.
+                                        </p>
+                                        <div className="mt-6 flex flex-wrap gap-3">
+                                            <Link href={homePrimaryHref} className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-sky-800 transition hover:bg-sky-50">
+                                                Book a service
+                                            </Link>
+                                            <Link href="/search" className="rounded-full border border-white/30 px-5 py-3 text-sm font-semibold text-white transition hover:border-white">
+                                                Explore doctors
+                                            </Link>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    {displayedServices.map((service) => (
+                                        <div key={service.id} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div>
+                                                    <div className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">
+                                                        {service.category_name || 'Healthcare service'}
+                                                    </div>
+                                                    <h3 className="mt-2 text-lg font-bold text-slate-900">{service.name}</h3>
+                                                </div>
+                                                <div className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
+                                                    ₹{formatPrice(service.base_price)}
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate-600">
+                                                <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1">
+                                                    <ClockCircleOutlined /> {service.duration_minutes || 0} min
+                                                </span>
+                                                <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1">
+                                                    <UserOutlined /> {service.providers_count || 0} providers
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    <div className="rounded-[24px] border border-dashed border-cyan-200 bg-cyan-50 p-5 text-sm text-cyan-900">
+                                        <div className="font-semibold">Need support beyond clinic hours?</div>
+                                        <p className="mt-2 leading-6 text-cyan-800">
+                                            Use Hello Doctors to discover home visits, nursing support, and follow-up care with verified providers.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="find-a-doctor" className="bg-slate-950 py-16 text-white lg:py-20">
+                        <div className="mx-auto max-w-7xl px-4">
+                            <div className="mx-auto max-w-2xl text-center">
+                                <span className="inline-flex rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-cyan-200">Find A Doctor</span>
+                                <h2 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">Meet experienced professionals across specialties.</h2>
+                                <p className="mt-3 text-slate-300">
+                                    Browse featured doctors and jump straight to their profile details.
+                                </p>
+                            </div>
+
+                            <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                                {displayedDoctors.map((doctor, index) => (
+                                    <article key={doctor.id} className="rounded-[28px] border border-white/10 bg-white/5 p-5 backdrop-blur-sm transition hover:border-cyan-400/50 hover:bg-white/10">
+                                        <div className="flex items-center gap-4">
+                                            <img
+                                                src={doctor.image || `/clinic-assets/staff-${(index % 6) + 1}.webp`}
+                                                alt={doctor.name}
+                                                className="h-20 w-20 rounded-2xl object-cover"
+                                            />
+                                            <div>
+                                                <h3 className="text-lg font-bold">{doctor.name}</h3>
+                                                <p className="text-sm text-cyan-200">{doctor.specialty}</p>
+                                                <p className="mt-1 text-xs text-slate-300">{doctor.cities}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-4 flex items-center justify-between text-sm">
+                                            <span className="rounded-full bg-emerald-500/15 px-3 py-1 font-semibold text-emerald-300">Available</span>
+                                            <span className="font-semibold text-amber-300">★ {doctorRatings[index % doctorRatings.length]}</span>
+                                        </div>
+
+                                        <p className="mt-4 text-sm leading-6 text-slate-300">{doctor.bio}</p>
+
+                                        <div className="mt-5 flex gap-3">
+                                            <Link href={`/doctors/${doctor.slug}`} className="inline-flex flex-1 items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-cyan-50">
+                                                View details
+                                            </Link>
+                                            <Link href="/contact" className="inline-flex flex-1 items-center justify-center rounded-full border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-cyan-300">
+                                                Contact
+                                            </Link>
+                                        </div>
+                                    </article>
+                                ))}
+                            </div>
+
+                            <div className="mt-8 text-center">
+                                <Link href="/search" className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-sky-600 to-cyan-500 px-6 py-3 text-sm font-semibold text-white transition hover:from-sky-700 hover:to-cyan-600">
+                                    View all doctors
+                                    <ArrowRightOutlined />
+                                </Link>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="call-to-action" className="py-16 lg:py-20">
+                        <div className="mx-auto max-w-7xl px-4">
+                            <div className="grid gap-8 overflow-hidden rounded-[32px] bg-white shadow-2xl lg:grid-cols-[1fr_0.9fr] lg:items-center">
+                                <div className="p-6 sm:p-8 lg:p-10">
+                                    <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-sm font-semibold text-sky-700">
+                                        <PhoneOutlined /> Need immediate medical assistance?
+                                    </span>
+                                    <h2 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
+                                        Care discovery for patients, and growth opportunities for doctors.
+                                    </h2>
+                                    <p className="mt-4 text-base leading-7 text-slate-600">
+                                        Whether you need a consultation or want to join the platform as a provider, Hello Doctors helps you move forward with clarity and confidence.
+                                    </p>
+
+                                    <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                                        <div className="rounded-2xl bg-slate-50 p-4">
+                                            <div className="text-xl font-bold text-sky-700">24/7</div>
+                                            <div className="text-sm text-slate-500">Support ready</div>
+                                        </div>
+                                        <div className="rounded-2xl bg-slate-50 p-4">
+                                            <div className="text-xl font-bold text-sky-700">{homeServicesStats?.providers_count || 0}+</div>
+                                            <div className="text-sm text-slate-500">Verified providers</div>
+                                        </div>
+                                        <div className="rounded-2xl bg-slate-50 p-4">
+                                            <div className="text-xl font-bold text-sky-700">{stats.total_specialties || 0}+</div>
+                                            <div className="text-sm text-slate-500">Medical fields</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-7 flex flex-wrap gap-3">
+                                        <Link href="/search" className="rounded-full bg-gradient-to-r from-sky-600 to-cyan-500 px-5 py-3 text-sm font-semibold text-white transition hover:from-sky-700 hover:to-cyan-600">
+                                            Find a doctor
+                                        </Link>
+                                        <Link href="/register-doctor" className="rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-sky-300 hover:text-sky-700">
+                                            Join as doctor
+                                        </Link>
+                                    </div>
+                                </div>
+
+                                <div className="h-full">
+                                    <img
+                                        src="/clinic-assets/facilities-6.webp"
+                                        alt="Medical excellence"
+                                        className="h-full min-h-[320px] w-full object-cover"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </PublicLayout>
         </>
     );
 }
