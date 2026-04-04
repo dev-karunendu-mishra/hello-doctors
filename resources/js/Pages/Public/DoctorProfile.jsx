@@ -1,6 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
-import { Card, Row, Col, Typography, Descriptions, Tag, Avatar, Divider, Button, Empty, Form, Input, Modal, Radio, Select, Space, message } from 'antd';
+import { Alert, Card, Row, Col, Typography, Descriptions, Tag, Avatar, Divider, Button, Empty, Form, Input, Modal, Radio, Select, Space, message } from 'antd';
 import { UserOutlined, PhoneOutlined, MailOutlined, GlobalOutlined, EnvironmentOutlined, MedicineBoxOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import PublicLayout from '@/Layouts/PublicLayout';
 
@@ -691,13 +691,30 @@ export default function DoctorProfile({ auth, doctor }) {
                                     <Form.Item label="Payment Method" name="payment_method">
                                         <Radio.Group>
                                             <Space direction="vertical">
-                                                <Radio value="online">Pay Online</Radio>
+                                                <Radio value="online">Pay Online ({ONLINE_DISCOUNT_PERCENT}% off)</Radio>
                                                 <Radio value="cod">Pay at Clinic</Radio>
                                             </Space>
                                         </Radio.Group>
                                     </Form.Item>
                                 </Col>
                             </Row>
+
+                            <Alert
+                                type={selectedPaymentMethod === 'online' ? 'success' : 'warning'}
+                                showIcon
+                                style={{ marginBottom: 12 }}
+                                message={selectedPaymentMethod === 'online'
+                                    ? `You save ₹${pricing.discountAmount.toFixed(2)} with online payment.`
+                                    : 'No discount is applied for pay-at-clinic bookings.'}
+                            />
+
+                            <Alert
+                                type="info"
+                                showIcon
+                                style={{ marginBottom: 12 }}
+                                message="Refund Policy"
+                                description="For online payments only: cancel more than 1 hour before the appointment to get a 90% refund; within 1 hour, you get an 80% refund. No refund applies for pay-at-clinic bookings or after the visit time."
+                            />
 
                             <Form.Item label="Reason for Visit" name="reason_for_visit">
                                 <Input.TextArea rows={3} placeholder="Describe symptoms or consultation reason" />

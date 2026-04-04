@@ -1,6 +1,6 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Empty, Form, Input, Modal, Radio, Select, Space, message } from 'antd';
+import { Alert, Button, Empty, Form, Input, Modal, Radio, Select, Space, message } from 'antd';
 import PublicLayout from '@/Layouts/PublicLayout';
 
 const fallbackServiceDetails = [
@@ -636,11 +636,28 @@ export default function ServiceDetails({ auth, service }) {
                                     <Form.Item label="Payment Method" name="payment_method">
                                         <Radio.Group>
                                             <Space direction="vertical">
-                                                <Radio value="online">Pay Online</Radio>
+                                                <Radio value="online">Pay Online ({ONLINE_DISCOUNT_PERCENT}% off)</Radio>
                                                 <Radio value="cod">Pay on Visit</Radio>
                                             </Space>
                                         </Radio.Group>
                                     </Form.Item>
+
+                                    <Alert
+                                        type={selectedPaymentMethod === 'online' ? 'success' : 'warning'}
+                                        showIcon
+                                        style={{ marginBottom: 12 }}
+                                        message={selectedPaymentMethod === 'online'
+                                            ? `Online payment saves ₹${pricing.discountAmount.toFixed(2)} on this booking.`
+                                            : 'No discount is applied for C.O.D. / pay-on-visit bookings.'}
+                                    />
+
+                                    <Alert
+                                        type="info"
+                                        showIcon
+                                        style={{ marginBottom: 12 }}
+                                        message="Refund Policy"
+                                        description="For online payments only: cancel more than 1 hour before the booked time to get a 90% refund; within 1 hour, you get an 80% refund. No refund applies for C.O.D. / pay-on-visit bookings or after the service time."
+                                    />
 
                                     <Form.Item label="Special Instructions" name="special_instructions">
                                         <Input.TextArea rows={3} placeholder="Add any special instructions for the provider" />
