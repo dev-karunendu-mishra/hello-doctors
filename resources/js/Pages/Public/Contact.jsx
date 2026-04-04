@@ -1,7 +1,17 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import PublicLayout from '@/Layouts/PublicLayout';
 
 export default function Contact({ auth, flash }) {
+    const { site = {} } = usePage().props;
+    const contact = site?.contact || {};
+    const primaryEmail = contact?.email || 'support@hellodoctors.in';
+    const secondaryEmail = contact?.secondary_email || 'contact@hellodoctors.in';
+    const phone = contact?.phone || '+91 (555) 123-4567';
+    const address = contact?.address || 'Healthcare Network, Uttar Pradesh, India';
+    const weekdayHours = contact?.hours_weekdays || 'Monday-Friday: 9 AM - 6 PM';
+    const weekendHours = contact?.hours_weekend || 'Saturday: 9 AM - 4 PM';
+    const mapEmbedUrl = contact?.map_embed_url || 'https://www.google.com/maps?q=Prayagraj%2C%20Uttar%20Pradesh&z=10&output=embed';
+
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         email: '',
@@ -57,7 +67,7 @@ export default function Contact({ auth, flash }) {
                                         </div>
                                         <div className="info-content">
                                             <h3>Our Address</h3>
-                                            <p>Healthcare Network, Uttar Pradesh, India</p>
+                                            <p style={{ whiteSpace: 'pre-line' }}>{address}</p>
                                         </div>
                                     </div>
 
@@ -67,8 +77,8 @@ export default function Contact({ auth, flash }) {
                                         </div>
                                         <div className="info-content">
                                             <h3>Email Address</h3>
-                                            <p>support@hellodoctors.in</p>
-                                            <p>contact@hellodoctors.in</p>
+                                            <p>{primaryEmail}</p>
+                                            <p>{secondaryEmail}</p>
                                         </div>
                                     </div>
 
@@ -78,8 +88,9 @@ export default function Contact({ auth, flash }) {
                                         </div>
                                         <div className="info-content">
                                             <h3>Hours of Operation</h3>
-                                            <p>Monday-Saturday: 9 AM - 7 PM</p>
-                                            <p>Support Helpline: +91 (555) 123-4567</p>
+                                            <p>{weekdayHours}</p>
+                                            <p>{weekendHours}</p>
+                                            <p>Support Helpline: {phone}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -165,7 +176,7 @@ export default function Contact({ auth, flash }) {
                     <div className="container-fluid map-container" data-aos="fade-up" data-aos-delay="200">
                         <div className="map-overlay" />
                         <iframe
-                            src="https://www.google.com/maps?q=Prayagraj%2C%20Uttar%20Pradesh&z=10&output=embed"
+                            src={mapEmbedUrl}
                             width="100%"
                             height="500"
                             style={{ border: 0 }}

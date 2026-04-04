@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useForm } from '@inertiajs/react';
-import { Card, Tabs, Form, Input, Button, Upload, ColorPicker, message, Space } from 'antd';
+import { Card, Tabs, Form, Input, Button, Upload, message } from 'antd';
 import { UploadOutlined, SaveOutlined } from '@ant-design/icons';
 import AdminLayout from '@/Layouts/AdminLayout';
 
@@ -258,7 +258,7 @@ export default function SiteCustomization({ settings }) {
 
                         <TabPane tab="Contact & Social" key="contact">
                             <Form layout="vertical">
-                                <Form.Item label="Contact Email">
+                                <Form.Item label="Primary Contact Email">
                                     <Input
                                         size="large"
                                         type="email"
@@ -267,6 +267,20 @@ export default function SiteCustomization({ settings }) {
                                             contactForm.setData('settings', {
                                                 ...contactForm.data.settings,
                                                 contact_email: e.target.value,
+                                            })
+                                        }
+                                    />
+                                </Form.Item>
+
+                                <Form.Item label="Secondary Contact Email">
+                                    <Input
+                                        size="large"
+                                        type="email"
+                                        value={contactForm.data.settings.contact_secondary_email}
+                                        onChange={(e) =>
+                                            contactForm.setData('settings', {
+                                                ...contactForm.data.settings,
+                                                contact_secondary_email: e.target.value,
                                             })
                                         }
                                     />
@@ -293,6 +307,45 @@ export default function SiteCustomization({ settings }) {
                                             contactForm.setData('settings', {
                                                 ...contactForm.data.settings,
                                                 contact_address: e.target.value,
+                                            })
+                                        }
+                                    />
+                                </Form.Item>
+
+                                <Form.Item label="Weekday Hours">
+                                    <Input
+                                        size="large"
+                                        value={contactForm.data.settings.contact_hours_weekdays}
+                                        onChange={(e) =>
+                                            contactForm.setData('settings', {
+                                                ...contactForm.data.settings,
+                                                contact_hours_weekdays: e.target.value,
+                                            })
+                                        }
+                                    />
+                                </Form.Item>
+
+                                <Form.Item label="Weekend / Secondary Hours">
+                                    <Input
+                                        size="large"
+                                        value={contactForm.data.settings.contact_hours_weekend}
+                                        onChange={(e) =>
+                                            contactForm.setData('settings', {
+                                                ...contactForm.data.settings,
+                                                contact_hours_weekend: e.target.value,
+                                            })
+                                        }
+                                    />
+                                </Form.Item>
+
+                                <Form.Item label="Map Embed URL">
+                                    <Input
+                                        size="large"
+                                        value={contactForm.data.settings.map_embed_url}
+                                        onChange={(e) =>
+                                            contactForm.setData('settings', {
+                                                ...contactForm.data.settings,
+                                                map_embed_url: e.target.value,
                                             })
                                         }
                                     />

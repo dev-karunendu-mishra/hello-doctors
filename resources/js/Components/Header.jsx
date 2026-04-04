@@ -1,10 +1,15 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
 export default function Header({ auth }) {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [morePagesOpen, setMorePagesOpen] = useState(false);
+    const { site = {} } = usePage().props;
+    const contact = site?.contact || {};
     const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
+    const siteName = site?.name || 'Hello Doctors';
+    const primaryEmail = contact?.email || 'support@hellodoctors.in';
+    const primaryPhone = contact?.phone || '+91 (555) 123-4567';
 
     const isActive = (href) => {
         if (href === '/') {
@@ -28,18 +33,18 @@ export default function Header({ auth }) {
                 <div className="container d-flex justify-content-center justify-content-md-between">
                     <div className="contact-info d-flex align-items-center">
                         <i className="bi bi-envelope d-flex align-items-center">
-                            <a href="mailto:support@hellodoctors.in">support@hellodoctors.in</a>
+                            <a href={`mailto:${primaryEmail}`}>{primaryEmail}</a>
                         </i>
                         <i className="bi bi-phone d-flex align-items-center ms-4">
-                            <span>+91 55512 34567</span>
+                            <span>{primaryPhone}</span>
                         </i>
                     </div>
 
                     <div className="social-links d-none d-md-flex align-items-center">
-                        <a href="#!" className="twitter" aria-label="Twitter"><i className="bi bi-twitter-x" /></a>
-                        <a href="#!" className="facebook" aria-label="Facebook"><i className="bi bi-facebook" /></a>
-                        <a href="#!" className="instagram" aria-label="Instagram"><i className="bi bi-instagram" /></a>
-                        <a href="#!" className="linkedin" aria-label="LinkedIn"><i className="bi bi-linkedin" /></a>
+                        <a href={contact?.twitter_url || '#!'} className="twitter" aria-label="Twitter" target='_blank'><i className="bi bi-twitter-x" /></a>
+                        <a href={contact?.facebook_url || '#!'} className="facebook" aria-label="Facebook" target='_blank'><i className="bi bi-facebook" /></a>
+                        <a href={contact?.instagram_url || '#!'} className="instagram" aria-label="Instagram" target='_blank'><i className="bi bi-instagram" /></a>
+                        <a href={contact?.linkedin_url || '#!'} className="linkedin" aria-label="LinkedIn" target='_blank'><i className="bi bi-linkedin" /></a>
                     </div>
                 </div>
             </div>
@@ -47,7 +52,7 @@ export default function Header({ auth }) {
             <div className="branding d-flex align-items-center">
                 <div className="container position-relative d-flex align-items-center justify-content-between">
                     <Link href="/" className="logo d-flex align-items-center" onClick={closeMenus}>
-                        <h1 className="sitename">Hello Doctors</h1>
+                        <h1 className="sitename">{siteName}</h1>
                     </Link>
 
                     <nav id="navmenu" className="navmenu">

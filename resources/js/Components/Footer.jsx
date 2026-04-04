@@ -1,6 +1,11 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 
 export default function Footer() {
+    const { site = {} } = usePage().props;
+    const contact = site?.contact || {};
+    const siteName = site?.name || 'Hello Doctors';
+    const siteDescription = site?.description || 'Compassionate healthcare discovery for patients, providers, and families—designed to make finding the right care feel faster and more trustworthy.';
+
     return (
         <footer id="footer" className="footer-16 footer position-relative">
             <div className="container">
@@ -9,24 +14,24 @@ export default function Footer() {
                         <div className="col-lg-5">
                             <div className="brand-section">
                                 <Link href="/" className="logo d-flex align-items-center mb-4">
-                                    <span className="sitename">Hello Doctors</span>
+                                    <span className="sitename">{siteName}</span>
                                 </Link>
                                 <p className="brand-description">
-                                    Compassionate healthcare discovery for patients, providers, and families—designed to make finding the right care feel faster and more trustworthy.
+                                    {siteDescription}
                                 </p>
 
                                 <div className="contact-info mt-5">
                                     <div className="contact-item">
                                         <i className="bi bi-geo-alt" />
-                                        <span>Healthcare Network, Uttar Pradesh, India</span>
+                                        <span style={{ whiteSpace: 'pre-line' }}>{contact?.address || 'Healthcare Network, Uttar Pradesh, India'}</span>
                                     </div>
                                     <div className="contact-item">
                                         <i className="bi bi-telephone" />
-                                        <span>+91 (555) 123-4567</span>
+                                        <span>{contact?.phone || '+91 (555) 123-4567'}</span>
                                     </div>
                                     <div className="contact-item">
                                         <i className="bi bi-envelope" />
-                                        <span>support@hellodoctors.in</span>
+                                        <span>{contact?.email || 'support@hellodoctors.in'}</span>
                                     </div>
                                 </div>
                             </div>
@@ -109,7 +114,7 @@ export default function Footer() {
                                     <Link href="/terms">Terms of Service</Link>
                                     <a href="#!">Cookie Policy</a>
                                     <div className="credits">
-                                        Designed for modern healthcare discovery.
+                                         Designed by <a href="https://devfoxx.com/">DevFoxx Labs</a>.
                                     </div>
                                 </div>
                             </div>
