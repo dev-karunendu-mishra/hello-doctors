@@ -113,7 +113,7 @@ function MapComponent({ cities }) {
                                         {city.doctors_count} Doctors
                                     </p>
                                     <a
-                                        href={`/search?city_name=${city.name}`}
+                                        href={`/doctors?city_name=${city.name}`}
                                         style={{
                                             display: 'inline-block',
                                             marginTop: '8px',

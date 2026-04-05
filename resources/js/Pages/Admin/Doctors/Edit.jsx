@@ -28,6 +28,32 @@ const createDefaultSchedule = (dayOfWeek) => ({
     is_available: false,
 });
 
+const TIME_FIELDS = new Set(['opening_time', 'closing_time', 'break_start_time', 'break_end_time']);
+
+const normalizeTimeValue = (value) => {
+    if (value === null || value === undefined || value === '') {
+        return '';
+    }
+
+    const raw = String(value).trim();
+    const directMatch = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+    if (directMatch) {
+        return `${String(directMatch[1]).padStart(2, '0')}:${directMatch[2]}`;
+    }
+
+    const meridiemMatch = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp][Mm])$/);
+    if (meridiemMatch) {
+        let hours = Number(meridiemMatch[1]) % 12;
+        if (meridiemMatch[3].toUpperCase() === 'PM') {
+            hours += 12;
+        }
+
+        return `${String(hours).padStart(2, '0')}:${meridiemMatch[2]}`;
+    }
+
+    return raw;
+};
+
 const normalizeClinicSchedules = (clinic) => {
     const existingByDay = new Map((clinic.schedules || []).map((schedule) => [schedule.day_of_week, schedule]));
 
@@ -40,10 +66,10 @@ const normalizeClinicSchedules = (clinic) => {
 
         return {
             day_of_week: day.value,
-            opening_time: existing.opening_time || '09:00',
-            closing_time: existing.closing_time || '17:00',
-            break_start_time: existing.break_start_time || '',
-            break_end_time: existing.break_end_time || '',
+            opening_time: normalizeTimeValue(existing.opening_time) || '09:00',
+            closing_time: normalizeTimeValue(existing.closing_time) || '17:00',
+            break_start_time: normalizeTimeValue(existing.break_start_time),
+            break_end_time: normalizeTimeValue(existing.break_end_time),
             slot_duration_minutes: existing.slot_duration_minutes || 30,
             max_appointments_per_slot: existing.max_appointments_per_slot || 1,
             is_available: !!existing.is_available,
@@ -129,6 +155,8 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
     };
 
     const updateClinicScheduleField = (clinicIndex, dayOfWeek, field, value) => {
+        const normalizedValue = TIME_FIELDS.has(field) ? normalizeTimeValue(value) : value;
+
         setData('clinics', (data.clinics || []).map((clinic, index) => {
             if (index !== clinicIndex) return clinic;
 
@@ -137,7 +165,7 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
 
                 const nextSchedule = {
                     ...schedule,
-                    [field]: value,
+                    [field]: normalizedValue,
                 };
 
                 if (field === 'is_available' && value === false) {

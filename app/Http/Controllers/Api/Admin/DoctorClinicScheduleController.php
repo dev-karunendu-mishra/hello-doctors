@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\DoctorHospitalClinic;
 use App\Models\DoctorScheduleSlot;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +27,10 @@ class DoctorClinicScheduleController extends Controller
     {
         $doctorProfile = $this->resolveDoctorProfile($doctor);
         $this->ensureClinicBelongsToDoctor($clinic, $doctorProfile->id);
+
+        $request->merge([
+            'schedules' => $this->normalizeSchedulePayload($request->input('schedules', [])),
+        ]);
 
         $validated = $request->validate([
             'schedules' => ['required', 'array', 'min:1'],
@@ -72,6 +77,8 @@ class DoctorClinicScheduleController extends Controller
         $doctorProfile = $this->resolveDoctorProfile($doctor);
         $this->ensureClinicBelongsToDoctor($clinic, $doctorProfile->id);
         abort_if($day < 0 || $day > 6, 422, 'Invalid day value.');
+
+        $request->merge($this->normalizeSingleSchedulePayload($request->all()));
 
         $validated = $request->validate([
             'opening_time' => ['nullable', 'date_format:H:i'],
@@ -121,6 +128,43 @@ class DoctorClinicScheduleController extends Controller
         return response()->json([
             'message' => 'Day schedule deleted successfully.',
         ]);
+    }
+
+    private function normalizeSchedulePayload(array $schedules): array
+    {
+        return array_map(fn($schedule) => $this->normalizeSingleSchedulePayload($schedule), $schedules);
+    }
+
+    private function normalizeSingleSchedulePayload(array $schedule): array
+    {
+        foreach (['opening_time', 'closing_time', 'break_start_time', 'break_end_time'] as $field) {
+            $schedule[$field] = $this->normalizeTimeValue($schedule[$field] ?? null);
+        }
+
+        return $schedule;
+    }
+
+    private function normalizeTimeValue($value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        if ($value === '') {
+            return null;
+        }
+
+        foreach (['H:i', 'H:i:s', 'g:i A', 'g:iA', 'h:i A', 'h:iA'] as $format) {
+            try {
+                return Carbon::createFromFormat($format, strtoupper($value))->format('H:i');
+            } catch (\Throwable $e) {
+                // Try next supported format.
+            }
+        }
+
+        return $value;
     }
 
     private function validateSchedulePayload(array $schedules): void

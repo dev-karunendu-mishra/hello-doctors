@@ -88,6 +88,8 @@ class SearchController extends Controller
                 'id' => $doctor->id,
                 'slug' => $doctor->slug,
                 'name' => $doctor->user->name,
+                'email' => $doctor->user->email,
+                'phone' => $doctor->user->phone,
                 'specialty' => $doctor->specialty?->name,
                 'specialty_id' => $doctor->specialty?->id,
                 'image' => $doctor->profile_image_url,
