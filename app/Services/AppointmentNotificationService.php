@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Models\Appointment;
+use App\Models\SiteSetting;
 use App\Notifications\AppointmentBookedNotification;
 use App\Notifications\AppointmentCancelledNotification;
 use App\Notifications\AppointmentCompletedNotification;
+use Illuminate\Notifications\Notification;
 
 class AppointmentNotificationService
 {
@@ -21,7 +23,7 @@ class AppointmentNotificationService
         $doctorUser = $appointment->doctorHospitalClinic?->doctorProfile?->user;
 
         if ($patient) {
-            $patient->notify(new AppointmentBookedNotification($appointment));
+            $this->sendEmailNotification($patient, new AppointmentBookedNotification($appointment));
             $this->sms->send($patient->phone, sprintf(
                 'Appointment %s booked for %s %s.',
                 $appointment->appointment_number,
@@ -31,7 +33,7 @@ class AppointmentNotificationService
         }
 
         if ($doctorUser) {
-            $doctorUser->notify(new AppointmentBookedNotification($appointment));
+            $this->sendEmailNotification($doctorUser, new AppointmentBookedNotification($appointment));
             $this->sms->send($doctorUser->phone, sprintf(
                 'New appointment %s booked.',
                 $appointment->appointment_number
@@ -47,7 +49,7 @@ class AppointmentNotificationService
         $doctorUser = $appointment->doctorHospitalClinic?->doctorProfile?->user;
 
         if ($patient) {
-            $patient->notify(new AppointmentCancelledNotification($appointment, $reason, $actor));
+            $this->sendEmailNotification($patient, new AppointmentCancelledNotification($appointment, $reason, $actor));
             $this->sms->send($patient->phone, sprintf(
                 'Appointment %s cancelled.',
                 $appointment->appointment_number
@@ -55,7 +57,7 @@ class AppointmentNotificationService
         }
 
         if ($doctorUser) {
-            $doctorUser->notify(new AppointmentCancelledNotification($appointment, $reason, $actor));
+            $this->sendEmailNotification($doctorUser, new AppointmentCancelledNotification($appointment, $reason, $actor));
             $this->sms->send($doctorUser->phone, sprintf(
                 'Appointment %s cancelled.',
                 $appointment->appointment_number
@@ -71,7 +73,7 @@ class AppointmentNotificationService
         $doctorUser = $appointment->doctorHospitalClinic?->doctorProfile?->user;
 
         if ($patient) {
-            $patient->notify(new AppointmentCompletedNotification($appointment));
+            $this->sendEmailNotification($patient, new AppointmentCompletedNotification($appointment));
             $this->sms->send($patient->phone, sprintf(
                 'Appointment %s marked completed.',
                 $appointment->appointment_number
@@ -79,11 +81,25 @@ class AppointmentNotificationService
         }
 
         if ($doctorUser) {
-            $doctorUser->notify(new AppointmentCompletedNotification($appointment));
+            $this->sendEmailNotification($doctorUser, new AppointmentCompletedNotification($appointment));
             $this->sms->send($doctorUser->phone, sprintf(
                 'Appointment %s marked completed.',
                 $appointment->appointment_number
             ));
+        }
+    }
+
+    private function sendEmailNotification(object $notifiable, Notification $notification): void
+    {
+        $mode = SiteSetting::get('email_delivery_mode', 'async');
+
+        if ($mode === 'sync' && method_exists($notifiable, 'notifyNow')) {
+            $notifiable->notifyNow($notification);
+            return;
+        }
+
+        if (method_exists($notifiable, 'notify')) {
+            $notifiable->notify($notification);
         }
     }
 }

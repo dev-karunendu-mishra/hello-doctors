@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\SiteSetting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Middleware;
 use Tighten\Ziggy\Ziggy;
 
@@ -31,21 +32,23 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        // Get SEO settings from database (with caching)
-        $seoSettings = cache()->remember('seo_settings', 3600, function () {
-            return SiteSetting::where('group', 'seo')
-                ->get()
-                ->pluck('value', 'key')
-                ->toArray();
-        });
+        $getSiteSettings = function (string $group): array {
+            if (!Schema::hasTable('site_settings')) {
+                return [];
+            }
 
-        // Get general site settings (with caching)
-        $generalSettings = cache()->remember('general_settings', 3600, function () {
-            return SiteSetting::where('group', 'general')
-                ->get()
-                ->pluck('value', 'key')
-                ->toArray();
-        });
+            return cache()->remember("{$group}_settings", 3600, function () use ($group) {
+                return SiteSetting::where('group', $group)
+                    ->get()
+                    ->pluck('value', 'key')
+                    ->toArray();
+            });
+        };
+
+        // Get site settings from database when available
+        $seoSettings = $getSiteSettings('seo');
+        $generalSettings = $getSiteSettings('general');
+        $contactSettings = $getSiteSettings('contact');
 
         return [
             ...parent::share($request),
@@ -59,6 +62,23 @@ class HandleInertiaRequests extends Middleware
             'site' => [
                 'name' => $generalSettings['site_name'] ?? $seoSettings['site_name'] ?? config('app.name', 'Hello Doctors'),
                 'tagline' => $generalSettings['site_tagline'] ?? $seoSettings['site_tagline'] ?? 'Find the Best Healthcare Services',
+                'description' => $generalSettings['site_description'] ?? 'Connect with verified healthcare professionals',
+                'logo' => $generalSettings['site_logo'] ?? null,
+                'favicon' => $generalSettings['site_favicon'] ?? null,
+                'contact' => [
+                    'email' => $contactSettings['contact_email'] ?? 'support@hellodoctors.in',
+                    'secondary_email' => $contactSettings['contact_secondary_email'] ?? 'contact@hellodoctors.in',
+                    'phone' => $contactSettings['contact_phone'] ?? '+91 (555) 123-4567',
+                    'address' => $contactSettings['contact_address'] ?? 'Healthcare Network, Uttar Pradesh, India',
+                    'hours_weekdays' => $contactSettings['contact_hours_weekdays'] ?? 'Monday-Friday: 9 AM - 6 PM',
+                    'hours_weekend' => $contactSettings['contact_hours_weekend'] ?? 'Saturday: 9 AM - 4 PM',
+                    'map_embed_url' => $contactSettings['map_embed_url'] ?? 'https://www.google.com/maps?q=Prayagraj%2C%20Uttar%20Pradesh&z=10&output=embed',
+                    'facebook_url' => $contactSettings['facebook_url'] ?? '',
+                    'twitter_url' => $contactSettings['twitter_url'] ?? '',
+                    'linkedin_url' => $contactSettings['linkedin_url'] ?? '',
+                    'instagram_url' => $contactSettings['instagram_url'] ?? '',
+                    'youtube_url' => $contactSettings['youtube_url'] ?? '',
+                ],
             ],
             'seo' => [
                 'meta_title' => $seoSettings['meta_title'] ?? null,

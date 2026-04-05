@@ -1,188 +1,171 @@
-import { Head } from '@inertiajs/react';
-import { Card, Row, Col, Typography, Statistic } from 'antd';
-import { UserOutlined, EnvironmentOutlined, MedicineBoxOutlined, TrophyOutlined } from '@ant-design/icons';
-import Header from '@/Components/Header';
-import Footer from '@/Components/Footer';
+import { Head, Link } from '@inertiajs/react';
+import PublicLayout from '@/Layouts/PublicLayout';
 
-const { Title, Paragraph } = Typography;
+const coreValues = [
+    {
+        icon: 'bi-heart-pulse',
+        title: 'Compassion',
+        description: 'Providing care with empathy, clarity, and support for every patient and family using the Hello Doctors platform.',
+    },
+    {
+        icon: 'bi-shield-check',
+        title: 'Excellence',
+        description: 'Maintaining high standards in healthcare discovery, verified information, and patient-first digital experience.',
+    },
+    {
+        icon: 'bi-people',
+        title: 'Integrity',
+        description: 'Building trust through transparent communication, responsible listing practices, and dependable support.',
+    },
+    {
+        icon: 'bi-lightbulb',
+        title: 'Innovation',
+        description: 'Using modern tools and thoughtful design to simplify how people discover doctors and medical services.',
+    },
+];
+
+const certificationImages = [
+    { src: '/clinic-assets/cardiology-1.webp', alt: 'Healthcare quality recognition' },
+    { src: '/clinic-assets/consultation-4.webp', alt: 'Medical excellence recognition' },
+    { src: '/clinic-assets/neurology-4.webp', alt: 'Trusted care network recognition' },
+    { src: '/clinic-assets/orthopedics-4.webp', alt: 'Healthcare standards recognition' },
+    { src: '/clinic-assets/vaccination-3.webp', alt: 'Patient care recognition' },
+];
 
 export default function About({ auth, stats }) {
     return (
         <>
-            <Head title="About Us - Hello Doctors" />
-            
-            <Header auth={auth} />
-            
-            <div className="min-h-screen bg-gray-50">
-                {/* Hero Section */}
-                <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-20">
-                    <div className="container mx-auto px-4 text-center">
-                        <Title level={1} className="text-white mb-4">
-                            About Hello Doctors
-                        </Title>
-                        <Paragraph className="text-xl text-blue-100 max-w-3xl mx-auto">
-                            Connecting patients with the best healthcare professionals across multiple cities in India
-                        </Paragraph>
+            <Head title="About - Hello Doctors">
+                <meta
+                    name="description"
+                    content="Learn about Hello Doctors, our patient-first mission, platform values, and how we help people discover trusted healthcare professionals."
+                />
+                <meta
+                    name="keywords"
+                    content="about hello doctors, healthcare platform, patient care, verified doctors, medical discovery"
+                />
+                <link rel="canonical" href={typeof window !== 'undefined' ? `${window.location.origin}/about` : '/about'} />
+            </Head>
+
+            <PublicLayout auth={auth} title="About - Hello Doctors" pageClassName="about-page">
+                <div className="page-title">
+                    <div className="heading">
+                        <div className="container">
+                            <div className="row d-flex justify-content-center text-center">
+                                <div className="col-lg-8">
+                                    <h1 className="heading-title">About</h1>
+                                    <p className="mb-0">
+                                        Discover how Hello Doctors helps patients and families find trusted doctors, explore specialties, and navigate care with more confidence.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+                    <nav className="breadcrumbs">
+                        <div className="container">
+                            <ol>
+                                <li><Link href="/">Home</Link></li>
+                                <li className="current">About</li>
+                            </ol>
+                        </div>
+                    </nav>
                 </div>
 
-                {/* Statistics */}
-                <div className="py-12 bg-white">
-                    <div className="container mx-auto px-4">
-                        <Row gutter={24} justify="center">
-                            <Col xs={24} sm={12} md={6}>
-                                <Card>
-                                    <Statistic 
-                                        title="Verified Doctors" 
-                                        value={stats.doctors}
-                                        prefix={<UserOutlined />}
-                                    />
-                                </Card>
-                            </Col>
-                            <Col xs={24} sm={12} md={6}>
-                                <Card>
-                                    <Statistic 
-                                        title="Cities Covered" 
-                                        value={stats.cities}
-                                        prefix={<EnvironmentOutlined />}
-                                    />
-                                </Card>
-                            </Col>
-                            <Col xs={24} sm={12} md={6}>
-                                <Card>
-                                    <Statistic 
-                                        title="Specialties" 
-                                        value={stats.specialties}
-                                        prefix={<MedicineBoxOutlined />}
-                                    />
-                                </Card>
-                            </Col>
-                            <Col xs={24} sm={12} md={6}>
-                                <Card>
-                                    <Statistic 
-                                        title="Years of Service" 
-                                        value={stats.years}
-                                        prefix={<TrophyOutlined />}
-                                    />
-                                </Card>
-                            </Col>
-                        </Row>
-                    </div>
-                </div>
+                <section id="about" className="about section">
+                    <div className="container" data-aos="fade-up" data-aos-delay="100">
+                        <div className="row align-items-center">
+                            <div className="col-lg-6" data-aos="fade-right" data-aos-delay="100">
+                                <div className="about-content">
+                                    <h2>Compassionate Care Discovery for Every Family</h2>
+                                    <p className="lead">
+                                        For over {stats?.years ?? 10} years, Hello Doctors has focused on making healthcare discovery clearer, faster, and more trustworthy for patients, providers, and families.
+                                    </p>
 
-                {/* Mission */}
-                <div className="py-12">
-                    <div className="container mx-auto px-4">
-                        <Row gutter={48}>
-                            <Col xs={24} md={12}>
-                                <Title level={2}>Our Mission</Title>
-                                <Paragraph className="text-lg">
-                                    To make quality healthcare accessible to everyone by connecting patients 
-                                    with verified and experienced doctors across various specialties and locations.
-                                </Paragraph>
-                                <Paragraph className="text-lg">
-                                    We believe that finding the right doctor should be simple, transparent, 
-                                    and convenient for everyone.
-                                </Paragraph>
-                            </Col>
-                            <Col xs={24} md={12}>
-                                <Title level={2}>What We Do</Title>
-                                <Paragraph className="text-lg">
-                                    Hello Doctors is a comprehensive doctor directory platform that helps patients 
-                                    find the right healthcare professionals based on specialty, location, and other 
-                                    preferences.
-                                </Paragraph>
-                                <Paragraph className="text-lg">
-                                    We verify all doctor profiles to ensure you get accurate and reliable 
-                                    information about qualifications, experience, and practice details.
-                                </Paragraph>
-                            </Col>
-                        </Row>
-                    </div>
-                </div>
+                                    <p>
+                                        We go beyond simple directory listings by helping users explore verified doctor profiles, specialties, and city-based care options in a format designed for real healthcare decisions.
+                                    </p>
 
-                {/* Features */}
-                <div className="py-12 bg-white">
-                    <div className="container mx-auto px-4">
-                        <Title level={2} className="text-center mb-8">Why Choose Hello Doctors?</Title>
-                        <Row gutter={[24, 24]}>
-                            <Col xs={24} md={8}>
-                                <Card hoverable>
-                                    <Title level={4}>Verified Profiles</Title>
-                                    <Paragraph>
-                                        All doctor profiles are verified to ensure accuracy and reliability. 
-                                        You can trust the information you find on our platform.
-                                    </Paragraph>
-                                </Card>
-                            </Col>
-                            <Col xs={24} md={8}>
-                                <Card hoverable>
-                                    <Title level={4}>Easy Search</Title>
-                                    <Paragraph>
-                                        Find doctors by specialty, location, or name. Our advanced search 
-                                        makes it easy to find exactly what you're looking for.
-                                    </Paragraph>
-                                </Card>
-                            </Col>
-                            <Col xs={24} md={8}>
-                                <Card hoverable>
-                                    <Title level={4}>Comprehensive Information</Title>
-                                    <Paragraph>
-                                        Get complete details about doctors including qualifications, experience, 
-                                        consultation fees, working hours, and contact information.
-                                    </Paragraph>
-                                </Card>
-                            </Col>
-                            <Col xs={24} md={8}>
-                                <Card hoverable>
-                                    <Title level={4}>Multiple Cities</Title>
-                                    <Paragraph>
-                                        We cover major cities across Uttar Pradesh, making it easy to find 
-                                        doctors wherever you are.
-                                    </Paragraph>
-                                </Card>
-                            </Col>
-                            <Col xs={24} md={8}>
-                                <Card hoverable>
-                                    <Title level={4}>Various Specialties</Title>
-                                    <Paragraph>
-                                        From general physicians to specialists, we have doctors from over 20 
-                                        different medical specialties.
-                                    </Paragraph>
-                                </Card>
-                            </Col>
-                            <Col xs={24} md={8}>
-                                <Card hoverable>
-                                    <Title level={4}>Free to Use</Title>
-                                    <Paragraph>
-                                        Our platform is completely free for patients. Search, browse, and 
-                                        connect with doctors at no cost.
-                                    </Paragraph>
-                                </Card>
-                            </Col>
-                        </Row>
-                    </div>
-                </div>
+                                    <div className="stats-grid">
+                                        <div className="stat-item">
+                                            <span className="stat-number" data-purecounter-start="0" data-purecounter-end={stats?.doctors ?? 0} data-purecounter-duration="2">
+                                                {stats?.doctors ?? 0}
+                                            </span>
+                                            <span className="stat-label">Verified Doctors</span>
+                                        </div>
+                                        <div className="stat-item">
+                                            <span className="stat-number" data-purecounter-start="0" data-purecounter-end={stats?.cities ?? 0} data-purecounter-duration="2">
+                                                {stats?.cities ?? 0}
+                                            </span>
+                                            <span className="stat-label">Cities Covered</span>
+                                        </div>
+                                        <div className="stat-item">
+                                            <span className="stat-number" data-purecounter-start="0" data-purecounter-end={stats?.specialties ?? 0} data-purecounter-duration="2">
+                                                {stats?.specialties ?? 0}
+                                            </span>
+                                            <span className="stat-label">Specialties Available</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
-                {/* CTA */}
-                <div className="py-12">
-                    <div className="container mx-auto px-4 text-center">
-                        <Card className="bg-blue-50">
-                            <Title level={3}>Ready to find your doctor?</Title>
-                            <Paragraph className="text-lg mb-6">
-                                Search our directory of verified healthcare professionals
-                            </Paragraph>
-                            <a href="/search">
-                                <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg text-lg">
-                                    Search Doctors Now
-                                </button>
-                            </a>
-                        </Card>
+                            <div className="col-lg-6" data-aos="fade-left" data-aos-delay="200">
+                                <div className="image-wrapper">
+                                    <img src="/clinic-assets/facilities-6.webp" className="img-fluid main-image" alt="Healthcare facility" />
+                                    <div className="floating-image" data-aos="zoom-in" data-aos-delay="400">
+                                        <img src="/clinic-assets/staff-8.webp" className="img-fluid" alt="Medical team" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="values-section" data-aos="fade-up" data-aos-delay="300">
+                            <div className="row">
+                                <div className="col-lg-12 text-center">
+                                    <h3>Our Core Values</h3>
+                                    <p className="section-description">
+                                        These principles guide how Hello Doctors supports patients, doctors, and healthcare discovery across the platform.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="row">
+                                {coreValues.map((value, index) => (
+                                    <div key={value.title} className="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay={100 + index * 100}>
+                                        <div className="value-item">
+                                            <div className="value-icon">
+                                                <i className={`bi ${value.icon}`} />
+                                            </div>
+                                            <h4>{value.title}</h4>
+                                            <p>{value.description}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="certifications-section" data-aos="fade-up" data-aos-delay="400">
+                            <div className="row">
+                                <div className="col-lg-12 text-center">
+                                    <h3>Accreditations &amp; Certifications</h3>
+                                    <p className="section-description">
+                                        Our approach is inspired by recognized standards of quality, trust, and patient-focused healthcare support.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="row justify-content-center">
+                                {certificationImages.map((image, index) => (
+                                    <div key={image.src} className="col-lg-2 col-md-3 col-sm-4 col-6" data-aos="zoom-in" data-aos-delay={100 + index * 100}>
+                                        <div className="certification-item">
+                                            <img src={image.src} className="img-fluid" alt={image.alt} />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-            
-            <Footer />
+                </section>
+            </PublicLayout>
         </>
     );
 }

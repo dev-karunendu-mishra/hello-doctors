@@ -10,6 +10,7 @@ use App\Models\HomeServiceAddress;
 use App\Models\HomeServiceBooking;
 use App\Models\HomeServiceProvider;
 use App\Services\AppointmentNotificationService;
+use App\Services\HomeServiceNotificationService;
 use Carbon\Carbon;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -23,7 +24,8 @@ class PaymentController extends Controller
     private const ONLINE_DISCOUNT_PERCENT = 10.0;
 
     public function __construct(
-        private readonly AppointmentNotificationService $appointmentNotifications
+        private readonly AppointmentNotificationService $appointmentNotifications,
+        private readonly HomeServiceNotificationService $homeServiceNotifications,
     ) {}
 
     /**
@@ -362,6 +364,8 @@ class PaymentController extends Controller
             }
             throw $e;
         }
+
+        $this->homeServiceNotifications->sendBookingNotifications($booking);
 
         return response()->json([
             'message' => 'Home service booked with online payment successfully.',
