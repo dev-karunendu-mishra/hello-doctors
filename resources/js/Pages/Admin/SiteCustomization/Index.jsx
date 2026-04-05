@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useForm } from '@inertiajs/react';
-import { Card, Tabs, Form, Input, Button, Upload, ColorPicker, message, Space } from 'antd';
+import { Card, Tabs, Form, Input, Button, Upload, Select, Typography, message } from 'antd';
 import { UploadOutlined, SaveOutlined } from '@ant-design/icons';
 import AdminLayout from '@/Layouts/AdminLayout';
 
 const { TabPane } = Tabs;
 const { TextArea } = Input;
+const { Text } = Typography;
 
 export default function SiteCustomization({ settings }) {
     const [activeTab, setActiveTab] = useState('general');
@@ -38,42 +39,61 @@ export default function SiteCustomization({ settings }) {
         });
     };
 
-    const handleImageUpload = (file, key, group) => {
+    const updateImageSetting = (group, key, value) => {
+        if (group === 'general') {
+            generalForm.setData('settings', {
+                ...generalForm.data.settings,
+                [key]: value,
+            });
+        } else if (group === 'appearance') {
+            appearanceForm.setData('settings', {
+                ...appearanceForm.data.settings,
+                [key]: value,
+            });
+        }
+    };
+
+    const handleImageUpload = async (file, key, group) => {
         const formData = new FormData();
         formData.append('image', file);
         formData.append('key', key);
         formData.append('group', group);
 
-        fetch(route('admin.site-customization.upload-image'), {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-            },
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    message.success('Image uploaded successfully');
-                    if (group === 'general') {
-                        generalForm.setData('settings', {
-                            ...generalForm.data.settings,
-                            [key]: data.url,
-                        });
-                    } else if (group === 'appearance') {
-                        appearanceForm.setData('settings', {
-                            ...appearanceForm.data.settings,
-                            [key]: data.url,
-                        });
-                    }
-                }
-            })
-            .catch(error => {
-                message.error('Failed to upload image');
-                console.error(error);
+        const existingValue = group === 'general'
+            ? generalForm.data.settings[key]
+            : appearanceForm.data.settings[key];
+        const previewUrl = URL.createObjectURL(file);
+
+        updateImageSetting(group, key, previewUrl);
+
+        try {
+            const response = await window.axios.post(route('admin.site-customization.upload-image'), formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
             });
 
-        return false; // Prevent default upload behavior
+            if (response.data?.success) {
+                updateImageSetting(group, key, response.data.url);
+                message.success(response.data?.message || 'Image uploaded successfully');
+            } else {
+                updateImageSetting(group, key, existingValue || null);
+                message.error('Upload did not complete successfully.');
+            }
+        } catch (error) {
+            updateImageSetting(group, key, existingValue || null);
+            const uploadError = error?.response?.data?.message
+                || Object.values(error?.response?.data?.errors || {}).flat().join(' ')
+                || 'Failed to upload image.';
+            message.error(uploadError);
+            console.error(error);
+        } finally {
+            URL.revokeObjectURL(previewUrl);
+        }
+
+        return false;
     };
 
     return (
@@ -126,6 +146,7 @@ export default function SiteCustomization({ settings }) {
 
                                 <Form.Item label="Site Logo">
                                     <Upload
+                                        accept=".png,.jpg,.jpeg,.gif,.svg,.webp,.ico"
                                         beforeUpload={(file) =>
                                             handleImageUpload(file, 'site_logo', 'general')
                                         }
@@ -144,6 +165,7 @@ export default function SiteCustomization({ settings }) {
 
                                 <Form.Item label="Site Favicon">
                                     <Upload
+                                        accept=".png,.jpg,.jpeg,.gif,.svg,.webp,.ico"
                                         beforeUpload={(file) =>
                                             handleImageUpload(file, 'site_favicon', 'general')
                                         }
@@ -158,6 +180,26 @@ export default function SiteCustomization({ settings }) {
                                             style={{ marginTop: 10, maxHeight: 32 }}
                                         />
                                     )}
+                                </Form.Item>
+
+                                <Form.Item label="Booking Email Delivery Mode">
+                                    <Select
+                                        size="large"
+                                        value={generalForm.data.settings.email_delivery_mode || 'async'}
+                                        onChange={(value) =>
+                                            generalForm.setData('settings', {
+                                                ...generalForm.data.settings,
+                                                email_delivery_mode: value,
+                                            })
+                                        }
+                                        options={[
+                                            { value: 'async', label: 'Async (queue emails in background)' },
+                                            { value: 'sync', label: 'Sync (send immediately in request)' },
+                                        ]}
+                                    />
+                                    <Text type="secondary">
+                                        Async is recommended and requires a running queue worker: <code>php artisan queue:work</code>.
+                                    </Text>
                                 </Form.Item>
 
                                 <Button
@@ -229,6 +271,7 @@ export default function SiteCustomization({ settings }) {
 
                                 <Form.Item label="Hero Background Image">
                                     <Upload
+                                        accept=".png,.jpg,.jpeg,.gif,.svg,.webp"
                                         beforeUpload={(file) =>
                                             handleImageUpload(file, 'hero_background', 'appearance')
                                         }
@@ -258,7 +301,7 @@ export default function SiteCustomization({ settings }) {
 
                         <TabPane tab="Contact & Social" key="contact">
                             <Form layout="vertical">
-                                <Form.Item label="Contact Email">
+                                <Form.Item label="Primary Contact Email">
                                     <Input
                                         size="large"
                                         type="email"
@@ -267,6 +310,20 @@ export default function SiteCustomization({ settings }) {
                                             contactForm.setData('settings', {
                                                 ...contactForm.data.settings,
                                                 contact_email: e.target.value,
+                                            })
+                                        }
+                                    />
+                                </Form.Item>
+
+                                <Form.Item label="Secondary Contact Email">
+                                    <Input
+                                        size="large"
+                                        type="email"
+                                        value={contactForm.data.settings.contact_secondary_email}
+                                        onChange={(e) =>
+                                            contactForm.setData('settings', {
+                                                ...contactForm.data.settings,
+                                                contact_secondary_email: e.target.value,
                                             })
                                         }
                                     />
@@ -293,6 +350,45 @@ export default function SiteCustomization({ settings }) {
                                             contactForm.setData('settings', {
                                                 ...contactForm.data.settings,
                                                 contact_address: e.target.value,
+                                            })
+                                        }
+                                    />
+                                </Form.Item>
+
+                                <Form.Item label="Weekday Hours">
+                                    <Input
+                                        size="large"
+                                        value={contactForm.data.settings.contact_hours_weekdays}
+                                        onChange={(e) =>
+                                            contactForm.setData('settings', {
+                                                ...contactForm.data.settings,
+                                                contact_hours_weekdays: e.target.value,
+                                            })
+                                        }
+                                    />
+                                </Form.Item>
+
+                                <Form.Item label="Weekend / Secondary Hours">
+                                    <Input
+                                        size="large"
+                                        value={contactForm.data.settings.contact_hours_weekend}
+                                        onChange={(e) =>
+                                            contactForm.setData('settings', {
+                                                ...contactForm.data.settings,
+                                                contact_hours_weekend: e.target.value,
+                                            })
+                                        }
+                                    />
+                                </Form.Item>
+
+                                <Form.Item label="Map Embed URL">
+                                    <Input
+                                        size="large"
+                                        value={contactForm.data.settings.map_embed_url}
+                                        onChange={(e) =>
+                                            contactForm.setData('settings', {
+                                                ...contactForm.data.settings,
+                                                map_embed_url: e.target.value,
                                             })
                                         }
                                     />

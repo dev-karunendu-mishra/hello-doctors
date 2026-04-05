@@ -8,6 +8,7 @@ use App\Models\DoctorHospitalClinic;
 use App\Models\DoctorProfile;
 use App\Models\Specialty;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
@@ -388,10 +389,10 @@ class DoctorManagementController extends Controller
                     'is_active' => (bool) $clinic->is_active,
                     'schedules' => $clinic->scheduleSlots->map(fn($schedule) => [
                         'day_of_week' => $schedule->day_of_week,
-                        'opening_time' => $schedule->opening_time,
-                        'closing_time' => $schedule->closing_time,
-                        'break_start_time' => $schedule->break_start_time,
-                        'break_end_time' => $schedule->break_end_time,
+                        'opening_time' => $this->normalizeTimeValue($schedule->opening_time),
+                        'closing_time' => $this->normalizeTimeValue($schedule->closing_time),
+                        'break_start_time' => $this->normalizeTimeValue($schedule->break_start_time),
+                        'break_end_time' => $this->normalizeTimeValue($schedule->break_end_time),
                         'slot_duration_minutes' => $schedule->slot_duration_minutes,
                         'max_appointments_per_slot' => $schedule->max_appointments_per_slot,
                         'is_available' => (bool) $schedule->is_available,
@@ -409,6 +410,24 @@ class DoctorManagementController extends Controller
      */
     public function update(Request $request, DoctorProfile $doctor): RedirectResponse
     {
+        $request->merge([
+            'clinics' => collect($request->input('clinics', []))
+                ->map(function ($clinic) {
+                    $clinic['schedules'] = collect($clinic['schedules'] ?? [])
+                        ->map(function ($schedule) {
+                            foreach (['opening_time', 'closing_time', 'break_start_time', 'break_end_time'] as $field) {
+                                $schedule[$field] = $this->normalizeTimeValue($schedule[$field] ?? null);
+                            }
+
+                            return $schedule;
+                        })
+                        ->all();
+
+                    return $clinic;
+                })
+                ->all(),
+        ]);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'phone' => 'required|string|max:20',
@@ -606,6 +625,29 @@ class DoctorManagementController extends Controller
             DB::rollBack();
             return back()->withErrors(['error' => 'Failed to update doctor.'])->withInput();
         }
+    }
+
+    private function normalizeTimeValue($value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        if ($value === '') {
+            return null;
+        }
+
+        foreach (['H:i', 'H:i:s', 'g:i A', 'g:iA', 'h:i A', 'h:iA'] as $format) {
+            try {
+                return Carbon::createFromFormat($format, strtoupper($value))->format('H:i');
+            } catch (\Throwable $e) {
+                // Try next supported format.
+            }
+        }
+
+        return $value;
     }
 
     /**

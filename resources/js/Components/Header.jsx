@@ -1,184 +1,159 @@
-import { Link } from '@inertiajs/react';
-import { Button, Dropdown } from 'antd';
-import { 
-    UserOutlined, 
-    LoginOutlined, 
-    MenuOutlined,
-    MedicineBoxOutlined,
-    HomeOutlined,
-    SearchOutlined,
-    PhoneOutlined,
-    InfoCircleOutlined
-} from '@ant-design/icons';
+import { Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
 export default function Header({ auth }) {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [morePagesOpen, setMorePagesOpen] = useState(false);
+    const { site = {} } = usePage().props;
+    const contact = site?.contact || {};
+    const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
+    const siteName = site?.name || 'Hello Doctors';
+    const siteLogo = site?.logo || null;
+    const primaryEmail = contact?.email || 'support@hellodoctors.in';
+    const primaryPhone = contact?.phone || '+91 (555) 123-4567';
+    const dashboardHref = auth?.user
+        ? auth.user.role === 'super_admin'
+            ? '/admin/dashboard'
+            : auth.user.role === 'doctor'
+                ? '/doctor/dashboard'
+                : auth.user.role === 'patient'
+                    ? '/patient/dashboard'
+                    : '/dashboard'
+        : '/dashboard';
 
-    const navigationItems = [
-        { label: 'Home', href: '/', icon: <HomeOutlined /> },
-        { label: 'Find Doctors', href: '/search', icon: <SearchOutlined /> },
-        { label: 'About', href: '/about', icon: <InfoCircleOutlined /> },
-        { label: 'Contact', href: '/contact', icon: <PhoneOutlined /> },
-    ];
+    const isActive = (href) => {
+        if (href === '/') {
+            return currentPath === '/';
+        }
 
-    const registerMenuItems = [
-        {
-            key: 'doctor',
-            label: (
-                <Link href="/register?role=doctor" className="block px-4 py-2">
-                    Register as Doctor
-                </Link>
-            ),
-        },
-        {
-            key: 'patient',
-            label: (
-                <Link href="/register?role=patient" className="block px-4 py-2">
-                    Register as Patient
-                </Link>
-            ),
-        },
-    ];
+        return currentPath.startsWith(href);
+    };
+
+    const isMorePagesActive = morePagesOpen || ['/faq', '/testimonials', '/terms', '/privacy', '/register-doctor', '/register-provider', '/dashboard', '/login']
+        .some((path) => currentPath.startsWith(path));
+
+    const closeMenus = () => {
+        setMobileMenuOpen(false);
+        setMorePagesOpen(false);
+    };
 
     return (
-        <header className="bg-white shadow-md sticky top-0 z-50">
-            <div className="container mx-auto px-4">
-                <div className="flex items-center justify-between h-16">
-                    {/* Logo */}
-                    <Link href="/" className="flex items-center space-x-2">
-                        <MedicineBoxOutlined className="text-3xl text-blue-600" />
-                        <span className="text-2xl font-bold text-gray-800">
-                            Hello<span className="text-blue-600">Doctors</span>
-                        </span>
-                    </Link>
-
-                    {/* Desktop Navigation */}
-                    <nav className="hidden md:flex items-center space-x-6">
-                        {navigationItems.map((item) => (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                className="text-gray-600 hover:text-blue-600 transition-colors font-medium"
-                            >
-                                {item.label}
-                            </Link>
-                        ))}
-                    </nav>
-
-                    {/* Auth Buttons */}
-                    <div className="hidden md:flex items-center space-x-4">
-                        {auth?.user ? (
-                            <>
-                                <Link href="/dashboard">
-                                    <Button type="default" icon={<UserOutlined />}>
-                                        Dashboard
-                                    </Button>
-                                </Link>
-                                <Link href="/logout" method="post" as="button">
-                                    <Button type="default">
-                                        Logout
-                                    </Button>
-                                </Link>
-                            </>
-                        ) : (
-                            <>
-                                <Link href="/login">
-                                    <Button 
-                                        type="default" 
-                                        icon={<LoginOutlined />}
-                                        className="border-blue-600 text-blue-600 hover:bg-blue-50"
-                                    >
-                                        Login
-                                    </Button>
-                                </Link>
-                                <Dropdown
-                                    menu={{ items: registerMenuItems }}
-                                    placement="bottomRight"
-                                    trigger={['click']}
-                                >
-                                    <Button 
-                                        type="primary" 
-                                        icon={<UserOutlined />}
-                                        className="bg-blue-600 hover:bg-blue-700"
-                                    >
-                                        Register
-                                    </Button>
-                                </Dropdown>
-                            </>
-                        )}
+        <header id="header" className={`header fixed-top ${mobileMenuOpen ? 'mobile-nav-active' : ''}`}>
+            <div className="topbar d-flex align-items-center dark-background">
+                <div className="container d-flex justify-content-center justify-content-md-between">
+                    <div className="contact-info d-flex align-items-center">
+                        <i className="bi bi-envelope d-flex align-items-center">
+                            <a href={`mailto:${primaryEmail}`}>{primaryEmail}</a>
+                        </i>
+                        <i className="bi bi-phone d-flex align-items-center ms-4">
+                            <span>{primaryPhone}</span>
+                        </i>
                     </div>
 
-                    {/* Mobile Menu Button */}
-                    <button
-                        className="md:hidden text-gray-600 hover:text-blue-600"
-                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                    >
-                        <MenuOutlined className="text-2xl" />
-                    </button>
+                    <div className="social-links d-none d-md-flex align-items-center">
+                        <a href={contact?.twitter_url || '#!'} className="twitter" aria-label="Twitter" target='_blank'><i className="bi bi-twitter-x" /></a>
+                        <a href={contact?.facebook_url || '#!'} className="facebook" aria-label="Facebook" target='_blank'><i className="bi bi-facebook" /></a>
+                        <a href={contact?.instagram_url || '#!'} className="instagram" aria-label="Instagram" target='_blank'><i className="bi bi-instagram" /></a>
+                        <a href={contact?.linkedin_url || '#!'} className="linkedin" aria-label="LinkedIn" target='_blank'><i className="bi bi-linkedin" /></a>
+                    </div>
                 </div>
+            </div>
 
-                {/* Mobile Menu */}
-                {mobileMenuOpen && (
-                    <div className="md:hidden py-4 border-t">
-                        <nav className="flex flex-col space-y-2">
-                            {navigationItems.map((item) => (
-                                <Link
-                                    key={item.href}
-                                    href={item.href}
-                                    className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:bg-gray-100 hover:text-blue-600 rounded transition-colors"
+            <div className="branding d-flex align-items-center">
+                <div className="container position-relative d-flex align-items-center justify-content-between">
+                    <Link href="/" className="logo d-flex align-items-center" onClick={closeMenus}>
+                        {siteLogo ? (
+                            <img
+                                src={siteLogo}
+                                alt={siteName}
+                                style={{ maxHeight: 44, width: 'auto', objectFit: 'contain' }}
+                            />
+                        ) : <h1 className="sitename">{siteName}</h1>}
+                    </Link>
+
+                    <nav id="navmenu" className="navmenu">
+                        <ul>
+                            <li><Link href="/" className={isActive('/') ? 'active' : ''} onClick={closeMenus}>Home</Link></li>
+                            <li><Link href="/about" className={isActive('/about') ? 'active' : ''} onClick={closeMenus}>About</Link></li>
+                            <li><Link href="/departments" className={isActive('/departments') ? 'active' : ''} onClick={closeMenus}>Departments</Link></li>
+                            <li><Link href="/services" className={isActive('/services') ? 'active' : ''} onClick={closeMenus}>Services</Link></li>
+                            <li><Link href="/doctors" className={isActive('/doctors') ? 'active' : ''} onClick={closeMenus}>Doctors</Link></li>
+                            <li className="dropdown">
+                                <a
+                                    href="#!"
+                                    onClick={(event) => {
+                                        event.preventDefault();
+                                        setMorePagesOpen((value) => !value);
+                                    }}
+                                    className={isMorePagesActive ? 'active' : ''}
                                 >
-                                    {item.icon}
-                                    <span>{item.label}</span>
-                                </Link>
-                            ))}
-                        </nav>
-                        
-                        <div className="mt-4 px-4 space-y-2">
+                                    <span>More Pages</span>
+                                    <i className="bi bi-chevron-down toggle-dropdown" />
+                                </a>
+                                <ul className={morePagesOpen ? 'dropdown-active' : ''}>
+                                    <li><Link href="/testimonials" className={isActive('/testimonials') ? 'active' : ''} onClick={closeMenus}>Testimonials</Link></li>
+                                    <li><Link href="/faq" className={isActive('/faq') ? 'active' : ''} onClick={closeMenus}>Frequently Asked Questions</Link></li>
+                                    <li><Link href="/terms" className={isActive('/terms') ? 'active' : ''} onClick={closeMenus}>Terms of Service</Link></li>
+                                    <li><Link href="/privacy" className={isActive('/privacy') ? 'active' : ''} onClick={closeMenus}>Privacy Policy</Link></li>
+                                    <li><Link href="/register-doctor" onClick={closeMenus}>Doctor Registration</Link></li>
+                                    <li><Link href="/register-provider" onClick={closeMenus}>Provider Registration</Link></li>
+                                </ul>
+                            </li>
+                            <li><Link href="/contact" className={isActive('/contact') ? 'active' : ''} onClick={closeMenus}>Contact</Link></li>
+
                             {auth?.user ? (
                                 <>
-                                    <Link href="/dashboard" className="block">
-                                        <Button 
-                                            type="default" 
-                                            icon={<UserOutlined />}
-                                            block
+                                    <li className="nav-auth-item">
+                                        <Link
+                                            href={dashboardHref}
+                                            className={`nav-auth-link nav-auth-link-secondary ${currentPath.startsWith(dashboardHref) ? 'active' : ''}`}
+                                            onClick={closeMenus}
                                         >
                                             Dashboard
-                                        </Button>
-                                    </Link>
-                                    <Link href="/logout" method="post" as="button" className="block w-full">
-                                        <Button type="default" block>
+                                        </Link>
+                                    </li>
+                                    <li className="nav-auth-item">
+                                        <Link
+                                            href="/logout"
+                                            method="post"
+                                            as="button"
+                                            className="nav-auth-link nav-auth-link-primary"
+                                            onClick={closeMenus}
+                                        >
                                             Logout
-                                        </Button>
-                                    </Link>
+                                        </Link>
+                                    </li>
                                 </>
                             ) : (
                                 <>
-                                    <Link href="/login" className="block">
-                                        <Button 
-                                            type="default" 
-                                            icon={<LoginOutlined />}
-                                            block
-                                            className="border-blue-600 text-blue-600"
+                                    <li className="nav-auth-item">
+                                        <Link
+                                            href="/login"
+                                            className={`nav-auth-link nav-auth-link-secondary ${isActive('/login') ? 'active' : ''}`}
+                                            onClick={closeMenus}
                                         >
                                             Login
-                                        </Button>
-                                    </Link>
-                                    <Link href="/register?role=doctor" className="block">
-                                        <Button type="primary" block className="bg-blue-600">
-                                            Register as Doctor
-                                        </Button>
-                                    </Link>
-                                    <Link href="/register?role=patient" className="block">
-                                        <Button type="primary" block className="bg-blue-600">
-                                            Register as Patient
-                                        </Button>
-                                    </Link>
+                                        </Link>
+                                    </li>
+                                    <li className="nav-auth-item">
+                                        <Link
+                                            href="/register"
+                                            className={`nav-auth-link nav-auth-link-primary ${isActive('/register') ? 'active' : ''}`}
+                                            onClick={closeMenus}
+                                        >
+                                            Register
+                                        </Link>
+                                    </li>
                                 </>
                             )}
-                        </div>
-                    </div>
-                )}
+                        </ul>
+
+                        <i
+                            className={`mobile-nav-toggle d-xl-none bi ${mobileMenuOpen ? 'bi-x' : 'bi-list'}`}
+                            onClick={() => setMobileMenuOpen((value) => !value)}
+                        />
+                    </nav>
+                </div>
             </div>
         </header>
     );
