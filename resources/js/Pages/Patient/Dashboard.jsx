@@ -313,7 +313,7 @@ export default function Dashboard({ upcomingAppointments, recentRecords, recomme
                                             <Card
                                                 hoverable
                                                 actions={[
-                                                    <Link href={doctor.slug ? `/doctors/${doctor.slug}` : '/search'}>
+                                                    <Link href={doctor.slug ? `/doctors/${doctor.slug}` : '/doctors'}>
                                                         <Button type="primary" size="small" block disabled={!doctor.slug}>
                                                             View Profile
                                                         </Button>

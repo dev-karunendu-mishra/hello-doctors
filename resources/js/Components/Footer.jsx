@@ -1,195 +1,132 @@
-import { Link, useForm } from '@inertiajs/react';
-import { Row, Col, Input, Button, Typography, message } from 'antd';
-import { 
-    FacebookOutlined, 
-    TwitterOutlined, 
-    LinkedinOutlined, 
-    InstagramOutlined, 
-    YoutubeOutlined,
-    MailOutlined
-} from '@ant-design/icons';
-
-const { Title, Text } = Typography;
+import { Link, usePage } from '@inertiajs/react';
 
 export default function Footer() {
-    const { data, setData, post, processing, errors, reset } = useForm({
-        email: '',
-    });
-
-    const handleSubscribe = (e) => {
-        e.preventDefault();
-        
-        post('/subscribe', {
-            preserveScroll: true,
-            onSuccess: () => {
-                message.success('Successfully subscribed to updates!');
-                reset('email');
-            },
-            onError: (errors) => {
-                if (errors.email) {
-                    message.error(errors.email);
-                } else {
-                    message.error('Failed to subscribe. Please try again.');
-                }
-            }
-        });
-    };
+    const { site = {} } = usePage().props;
+    const contact = site?.contact || {};
+    const siteName = site?.name || 'Hello Doctors';
+    const siteLogo = site?.logo || null;
+    const siteDescription = site?.description || 'Compassionate healthcare discovery for patients, providers, and families—designed to make finding the right care feel faster and more trustworthy.';
 
     return (
-        <footer className="bg-gray-800 text-white">
-            <div className="container mx-auto px-4 py-12">
-                <Row gutter={[32, 32]}>
-                    {/* For Patients */}
-                    <Col xs={24} sm={12} lg={6}>
-                        <Title level={4} className="text-slate-300 font-semibold mb-4" style={{ color: '#cbd5e1' }}>
-                            FOR PATIENTS
-                        </Title>
-                        <div className="flex flex-col space-y-2">
-                            <Link href="/find-doctor" className="text-gray-300 hover:text-white transition-colors">
-                                Find right doctor
-                            </Link>
-                            <Link href="/find-hospital" className="text-gray-300 hover:text-white transition-colors">
-                                Find right hospital
-                            </Link>
-                            <Link href="/find-blood-donor" className="text-gray-300 hover:text-white transition-colors">
-                                Find blood donor
-                            </Link>
-                        </div>
-                    </Col>
+        <footer id="footer" className="footer-16 footer position-relative">
+            <div className="container">
+                <div className="footer-main" data-aos="fade-up" data-aos-delay="100">
+                    <div className="row align-items-start">
+                        <div className="col-lg-5">
+                            <div className="brand-section">
+                                <Link href="/" className="logo d-flex align-items-center mb-4">
+                                    {siteLogo ? (
+                                        <img
+                                            src={siteLogo}
+                                            alt={siteName}
+                                            style={{ maxHeight: 44, width: 'auto', objectFit: 'contain', marginRight: 10 }}
+                                        />
+                                    ) : <span className="sitename">{siteName}</span>}
+                                    
+                                </Link>
+                                <p className="brand-description">
+                                    {siteDescription}
+                                </p>
 
-                    {/* For Partners */}
-                    <Col xs={24} sm={12} lg={6}>
-                        <Title level={4} className="text-slate-300 font-semibold mb-4" style={{ color: '#cbd5e1' }}>
-                            FOR PARTNERS
-                        </Title>
-                        <div className="flex flex-col space-y-2">
-                            <Link href="/health-grade" className="text-gray-300 hover:text-white transition-colors">
-                                Health grade for hospitals
-                            </Link>
-                            <Link href="/login" className="text-gray-300 hover:text-white transition-colors">
-                                Hospital client login
-                            </Link>
-                            <Link href="/advertise" className="text-gray-300 hover:text-white transition-colors">
-                                Advertise with us
-                            </Link>
-                        </div>
-                    </Col>
-
-                    {/* Register Here */}
-                    <Col xs={24} sm={12} lg={6}>
-                        <Title level={4} className="text-slate-300 font-semibold mb-4" style={{ color: '#cbd5e1' }}>
-                            REGISTER HERE
-                        </Title>
-                        <div className="flex flex-col space-y-2">
-                            <Link href="/register?type=doctor" className="text-gray-300 hover:text-white transition-colors">
-                                Register as a Doctor
-                            </Link>
-                            <Link href="/register?type=hospital" className="text-gray-300 hover:text-white transition-colors">
-                                Register as a Hospital
-                            </Link>
-                            <Link href="/register?type=blood-donor" className="text-gray-300 hover:text-white transition-colors">
-                                Register as a Blood donor
-                            </Link>
-                        </div>
-                    </Col>
-
-                    {/* About Us & Subscribe */}
-                    <Col xs={24} sm={12} lg={6}>
-                        <Title level={4} className="text-slate-300 font-semibold mb-4" style={{ color: '#cbd5e1' }}>
-                            ABOUT US
-                        </Title>
-                        <div className="flex flex-col space-y-2 mb-6">
-                            <Link href="/terms" className="text-gray-300 hover:text-white transition-colors">
-                                Terms and conditions
-                            </Link>
-                            <Link href="/career" className="text-gray-300 hover:text-white transition-colors">
-                                Career
-                            </Link>
-                            <Link href="/contact" className="text-gray-300 hover:text-white transition-colors">
-                                Contact Us
-                            </Link>
+                                <div className="contact-info mt-5">
+                                    <div className="contact-item">
+                                        <i className="bi bi-geo-alt" />
+                                        <span style={{ whiteSpace: 'pre-line' }}>{contact?.address || 'Healthcare Network, Uttar Pradesh, India'}</span>
+                                    </div>
+                                    <div className="contact-item">
+                                        <i className="bi bi-telephone" />
+                                        <span>{contact?.phone || '+91 (555) 123-4567'}</span>
+                                    </div>
+                                    <div className="contact-item">
+                                        <i className="bi bi-envelope" />
+                                        <span>{contact?.email || 'support@hellodoctors.in'}</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <Title level={5} className="text-slate-300 font-semibold mb-3" style={{ color: '#cbd5e1' }}>
-                            SUBSCRIBE FOR UPDATES
-                        </Title>
-                        <form onSubmit={handleSubscribe} className="flex flex-col space-y-2">
-                            <Input
-                                type="email"
-                                placeholder="Email"
-                                prefix={<MailOutlined />}
-                                value={data.email}
-                                onChange={(e) => setData('email', e.target.value)}
-                                required
-                                className="bg-white"
-                                disabled={processing}
-                            />
-                            <Button 
-                                type="primary" 
-                                htmlType="submit"
-                                block
-                                loading={processing}
-                                className="bg-blue-600 hover:bg-blue-700"
-                            >
-                                Subscribe →
-                            </Button>
-                        </form>
+                        <div className="col-lg-7">
+                            <div className="footer-nav-wrapper">
+                                <div className="row">
+                                    <div className="col-6 col-lg-3">
+                                        <div className="nav-column">
+                                            <h6>Company</h6>
+                                            <nav className="footer-nav">
+                                                <Link href="/about">Our Story</Link>
+                                                <Link href="/about">Care Process</Link>
+                                                <Link href="/doctors">Doctors</Link>
+                                                <Link href="/contact">Case Support</Link>
+                                                <Link href="/contact">Contact</Link>
+                                            </nav>
+                                        </div>
+                                    </div>
 
-                        {/* Social Media Icons */}
-                        <div className="flex space-x-3 mt-4">
-                            <a 
-                                href="https://facebook.com" 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="w-10 h-10 rounded-full bg-gray-700 hover:bg-blue-600 flex items-center justify-center transition-colors"
-                            >
-                                <FacebookOutlined className="text-white text-lg" />
-                            </a>
-                            <a 
-                                href="https://twitter.com" 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="w-10 h-10 rounded-full bg-gray-700 hover:bg-blue-400 flex items-center justify-center transition-colors"
-                            >
-                                <TwitterOutlined className="text-white text-lg" />
-                            </a>
-                            <a 
-                                href="https://linkedin.com" 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="w-10 h-10 rounded-full bg-gray-700 hover:bg-blue-700 flex items-center justify-center transition-colors"
-                            >
-                                <LinkedinOutlined className="text-white text-lg" />
-                            </a>
-                            <a 
-                                href="https://instagram.com" 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="w-10 h-10 rounded-full bg-gray-700 hover:bg-pink-600 flex items-center justify-center transition-colors"
-                            >
-                                <InstagramOutlined className="text-white text-lg" />
-                            </a>
-                            <a 
-                                href="https://youtube.com" 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="w-10 h-10 rounded-full bg-gray-700 hover:bg-red-600 flex items-center justify-center transition-colors"
-                            >
-                                <YoutubeOutlined className="text-white text-lg" />
-                            </a>
+                                    <div className="col-6 col-lg-3">
+                                        <div className="nav-column">
+                                            <h6>Services</h6>
+                                            <nav className="footer-nav">
+                                                <Link href="/departments">Departments</Link>
+                                                <Link href="/services">Home Services</Link>
+                                                <Link href="/doctors">Doctor Search</Link>
+                                                <Link href="/contact">Consultation</Link>
+                                                <Link href="/contact">Support</Link>
+                                            </nav>
+                                        </div>
+                                    </div>
+
+                                    <div className="col-6 col-lg-3">
+                                        <div className="nav-column">
+                                            <h6>Resources</h6>
+                                            <nav className="footer-nav">
+                                                <Link href="/about">About Platform</Link>
+                                                <Link href="/faq">FAQ</Link>
+                                                <Link href="/testimonials">Testimonials</Link>
+                                                <Link href="/doctors">Browse Cities</Link>
+                                                <Link href="/contact">Patient Support</Link>
+                                            </nav>
+                                        </div>
+                                    </div>
+
+                                    <div className="col-6 col-lg-3">
+                                        <div className="nav-column">
+                                            <h6>Connect</h6>
+                                            <nav className="footer-nav">
+                                                <Link href="/register-doctor">Start Profile</Link>
+                                                <Link href="/register-provider">Become Partner</Link>
+                                                <Link href="/login">Login</Link>
+                                                <Link href="/contact">Join Updates</Link>
+                                                <Link href="/contact">Partnership</Link>
+                                            </nav>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </Col>
-                </Row>
+                    </div>
+                </div>
             </div>
 
-            {/* Bottom Bar */}
-            <div className="border-t border-gray-700 py-6">
-                <div className="container mx-auto px-4">
-                    <div className="text-center text-gray-400">
-                        <Text className="text-gray-400">
-                            powered by <span className="text-white font-semibold">DayDreams</span>
-                            [An ISO Certified company]. All rights reserved.
-                        </Text>
+            <div className="footer-bottom">
+                <div className="container">
+                    <div className="bottom-content" data-aos="fade-up" data-aos-delay="300">
+                        <div className="row align-items-center">
+                            <div className="col-lg-6">
+                                <div className="copyright">
+                                    <p>© <span className="sitename">Hello Doctors</span>. All rights reserved.</p>
+                                </div>
+                            </div>
+
+                            <div className="col-lg-6">
+                                <div className="legal-links">
+                                    <Link href="/privacy">Privacy Policy</Link>
+                                    <Link href="/terms">Terms of Service</Link>
+                                    <a href="#!">Cookie Policy</a>
+                                    <div className="credits">
+                                         Designed by <a href="https://devfoxx.com/">DevFoxx Labs</a>.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

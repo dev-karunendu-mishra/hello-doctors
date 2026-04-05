@@ -20,11 +20,29 @@ class SitemapController extends Controller
         // Homepage
         $sitemap .= $this->addUrl(route('home'), now(), 'daily', '1.0');
 
-        // Search page
-        $sitemap .= $this->addUrl(route('search'), now(), 'daily', '0.9');
+        // Departments page
+        $sitemap .= $this->addUrl(route('departments'), now(), 'weekly', '0.8');
+
+        // Services page
+        $sitemap .= $this->addUrl(route('services'), now(), 'weekly', '0.8');
+
+        // Doctors listing page
+        $sitemap .= $this->addUrl(route('doctors.index'), now(), 'daily', '0.9');
 
         // About page
         $sitemap .= $this->addUrl(route('about'), now(), 'monthly', '0.7');
+
+        // FAQ page
+        $sitemap .= $this->addUrl(route('faq'), now(), 'monthly', '0.7');
+
+        // Testimonials page
+        $sitemap .= $this->addUrl(route('testimonials'), now(), 'monthly', '0.7');
+
+        // Terms page
+        $sitemap .= $this->addUrl(route('terms'), now(), 'monthly', '0.7');
+
+        // Privacy page
+        $sitemap .= $this->addUrl(route('privacy'), now(), 'monthly', '0.7');
 
         // Contact page
         $sitemap .= $this->addUrl(route('contact'), now(), 'monthly', '0.7');
@@ -52,11 +70,28 @@ class SitemapController extends Controller
             // $sitemap .= $this->addUrl(route('city.show', $city->slug), $city->updated_at, 'weekly', '0.6');
         }
 
-        // Specialties (if you add specialty pages in the future)
+        // Department detail pages
         $specialties = Specialty::active()->get();
         foreach ($specialties as $specialty) {
-            // Commented out until specialty detail pages are implemented
-            // $sitemap .= $this->addUrl(route('specialty.show', $specialty->slug), $specialty->updated_at, 'weekly', '0.6');
+            $sitemap .= $this->addUrl(
+                route('departments.show', $specialty->slug ?: $specialty->id),
+                $specialty->updated_at,
+                'weekly',
+                '0.6'
+            );
+        }
+
+        // Service detail pages
+        if (\Illuminate\Support\Facades\Schema::hasTable('home_services')) {
+            $services = \App\Models\HomeService::query()->active()->get();
+            foreach ($services as $service) {
+                $sitemap .= $this->addUrl(
+                    route('services.show', $service->code ?: $service->id),
+                    $service->updated_at,
+                    'weekly',
+                    '0.6'
+                );
+            }
         }
 
         $sitemap .= '</urlset>';

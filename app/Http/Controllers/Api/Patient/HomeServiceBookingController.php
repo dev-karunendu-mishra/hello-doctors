@@ -13,12 +13,15 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Services\HomeServiceNotificationService;
 use App\Services\RefundService;
 
 class HomeServiceBookingController extends Controller
 {
-    public function __construct(private readonly RefundService $refundService)
-    {
+    public function __construct(
+        private readonly RefundService $refundService,
+        private readonly HomeServiceNotificationService $homeServiceNotifications,
+    ) {
     }
     public function index(Request $request): JsonResponse
     {
@@ -147,6 +150,8 @@ class HomeServiceBookingController extends Controller
 
             throw $e;
         }
+
+        $this->homeServiceNotifications->sendBookingNotifications($booking);
 
         return response()->json([
             'message' => 'Home service booking created successfully.',

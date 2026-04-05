@@ -29,6 +29,7 @@ class SiteCustomizationController extends Controller
                     'site_description' => 'Connect with verified healthcare professionals',
                     'site_logo' => null,
                     'site_favicon' => null,
+                    'email_delivery_mode' => 'async',
                 ], $generalSettings),
                 'appearance' => array_merge([
                     'primary_color' => '#1890ff',
@@ -38,9 +39,13 @@ class SiteCustomizationController extends Controller
                     'hero_background' => null,
                 ], $appearanceSettings),
                 'contact' => array_merge([
-                    'contact_email' => 'support@hellodoctors.com',
-                    'contact_phone' => '+91 1234567890',
-                    'contact_address' => '',
+                    'contact_email' => 'support@hellodoctors.in',
+                    'contact_secondary_email' => 'contact@hellodoctors.in',
+                    'contact_phone' => '+91 (555) 123-4567',
+                    'contact_address' => 'Healthcare Network, Uttar Pradesh, India',
+                    'contact_hours_weekdays' => 'Monday-Friday: 9 AM - 6 PM',
+                    'contact_hours_weekend' => 'Saturday: 9 AM - 4 PM',
+                    'map_embed_url' => 'https://www.google.com/maps?q=Prayagraj%2C%20Uttar%20Pradesh&z=10&output=embed',
                     'facebook_url' => '',
                     'twitter_url' => '',
                     'linkedin_url' => '',
@@ -54,8 +59,9 @@ class SiteCustomizationController extends Controller
     public function update(Request $request)
     {
         $validated = $request->validate([
-            'group' => 'required|string',
+            'group' => 'required|string|in:general,appearance,contact',
             'settings' => 'required|array',
+            'settings.email_delivery_mode' => 'nullable|in:sync,async',
         ]);
 
         foreach ($validated['settings'] as $key => $value) {
@@ -68,7 +74,7 @@ class SiteCustomizationController extends Controller
     public function uploadImage(Request $request)
     {
         $request->validate([
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'image' => 'required|file|mimes:jpeg,png,jpg,gif,svg,webp,ico|max:4096',
             'key' => 'required|string',
             'group' => 'required|string',
         ]);
@@ -82,6 +88,7 @@ class SiteCustomizationController extends Controller
         return response()->json([
             'success' => true,
             'url' => $url,
+            'message' => 'Image uploaded successfully.',
         ]);
     }
 }

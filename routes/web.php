@@ -40,9 +40,18 @@ use Inertia\Inertia;
 
 // Public Routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
-Route::get('/search', [SearchController::class, 'index'])->name('search');
+Route::get('/departments', [HomeController::class, 'departments'])->name('departments');
+Route::get('/departments/{specialty}', [HomeController::class, 'departmentDetails'])->name('departments.show');
+Route::get('/services', [HomeController::class, 'services'])->name('services');
+Route::get('/services/{service}', [HomeController::class, 'serviceDetails'])->name('services.show');
+Route::redirect('/search', '/doctors', 301);
+Route::get('/doctors', [SearchController::class, 'index'])->name('doctors.index');
 Route::get('/doctors/{doctor}', [SearchController::class, 'show'])->name('doctors.show');
 Route::get('/about', [AboutController::class, 'index'])->name('about');
+Route::get('/faq', [HomeController::class, 'faq'])->name('faq');
+Route::get('/testimonials', [HomeController::class, 'testimonials'])->name('testimonials');
+Route::get('/terms', [HomeController::class, 'terms'])->name('terms');
+Route::get('/privacy', [HomeController::class, 'privacy'])->name('privacy');
 Route::get('/contact', [ContactController::class, 'index'])->name('contact');
 Route::post('/contact', [ContactController::class, 'store'])->name('contact.store');
 
@@ -331,3 +340,9 @@ Route::middleware(['auth', 'role:home_service_provider'])->prefix('provider')->n
 });
 
 require __DIR__.'/auth.php';
+
+Route::fallback(function () {
+    return Inertia::render('Public/NotFound')
+        ->toResponse(request())
+        ->setStatusCode(404);
+});

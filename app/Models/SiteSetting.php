@@ -31,7 +31,7 @@ class SiteSetting extends Model
      */
     public static function set($key, $value, $type = 'text', $group = 'general', $description = null)
     {
-        return self::updateOrCreate(
+        $setting = self::updateOrCreate(
             ['key' => $key],
             [
                 'value' => $value,
@@ -40,6 +40,10 @@ class SiteSetting extends Model
                 'description' => $description,
             ]
         );
+
+        cache()->forget("{$group}_settings");
+
+        return $setting;
     }
 
     /**
