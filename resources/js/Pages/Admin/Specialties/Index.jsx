@@ -1,6 +1,6 @@
 import AdminLayout from '@/Layouts/AdminLayout';
 import { Head, Link, router } from '@inertiajs/react';
-import { Card, Table, Button, Tag, Space, Input, Select, Popconfirm } from 'antd';
+import { Card, Table, Button, Tag, Space, Input, Select, Popconfirm, Switch, message } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 
@@ -9,6 +9,7 @@ const { Search } = Input;
 export default function SpecialtiesIndex({ specialties, filters }) {
     const [searchText, setSearchText] = useState(filters?.search || '');
     const [statusFilter, setStatusFilter] = useState(filters?.status || 'all');
+    const [togglingId, setTogglingId] = useState(null);
 
     const handleSearch = (value) => {
         router.get('/admin/specialties', {
@@ -36,6 +37,32 @@ export default function SpecialtiesIndex({ specialties, filters }) {
             onSuccess: () => {
                 // Success handled by flash message
             },
+        });
+    };
+
+    const handleFeaturedToggle = (record, checked) => {
+        setTogglingId(record.id);
+
+        router.put(`/admin/specialties/${record.id}`, {
+            name: record.name,
+            icon: record.icon || '',
+            image_path: record.image_path || '',
+            description: record.description || '',
+            is_active: !!record.is_active,
+            is_featured_on_home: checked,
+            sort_order: record.sort_order ?? 0,
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+            only: ['specialties', 'filters', 'flash', 'errors'],
+            onSuccess: () => {
+                message.success(`"${record.name}" ${checked ? 'featured on' : 'removed from'} home page.`);
+            },
+            onError: () => {
+                message.error('Failed to update specialty home-page setting.');
+            },
+            onFinish: () => setTogglingId(null),
         });
     };
 
@@ -80,6 +107,21 @@ export default function SpecialtiesIndex({ specialties, filters }) {
                 <Tag color={is_active ? 'green' : 'red'}>
                     {is_active ? 'Active' : 'Inactive'}
                 </Tag>
+            ),
+        },
+        {
+            title: 'Home Page',
+            dataIndex: 'is_featured_on_home',
+            key: 'is_featured_on_home',
+            render: (is_featured_on_home, record) => (
+                <Switch
+                    size="small"
+                    checked={!!is_featured_on_home}
+                    loading={togglingId === record.id}
+                    checkedChildren="Yes"
+                    unCheckedChildren="No"
+                    onChange={(checked) => handleFeaturedToggle(record, checked)}
+                />
             ),
         },
         {

@@ -27,6 +27,7 @@ class HomeService extends Model
         'buffer_minutes',
         'requires_certification',
         'is_active',
+        'is_featured_on_home',
     ];
 
     protected $casts = [
@@ -35,6 +36,7 @@ class HomeService extends Model
         'buffer_minutes' => 'integer',
         'requires_certification' => 'boolean',
         'is_active' => 'boolean',
+        'is_featured_on_home' => 'boolean',
     ];
 
     public function category(): BelongsTo

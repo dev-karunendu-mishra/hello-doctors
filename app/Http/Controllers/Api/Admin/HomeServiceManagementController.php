@@ -74,6 +74,7 @@ class HomeServiceManagementController extends Controller
     {
         $data = HomeService::query()
             ->with('category:id,name')
+            ->orderByDesc('is_featured_on_home')
             ->latest()
             ->paginate(20);
 
@@ -93,6 +94,7 @@ class HomeServiceManagementController extends Controller
             'buffer_minutes' => ['nullable', 'integer', 'min:0', 'max:180'],
             'requires_certification' => ['nullable', 'boolean'],
             'is_active' => ['nullable', 'boolean'],
+            'is_featured_on_home' => ['nullable', 'boolean'],
         ]);
 
         $service = HomeService::create([
@@ -103,6 +105,7 @@ class HomeServiceManagementController extends Controller
             'buffer_minutes' => $validated['buffer_minutes'] ?? 15,
             'requires_certification' => $validated['requires_certification'] ?? false,
             'is_active' => $validated['is_active'] ?? true,
+            'is_featured_on_home' => $validated['is_featured_on_home'] ?? false,
         ]);
 
         return response()->json([
@@ -124,6 +127,7 @@ class HomeServiceManagementController extends Controller
             'buffer_minutes' => ['nullable', 'integer', 'min:0', 'max:180'],
             'requires_certification' => ['nullable', 'boolean'],
             'is_active' => ['nullable', 'boolean'],
+            'is_featured_on_home' => ['nullable', 'boolean'],
         ]);
 
         $service->update([
@@ -134,6 +138,7 @@ class HomeServiceManagementController extends Controller
             'buffer_minutes' => $validated['buffer_minutes'] ?? 15,
             'requires_certification' => $validated['requires_certification'] ?? false,
             'is_active' => $validated['is_active'] ?? true,
+            'is_featured_on_home' => $validated['is_featured_on_home'] ?? false,
         ]);
 
         return response()->json([

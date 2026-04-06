@@ -33,7 +33,8 @@ class SpecialtyManagementController extends Controller
             $query->where('is_active', $request->status === 'active');
         }
 
-        $specialties = $query->orderBy('sort_order')
+        $specialties = $query->orderByDesc('is_featured_on_home')
+            ->orderBy('sort_order')
             ->orderBy('name')
             ->paginate(20)
             ->through(fn($specialty) => [
@@ -44,6 +45,7 @@ class SpecialtyManagementController extends Controller
                 'image_path' => $specialty->image_path,
                 'description' => $specialty->description,
                 'is_active' => $specialty->is_active,
+                'is_featured_on_home' => $specialty->is_featured_on_home,
                 'sort_order' => $specialty->sort_order,
                 'doctors_count' => $specialty->doctors()->count(),
                 'created_at' => $specialty->created_at->format('Y-m-d'),
@@ -61,13 +63,7 @@ class SpecialtyManagementController extends Controller
     public function create(): Response
     {
         $existingImages = $this->getExistingImages();
-        
-        // Debug
-        \Log::info('Existing Images Count: ' . count($existingImages));
-        if (count($existingImages) > 0) {
-            \Log::info('First Image: ' . json_encode($existingImages[0]));
-        }
-        
+
         return Inertia::render('Admin/Specialties/Create', [
             'existingImages' => $existingImages,
         ]);
@@ -85,6 +81,7 @@ class SpecialtyManagementController extends Controller
             'image_file' => 'nullable|image|mimes:jpeg,jpg,png,gif|max:2048',
             'description' => 'nullable|string',
             'is_active' => 'boolean',
+            'is_featured_on_home' => 'boolean',
             'sort_order' => 'nullable|integer|min:0',
             'meta_title' => 'nullable|string|max:60',
             'meta_description' => 'nullable|string|max:160',
@@ -101,6 +98,7 @@ class SpecialtyManagementController extends Controller
         }
 
         $validated['slug'] = Str::slug($validated['name']);
+        $validated['is_featured_on_home'] = $validated['is_featured_on_home'] ?? false;
 
         Specialty::create($validated);
 
@@ -124,6 +122,7 @@ class SpecialtyManagementController extends Controller
                 'image_path' => $specialty->image_path,
                 'description' => $specialty->description,
                 'is_active' => $specialty->is_active,
+                'is_featured_on_home' => $specialty->is_featured_on_home,
                 'sort_order' => $specialty->sort_order,
                 'doctors_count' => $specialty->doctors->count(),
                 'created_at' => $specialty->created_at->format('Y-m-d H:i'),
@@ -153,7 +152,11 @@ class SpecialtyManagementController extends Controller
                 'image_path' => $specialty->image_path,
                 'description' => $specialty->description,
                 'is_active' => $specialty->is_active,
+                'is_featured_on_home' => $specialty->is_featured_on_home,
                 'sort_order' => $specialty->sort_order,
+                'meta_title' => $specialty->meta_title,
+                'meta_description' => $specialty->meta_description,
+                'meta_keywords' => $specialty->meta_keywords,
             ],
             'existingImages' => $existingImages,
         ]);
@@ -171,6 +174,7 @@ class SpecialtyManagementController extends Controller
             'image_file' => 'nullable|image|mimes:jpeg,jpg,png,gif|max:2048',
             'description' => 'nullable|string',
             'is_active' => 'boolean',
+            'is_featured_on_home' => 'boolean',
             'sort_order' => 'nullable|integer|min:0',
             'meta_title' => 'nullable|string|max:60',
             'meta_description' => 'nullable|string|max:160',
@@ -199,6 +203,8 @@ class SpecialtyManagementController extends Controller
         if ($validated['name'] !== $specialty->name) {
             $validated['slug'] = Str::slug($validated['name']);
         }
+
+        $validated['is_featured_on_home'] = $validated['is_featured_on_home'] ?? false;
 
         $specialty->update($validated);
 
