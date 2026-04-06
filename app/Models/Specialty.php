@@ -17,6 +17,7 @@ class Specialty extends Model
         'image_path',
         'description',
         'is_active',
+        'is_featured_on_home',
         'sort_order',
         'meta_title',
         'meta_description',
@@ -25,6 +26,7 @@ class Specialty extends Model
 
     protected $casts = [
         'is_active' => 'boolean',
+        'is_featured_on_home' => 'boolean',
         'sort_order' => 'integer',
     ];
 

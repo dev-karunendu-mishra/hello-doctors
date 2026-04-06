@@ -1,5 +1,5 @@
 import AdminLayout from '@/Layouts/AdminLayout';
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import {
     Alert,
     Button,
@@ -13,7 +13,7 @@ import {
     Tag,
     message,
 } from 'antd';
-import { CalendarOutlined } from '@ant-design/icons';
+import { CalendarOutlined, PlusOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 
 const statusColor = {
@@ -115,6 +115,13 @@ export default function Appointments() {
                         <CalendarOutlined style={{ marginRight: 8 }} />
                         My Appointments
                     </span>
+                }
+                extra={
+                    <Link href="/patient/find-doctors">
+                        <Button type="primary" icon={<PlusOutlined />}>
+                            Book Appointment
+                        </Button>
+                    </Link>
                 }
             >
                 <Alert

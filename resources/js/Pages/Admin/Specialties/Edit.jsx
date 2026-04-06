@@ -14,6 +14,7 @@ export default function SpecialtyEdit({ specialty, existingImages }) {
         image_file: null,
         description: specialty.description || '',
         is_active: specialty.is_active ?? true,
+        is_featured_on_home: specialty.is_featured_on_home ?? false,
         sort_order: specialty.sort_order || 0,
         meta_title: specialty.meta_title || '',
         meta_description: specialty.meta_description || '',
@@ -34,6 +35,7 @@ export default function SpecialtyEdit({ specialty, existingImages }) {
         formData.append('icon', data.icon || '');
         formData.append('description', data.description || '');
         formData.append('is_active', data.is_active ? '1' : '0');
+        formData.append('is_featured_on_home', data.is_featured_on_home ? '1' : '0');
         formData.append('sort_order', data.sort_order);
         formData.append('meta_title', data.meta_title || '');
         formData.append('meta_description', data.meta_description || '');
@@ -283,6 +285,19 @@ export default function SpecialtyEdit({ specialty, existingImages }) {
                             onChange={(checked) => setData('is_active', checked)}
                             checkedChildren="Active"
                             unCheckedChildren="Inactive"
+                        />
+                    </Form.Item>
+
+                    <Form.Item 
+                        label="Featured on Home Page"
+                        validateStatus={errors.is_featured_on_home ? 'error' : ''}
+                        help={errors.is_featured_on_home || 'Featured specialties appear first on the homepage.'}
+                    >
+                        <Switch
+                            checked={data.is_featured_on_home}
+                            onChange={(checked) => setData('is_featured_on_home', checked)}
+                            checkedChildren="Featured"
+                            unCheckedChildren="Standard"
                         />
                     </Form.Item>
 

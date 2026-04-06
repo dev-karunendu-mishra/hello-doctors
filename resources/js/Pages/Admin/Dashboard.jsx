@@ -1,14 +1,13 @@
-import { Card, Row, Col, Statistic, Table, Tag, List } from 'antd';
+import { Card, Row, Col, Statistic, Table, Tag } from 'antd';
 import {
     UserOutlined,
     MedicineBoxOutlined,
     CalendarOutlined,
     CheckCircleOutlined,
-    SafetyCertificateOutlined,
 } from '@ant-design/icons';
 import AdminLayout from '@/Layouts/AdminLayout';
 
-export default function Dashboard({ stats, abhaStats, recentAppointments, recentUsers, recentAbhaUsers }) {
+export default function Dashboard({ stats, recentAppointments, recentUsers }) {
     const columns = [
         {
             title: 'Date',
@@ -87,16 +86,6 @@ export default function Dashboard({ stats, abhaStats, recentAppointments, recent
                             />
                         </Card>
                     </Col>
-                    <Col xs={24} sm={12} lg={6}>
-                        <Card>
-                            <Statistic
-                                title="ABHA Linked Patients"
-                                value={abhaStats?.linkedPatients || stats?.linkedAbhaUsers || 0}
-                                prefix={<SafetyCertificateOutlined />}
-                                valueStyle={{ color: '#722ed1' }}
-                            />
-                        </Card>
-                    </Col>
                 </Row>
 
                 <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
@@ -106,11 +95,12 @@ export default function Dashboard({ stats, abhaStats, recentAppointments, recent
                                 columns={columns}
                                 dataSource={recentAppointments || []}
                                 pagination={{ pageSize: 5 }}
+                                rowKey="id"
                             />
                         </Card>
                     </Col>
                     <Col xs={24} lg={8}>
-                        <Card title="Recent Users" style={{ marginBottom: 16 }}>
+                        <Card title="Recent Users">
                             <div style={{ maxHeight: 220, overflow: 'auto' }}>
                                 {(recentUsers || []).map((user, index) => (
                                     <div
@@ -130,8 +120,8 @@ export default function Dashboard({ stats, abhaStats, recentAppointments, recent
                                                 user.role === 'doctor'
                                                     ? 'blue'
                                                     : user.role === 'patient'
-                                                    ? 'green'
-                                                    : 'gold'
+                                                        ? 'green'
+                                                        : 'gold'
                                             }
                                         >
                                             {user.role?.replace('_', ' ')}
@@ -139,29 +129,6 @@ export default function Dashboard({ stats, abhaStats, recentAppointments, recent
                                     </div>
                                 ))}
                             </div>
-                        </Card>
-
-                        <Card title="Recent ABHA Links">
-                            <List
-                                dataSource={recentAbhaUsers || []}
-                                locale={{ emptyText: 'No ABHA-linked users yet' }}
-                                renderItem={(user) => (
-                                    <List.Item>
-                                        <List.Item.Meta
-                                            title={user.name}
-                                            description={
-                                                <div>
-                                                    <div>{user.abha_address || '-'}</div>
-                                                    <div style={{ fontSize: 12, color: '#999' }}>{user.email}</div>
-                                                </div>
-                                            }
-                                        />
-                                        <Tag color={user.abha_status === 'verified' ? 'green' : 'gold'}>
-                                            {(user.abha_status || 'not_linked').replace('_', ' ')}
-                                        </Tag>
-                                    </List.Item>
-                                )}
-                            />
                         </Card>
                     </Col>
                 </Row>

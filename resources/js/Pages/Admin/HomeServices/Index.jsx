@@ -36,6 +36,7 @@ export default function HomeServiceAdminIndex() {
     const [categoryModalOpen, setCategoryModalOpen] = useState(false);
     const [categorySaving, setCategorySaving] = useState(false);
     const [editingCategory, setEditingCategory] = useState(null);
+    const [togglingServiceId, setTogglingServiceId] = useState(null);
 
     const loadServices = async (page = 1) => {
         setLoading(true);
@@ -79,6 +80,7 @@ export default function HomeServiceAdminIndex() {
             buffer_minutes: 15,
             requires_certification: false,
             is_active: true,
+            is_featured_on_home: false,
         });
         setModalOpen(true);
     };
@@ -96,6 +98,7 @@ export default function HomeServiceAdminIndex() {
             buffer_minutes: record.buffer_minutes,
             requires_certification: !!record.requires_certification,
             is_active: !!record.is_active,
+            is_featured_on_home: !!record.is_featured_on_home,
         });
         setModalOpen(true);
     };
@@ -160,6 +163,38 @@ export default function HomeServiceAdminIndex() {
             message.error(error?.response?.data?.message || 'Failed to save category.');
         } finally {
             setCategorySaving(false);
+        }
+    };
+
+    const handleFeaturedToggle = async (record, checked) => {
+        setTogglingServiceId(record.id);
+
+        try {
+            await window.axios.put(`/admin/home-services/services/${record.id}`, {
+                category_id: record.category_id || record.category?.id,
+                code: record.code,
+                name: record.name,
+                description: record.description,
+                duration_minutes: record.duration_minutes,
+                base_price: Number(record.base_price || 0),
+                price_type: record.price_type,
+                buffer_minutes: record.buffer_minutes,
+                requires_certification: !!record.requires_certification,
+                is_active: !!record.is_active,
+                is_featured_on_home: checked,
+            });
+
+            setServices((current) => current.map((service) => (
+                service.id === record.id
+                    ? { ...service, is_featured_on_home: checked }
+                    : service
+            )));
+
+            message.success(`"${record.name}" ${checked ? 'featured on' : 'removed from'} home page.`);
+        } catch (error) {
+            message.error(error?.response?.data?.message || 'Failed to update service home-page setting.');
+        } finally {
+            setTogglingServiceId(null);
         }
     };
 
@@ -258,6 +293,20 @@ export default function HomeServiceAdminIndex() {
                                 render: (_, record) => record.is_active ? <Tag color="green">Active</Tag> : <Tag color="red">Inactive</Tag>,
                             },
                             {
+                                title: 'Home Page',
+                                key: 'is_featured_on_home',
+                                render: (_, record) => (
+                                    <Switch
+                                        size="small"
+                                        checked={!!record.is_featured_on_home}
+                                        loading={togglingServiceId === record.id}
+                                        checkedChildren="Yes"
+                                        unCheckedChildren="No"
+                                        onChange={(checked) => handleFeaturedToggle(record, checked)}
+                                    />
+                                ),
+                            },
+                            {
                                 title: 'Action',
                                 key: 'action',
                                 render: (_, record) => (
@@ -340,14 +389,19 @@ export default function HomeServiceAdminIndex() {
                     </Row>
 
                     <Row gutter={12}>
-                        <Col xs={24} md={12}>
+                        <Col xs={24} md={8}>
                             <Form.Item label="Requires Certification" name="requires_certification" valuePropName="checked">
                                 <Switch />
                             </Form.Item>
                         </Col>
-                        <Col xs={24} md={12}>
+                        <Col xs={24} md={8}>
                             <Form.Item label="Active" name="is_active" valuePropName="checked">
                                 <Switch />
+                            </Form.Item>
+                        </Col>
+                        <Col xs={24} md={8}>
+                            <Form.Item label="Featured on Home Page" name="is_featured_on_home" valuePropName="checked">
+                                <Switch checkedChildren="Featured" unCheckedChildren="Standard" />
                             </Form.Item>
                         </Col>
                     </Row>

@@ -16,10 +16,82 @@ import {
     Typography,
     message,
 } from 'antd';
-import { EditOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { EditOutlined, PlusOutlined, DeleteOutlined, AimOutlined, EnvironmentOutlined } from '@ant-design/icons';
+import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
 import { useEffect, useState } from 'react';
 
 const { Title, Text } = Typography;
+const DEFAULT_MAP_CENTER = [20.5937, 78.9629];
+
+if (typeof window !== 'undefined') {
+    delete L.Icon.Default.prototype._getIconUrl;
+    L.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+    });
+}
+
+function MapViewportUpdater({ position, isVisible }) {
+    const map = useMap();
+
+    useEffect(() => {
+        if (!isVisible) {
+            return undefined;
+        }
+
+        const timer = window.setTimeout(() => {
+            map.invalidateSize();
+
+            if (position) {
+                map.setView([position.lat, position.lng], Math.max(map.getZoom(), 16), {
+                    animate: true,
+                });
+            }
+        }, 250);
+
+        return () => window.clearTimeout(timer);
+    }, [map, position, isVisible]);
+
+    useEffect(() => {
+        if (position) {
+            map.setView([position.lat, position.lng], Math.max(map.getZoom(), 16), {
+                animate: true,
+            });
+        }
+    }, [map, position]);
+
+    return null;
+}
+
+function LocationSelectionMarker({ position, onChange }) {
+    useMapEvents({
+        click(event) {
+            onChange({
+                lat: event.latlng.lat,
+                lng: event.latlng.lng,
+            }, true);
+        },
+    });
+
+    if (!position) {
+        return null;
+    }
+
+    return (
+        <Marker
+            position={[position.lat, position.lng]}
+            draggable
+            eventHandlers={{
+                dragend: (event) => {
+                    const { lat, lng } = event.target.getLatLng();
+                    onChange({ lat, lng }, true);
+                },
+            }}
+        />
+    );
+}
 
 export default function HomeServiceAddresses() {
     const [form] = Form.useForm();
@@ -29,6 +101,9 @@ export default function HomeServiceAddresses() {
     const [cities, setCities] = useState([]);
     const [modalOpen, setModalOpen] = useState(false);
     const [editingAddress, setEditingAddress] = useState(null);
+    const [locating, setLocating] = useState(false);
+    const [mapReady, setMapReady] = useState(false);
+    const [selectedCoords, setSelectedCoords] = useState(null);
 
     const loadData = async () => {
         setLoading(true);
@@ -49,10 +124,128 @@ export default function HomeServiceAddresses() {
 
     useEffect(() => {
         loadData();
+        setMapReady(true);
     }, []);
+
+    const normalizeCityName = (value) => {
+        const normalized = String(value || '').trim().toLowerCase();
+
+        if (normalized === 'prayagraj') {
+            return 'allahabad';
+        }
+
+        return normalized;
+    };
+
+    const findMatchingCityId = (address = {}) => {
+        const candidates = [
+            address.city,
+            address.town,
+            address.village,
+            address.county,
+            address.state_district,
+            address.state,
+        ]
+            .map((value) => normalizeCityName(value))
+            .filter(Boolean);
+
+        const matchedCity = cities.find((city) => candidates.includes(normalizeCityName(city.name)));
+
+        return matchedCity?.id;
+    };
+
+    const syncCoordinatesToForm = (latitude, longitude) => {
+        const nextCoordinates = {
+            lat: Number(latitude),
+            lng: Number(longitude),
+        };
+
+        setSelectedCoords(nextCoordinates);
+        form.setFieldsValue({
+            latitude: nextCoordinates.lat.toFixed(6),
+            longitude: nextCoordinates.lng.toFixed(6),
+        });
+
+        return nextCoordinates;
+    };
+
+    const reverseGeocodeCoordinates = async (latitude, longitude) => {
+        try {
+            const response = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&addressdetails=1`
+            );
+
+            if (!response.ok) {
+                throw new Error(`Reverse geocoding failed with status ${response.status}`);
+            }
+
+            const data = await response.json();
+            const address = data.address || {};
+            const cityId = findMatchingCityId(address);
+            const line1 = [address.house_number, address.road || address.pedestrian || address.hamlet]
+                .filter(Boolean)
+                .join(', ');
+            const line2 = [address.suburb || address.neighbourhood, address.city_district]
+                .filter(Boolean)
+                .join(', ');
+            const landmark = address.landmark || address.amenity || address.building || address.suburb || '';
+
+            form.setFieldsValue({
+                line1: line1 || form.getFieldValue('line1'),
+                line2: line2 || form.getFieldValue('line2'),
+                landmark: landmark || form.getFieldValue('landmark'),
+                pincode: address.postcode || form.getFieldValue('pincode'),
+                city_id: cityId || form.getFieldValue('city_id'),
+                latitude: Number(latitude).toFixed(6),
+                longitude: Number(longitude).toFixed(6),
+            });
+        } catch (error) {
+            console.error('Failed to reverse geocode selected location:', error);
+        }
+    };
+
+    const handleLocationSelection = async (coords, shouldAutofillAddress = false) => {
+        const nextCoordinates = syncCoordinatesToForm(coords.lat, coords.lng);
+
+        if (shouldAutofillAddress) {
+            await reverseGeocodeCoordinates(nextCoordinates.lat, nextCoordinates.lng);
+        }
+    };
+
+    const detectCurrentLocation = () => {
+        if (!navigator.geolocation) {
+            message.error('Geolocation is not supported in this browser.');
+            return;
+        }
+
+        setLocating(true);
+
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const { latitude, longitude } = position.coords;
+                await handleLocationSelection({ lat: latitude, lng: longitude }, true);
+                message.success('Current location detected. You can fine-tune it on the map.');
+                setLocating(false);
+            },
+            (error) => {
+                const errorMessage = error.code === error.PERMISSION_DENIED
+                    ? 'Location permission was denied. Please enable it in your browser.'
+                    : 'Unable to detect your current location right now.';
+
+                message.error(errorMessage);
+                setLocating(false);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0,
+            }
+        );
+    };
 
     const openCreateModal = () => {
         setEditingAddress(null);
+        setSelectedCoords(null);
         form.resetFields();
         form.setFieldsValue({ label: 'Home', is_default: addresses.length === 0 });
         setModalOpen(true);
@@ -60,6 +253,16 @@ export default function HomeServiceAddresses() {
 
     const openEditModal = (address) => {
         setEditingAddress(address);
+
+        const latitude = Number(address.latitude);
+        const longitude = Number(address.longitude);
+
+        if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+            setSelectedCoords({ lat: latitude, lng: longitude });
+        } else {
+            setSelectedCoords(null);
+        }
+
         form.setFieldsValue({
             ...address,
             is_default: !!address.is_default,
@@ -242,6 +445,49 @@ export default function HomeServiceAddresses() {
                             </Form.Item>
                         </Col>
                     </Row>
+
+                    <Alert
+                        type="info"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                        message="Use your current location or click on the map to pin the service address precisely."
+                    />
+
+                    <Space direction="vertical" size={12} style={{ width: '100%', marginBottom: 16 }}>
+                        <Space wrap>
+                            <Button icon={<AimOutlined />} onClick={detectCurrentLocation} loading={locating}>
+                                Use Current Location
+                            </Button>
+                            <Text type="secondary">
+                                <EnvironmentOutlined style={{ marginRight: 6 }} />
+                                {selectedCoords
+                                    ? `${selectedCoords.lat.toFixed(6)}, ${selectedCoords.lng.toFixed(6)}`
+                                    : 'Click on the map or use your current location to fill coordinates.'}
+                            </Text>
+                        </Space>
+
+                        {mapReady ? (
+                            <div style={{ height: 320, borderRadius: 12, overflow: 'hidden', border: '1px solid #f0f0f0' }}>
+                                <MapContainer
+                                    center={selectedCoords ? [selectedCoords.lat, selectedCoords.lng] : DEFAULT_MAP_CENTER}
+                                    zoom={selectedCoords ? 16 : 5}
+                                    style={{ height: '100%', width: '100%' }}
+                                    scrollWheelZoom
+                                >
+                                    <TileLayer
+                                        attribution='&copy; OpenStreetMap contributors'
+                                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                    />
+                                    <MapViewportUpdater position={selectedCoords} isVisible={modalOpen} />
+                                    <LocationSelectionMarker position={selectedCoords} onChange={handleLocationSelection} />
+                                </MapContainer>
+                            </div>
+                        ) : (
+                            <Card size="small">
+                                <Text type="secondary">Loading map...</Text>
+                            </Card>
+                        )}
+                    </Space>
 
                     <Form.Item name="is_default" label="Default Address" valuePropName="checked">
                         <Switch checkedChildren="Yes" unCheckedChildren="No" />

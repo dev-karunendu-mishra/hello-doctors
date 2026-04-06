@@ -62,6 +62,7 @@ class HomeController extends Controller
             $homeServices = HomeService::query()
                 ->active()
                 ->with('category:id,name')
+                ->orderByDesc('is_featured_on_home')
                 ->orderBy('name')
                 ->take(4)
                 ->get()
@@ -103,6 +104,7 @@ class HomeController extends Controller
         return Inertia::render('Public/Home', [
             'cities' => $cities,
             'specialties' => $specialties,
+            'featuredSpecialties' => $featuredSpecialties,
             'featuredDoctors' => $featuredDoctors,
             'stats' => $stats,
             'homeServices' => $homeServices,

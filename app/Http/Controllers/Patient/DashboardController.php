@@ -48,13 +48,6 @@ class DashboardController extends Controller
             'upcomingAppointments' => $upcomingAppointments,
             'recentRecords' => $recentRecords,
             'recommendedDoctors' => $recommendedDoctors,
-            'abhaProfile' => [
-                'abha_number' => $user?->abha_number,
-                'abha_address' => $user?->abha_address,
-                'abha_status' => $user?->abha_status ?? 'not_linked',
-                'abha_verified_at' => optional($user?->abha_verified_at)?->toDateTimeString(),
-                'abha_last_synced_at' => optional($user?->abha_last_synced_at)?->toDateTimeString(),
-            ],
         ]);
     }
 }
