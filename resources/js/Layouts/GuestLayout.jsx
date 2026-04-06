@@ -1,5 +1,5 @@
 import ApplicationLogo from '@/Components/ApplicationLogo';
-import { Link, usePage } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 
 export default function GuestLayout({ children }) {
     const { site } = usePage().props;
@@ -8,11 +8,18 @@ export default function GuestLayout({ children }) {
     const siteLogo = site?.logo || null;
 
     return (
-        <div className="auth-shell">
-            <div className="auth-card">
-                <aside className="auth-brand">
-                    <div>
-                        <Link href="/" className="auth-logo-wrap" aria-label="Go to homepage">
+        <>
+            <Head>
+                <link rel="preload" href="/clinic-theme/vendor/bootstrap/css/bootstrap.min.css" as="style" />
+                <link rel="preload" href="/clinic-theme/vendor/bootstrap-icons/bootstrap-icons.css" as="style" />
+                <link rel="preload" href="/clinic-theme/main.css" as="style" />
+            </Head>
+
+            <div className="auth-shell">
+                <div className="auth-card">
+                    <aside className="auth-brand">
+                        <div>
+                            <a href="/" className="auth-logo-wrap" aria-label="Go to homepage">
                             {siteLogo ? (
                                 <img
                                     src={siteLogo}
@@ -23,11 +30,11 @@ export default function GuestLayout({ children }) {
                             ) : (
                                 <ApplicationLogo className="h-9 w-9 fill-current text-white" />
                             )}
-                            <div>
-                                <div className="auth-logo-title">{siteName}</div>
-                                <div className="auth-logo-subtitle">{siteTagline}</div>
-                            </div>
-                        </Link>
+                                <div>
+                                    <div className="auth-logo-title">{siteName}</div>
+                                    <div className="auth-logo-subtitle">{siteTagline}</div>
+                                </div>
+                            </a>
 
                         <h1 className="auth-brand-title">The future of healthcare booking starts here.</h1>
                         <p className="auth-brand-copy">
@@ -51,5 +58,6 @@ export default function GuestLayout({ children }) {
                 </main>
             </div>
         </div>
+        </>
     );
 }
