@@ -49,11 +49,17 @@ class HandleInertiaRequests extends Middleware
         $seoSettings = $getSiteSettings('seo');
         $generalSettings = $getSiteSettings('general');
         $contactSettings = $getSiteSettings('contact');
+        $authUser = $request->user();
 
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $authUser ? [
+                    'id' => $authUser->id,
+                    'name' => $authUser->name,
+                    'email' => $authUser->email,
+                    'role' => $authUser->role,
+                ] : null,
             ],
             'ziggy' => fn () => [
                 ...(new Ziggy)->toArray(),
