@@ -78,7 +78,7 @@ export default function Header({ auth }) {
                             <li><Link href="/departments" className={isActive('/departments') ? 'active' : ''} onClick={closeMenus}>Departments</Link></li>
                             <li><Link href="/services" className={isActive('/services') ? 'active' : ''} onClick={closeMenus}>Services</Link></li>
                             <li><Link href="/doctors" className={isActive('/doctors') ? 'active' : ''} onClick={closeMenus}>Doctors</Link></li>
-                            <li className="dropdown">
+                            {/* <li className="dropdown">
                                 <a
                                     href="#!"
                                     onClick={(event) => {
@@ -98,7 +98,7 @@ export default function Header({ auth }) {
                                     <li><Link href="/register-doctor" onClick={closeMenus}>Doctor Registration</Link></li>
                                     <li><Link href="/register-provider" onClick={closeMenus}>Provider Registration</Link></li>
                                 </ul>
-                            </li>
+                            </li> */}
                             <li><Link href="/contact" className={isActive('/contact') ? 'active' : ''} onClick={closeMenus}>Contact</Link></li>
 
                             {auth?.user ? (
