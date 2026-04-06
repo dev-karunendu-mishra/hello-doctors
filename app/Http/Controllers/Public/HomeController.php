@@ -27,9 +27,8 @@ class HomeController extends Controller
             ->orderBy('name')
             ->get();
 
-        // Get active specialties for search/listing and featured specialties for homepage departments
+        // Get active specialties
         $specialties = $this->getPublicSpecialties();
-        $featuredSpecialties = $this->getHomeFeaturedSpecialties();
 
         // Get featured doctors (verified and active)
         $featuredDoctors = DoctorProfile::with(['user', 'specialty', 'cities'])
@@ -275,7 +274,6 @@ class HomeController extends Controller
         return HomeService::query()
             ->active()
             ->with('category:id,name')
-            ->orderByDesc('is_featured_on_home')
             ->orderBy('name')
             ->take(6)
             ->get()
@@ -308,35 +306,10 @@ class HomeController extends Controller
      */
     private function getPublicSpecialties()
     {
-        return Specialty::query()
-            ->where('is_active', true)
+        return Specialty::active()
             ->withCount('doctors')
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get()
-            ->map(fn($specialty) => [
-                'id' => $specialty->id,
-                'name' => $specialty->name,
-                'slug' => $specialty->slug,
-                'icon' => $specialty->icon,
-                'description' => $specialty->description,
-                'image_url' => $specialty->image_path ? asset($specialty->image_path) : null,
-                'doctors_count' => $specialty->doctors_count,
-            ]);
-    }
-
-    /**
-     * Get specialties featured on the public home page
-     */
-    private function getHomeFeaturedSpecialties()
-    {
-        return Specialty::query()
-            ->where('is_active', true)
-            ->where('is_featured_on_home', true)
-            ->withCount('doctors')
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->take(5)
             ->get()
             ->map(fn($specialty) => [
                 'id' => $specialty->id,

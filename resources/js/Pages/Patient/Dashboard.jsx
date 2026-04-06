@@ -259,6 +259,57 @@ export default function Dashboard({ upcomingAppointments, recentRecords, recomme
                                 />
                             ) : (
                                 <Empty
+                                    description="No medical records yet"
+                                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                />
+                            )}
+                        </Card>
+                    </Col>
+
+                    <Col xs={24} lg={12}>
+                        <Card title="Recommended Doctors">
+                            {recommendedDoctors && recommendedDoctors.length > 0 ? (
+                                <List
+                                    grid={{
+                                        gutter: 16,
+                                        xs: 1,
+                                        sm: 2,
+                                        md: 2,
+                                        lg: 2,
+                                        xl: 2,
+                                        xxl: 2,
+                                    }}
+                                    dataSource={recommendedDoctors}
+                                    renderItem={(doctor) => (
+                                        <List.Item>
+                                            <Card
+                                                hoverable
+                                                actions={[
+                                                    <Link href={doctor.slug ? `/doctors/${doctor.slug}` : '/doctors'}>
+                                                        <Button type="primary" size="small" block disabled={!doctor.slug}>
+                                                            View Profile
+                                                        </Button>
+                                                    </Link>,
+                                                ]}
+                                            >
+                                                <Card.Meta
+                                                    avatar={<Avatar size={64} icon={<MedicineBoxOutlined />} />}
+                                                    title={`Dr. ${doctor.name || 'Doctor Name'}`}
+                                                    description={
+                                                        <div>
+                                                            <div>{doctor.specialization || 'General Physician'}</div>
+                                                            <div style={{ marginTop: 8 }}>
+                                                                <Tag color="blue">{doctor.experience || '5'} years exp</Tag>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                />
+                                            </Card>
+                                        </List.Item>
+                                    )}
+                                />
+                            ) : (
+                                <Empty
                                     description="No recommended doctors available"
                                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                                 >
