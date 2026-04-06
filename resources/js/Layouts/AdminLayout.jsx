@@ -1,4 +1,4 @@
-import { Layout, Menu, Avatar, Dropdown, Space, Badge } from 'antd';
+import { Layout, Menu, Avatar, Dropdown, Space, Badge, Button } from 'antd';
 import {
     DashboardOutlined,
     UserOutlined,
@@ -18,9 +18,11 @@ import { useState, useEffect } from 'react';
 const { Header, Sider, Content } = Layout;
 
 export default function AdminLayout({ children }) {
-    const { auth, url } = usePage().props;
+    const { auth, url, site } = usePage().props;
     const [collapsed, setCollapsed] = useState(false);
     const [selectedKeys, setSelectedKeys] = useState(['dashboard']);
+    const siteName = site?.name || 'Hello Doctors';
+    const siteLogo = site?.logo || null;
     const [openKeys, setOpenKeys] = useState([]);
 
     const getDashboardHref = () => {
@@ -304,12 +306,55 @@ export default function AdminLayout({ children }) {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
+                        padding: collapsed ? '0 8px' : '0 12px',
                         color: 'white',
-                        fontSize: collapsed ? 16 : 20,
+                        fontSize: collapsed ? 16 : 18,
                         fontWeight: 'bold',
                     }}
                 >
-                    {collapsed ? '🏥' : '🏥 HelloDoctors'}
+                    <Link
+                        href={getDashboardHref()}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: collapsed ? 0 : 10,
+                            width: '100%',
+                            color: 'white',
+                            textDecoration: 'none',
+                            overflow: 'hidden',
+                        }}
+                    >
+                        {siteLogo ? (
+                            <img
+                                src={siteLogo}
+                                alt={siteName}
+                                style={{
+                                    // width: collapsed ? 30 : 34,
+                                    maxHeight: 50,
+                                    objectFit: 'contain',
+                                    borderRadius: 6,
+                                    // background: '#ffffff',
+                                    padding: 2,
+                                    flexShrink: 0,
+                                }}
+                            />
+                        ) : (
+                            <span style={{ fontSize: collapsed ? 16 : 22, flexShrink: 0 }}>🏥</span>
+                        )}
+
+                        {/* {!collapsed && (
+                            <span
+                                style={{
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                {siteName}
+                            </span>
+                        )} */}
+                    </Link>
                 </div>
                 <Menu
                     theme="dark"

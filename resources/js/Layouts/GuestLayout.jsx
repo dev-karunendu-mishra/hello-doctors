@@ -1,17 +1,31 @@
 import ApplicationLogo from '@/Components/ApplicationLogo';
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 
 export default function GuestLayout({ children }) {
+    const { site } = usePage().props;
+    const siteName = site?.name || 'Hello Doctors';
+    const siteTagline = site?.tagline || 'Patient Care Network';
+    const siteLogo = site?.logo || null;
+
     return (
         <div className="auth-shell">
             <div className="auth-card">
                 <aside className="auth-brand">
                     <div>
                         <Link href="/" className="auth-logo-wrap" aria-label="Go to homepage">
-                            <ApplicationLogo className="h-9 w-9 fill-current text-white" />
+                            {siteLogo ? (
+                                <img
+                                    src={siteLogo}
+                                    alt={siteName}
+                                    className="h-9"
+                                    style={{ objectFit: 'contain', width: 'auto' }}
+                                />
+                            ) : (
+                                <ApplicationLogo className="h-9 w-9 fill-current text-white" />
+                            )}
                             <div>
-                                <div className="auth-logo-title">Hello Doctors</div>
-                                <div className="auth-logo-subtitle">Patient Care Network</div>
+                                <div className="auth-logo-title">{siteName}</div>
+                                <div className="auth-logo-subtitle">{siteTagline}</div>
                             </div>
                         </Link>
 
