@@ -54,7 +54,7 @@ const specialtyShowcase = [
     { title: 'Advanced Technology', image: '/clinic-assets/facilities-6.webp', text: 'State-of-the-art medical equipment' },
 ];
 
-export default function Home({ auth, site, seo, specialties = [], featuredDoctors = [], stats = {}, homeServices = [], homeServicesStats = {} }) {
+export default function Home({ auth, site, seo, specialties = [], featuredSpecialties = [], featuredDoctors = [], stats = {}, homeServices = [], homeServicesStats = {} }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedSpecialty, setSelectedSpecialty] = useState('');
 
@@ -65,7 +65,8 @@ export default function Home({ auth, site, seo, specialties = [], featuredDoctor
     const ogDescription = seo?.og_description || pageDescription;
     const canonicalUrl = typeof window !== 'undefined' ? window.location.origin : seo?.app_url || '';
 
-    const displayedSpecialties = (specialties.length ? specialties : fallbackSpecialties).slice(0, 6);
+    const searchableSpecialties = (specialties.length ? specialties : fallbackSpecialties).slice(0, 6);
+    const featuredDepartmentSpecialties = featuredSpecialties.slice(0, 5);
     const displayedDoctors = fallbackDoctors.map((fallbackDoctor, index) => {
         const doctor = featuredDoctors[index];
 
@@ -83,50 +84,58 @@ export default function Home({ auth, site, seo, specialties = [], featuredDoctor
         };
     });
 
-    const departmentCards = [
+    const departmentCardTemplates = [
         {
-            title: displayedSpecialties[0]?.name || 'Cardiovascular Medicine',
             label: 'Specialized Care',
-            description: 'Advanced diagnostic imaging and interventional procedures for comprehensive heart health management with personalized treatment protocols.',
-            features: ['24/7 Emergency Cardiac Care', 'Minimally Invasive Procedures'],
-            image: displayedSpecialties[0]?.image_url || '/clinic-assets/cardiology-1.webp',
+            description: 'Advanced diagnostic imaging and interventional procedures for comprehensive care with personalized treatment protocols.',
+            features: ['Trusted Specialists', 'Personalized Treatment'],
+            image: '/clinic-assets/cardiology-1.webp',
             icon: 'bi-heart-pulse',
-            link: displayedSpecialties[0]?.id ? `/doctors?specialty=${displayedSpecialties[0].id}` : '/doctors',
         },
         {
-            title: displayedSpecialties[1]?.name || 'Neurological Sciences',
             label: 'Expert Care',
-            description: 'Cutting-edge neuroimaging and neurosurgical expertise for complex brain and spinal cord conditions with innovative treatment approaches.',
-            features: ['Advanced Brain Imaging', 'Robotic Surgery'],
-            image: displayedSpecialties[1]?.image_url || '/clinic-assets/neurology-4.webp',
+            description: 'Modern clinical support and coordinated treatment pathways designed around patient needs and faster recovery.',
+            features: ['Advanced Diagnosis', 'Expert-Led Care'],
+            image: '/clinic-assets/neurology-4.webp',
             icon: 'bi-cpu',
-            link: displayedSpecialties[1]?.id ? `/doctors?specialty=${displayedSpecialties[1].id}` : '/doctors',
         },
     ];
 
-    const departmentHighlights = [
+    const departmentCards = featuredDepartmentSpecialties.slice(0, 2).map((specialty, index) => ({
+        title: specialty.name,
+        label: departmentCardTemplates[index]?.label || 'Featured Care',
+        description: specialty.description || departmentCardTemplates[index]?.description || 'Expert-led specialty care for better patient outcomes.',
+        features: departmentCardTemplates[index]?.features || ['Verified Doctors', 'Patient-first Support'],
+        image: specialty.image_url || departmentCardTemplates[index]?.image || '/clinic-assets/cardiology-1.webp',
+        icon: departmentCardTemplates[index]?.icon || 'bi-heart-pulse',
+        link: `/doctors?specialty=${specialty.id}`,
+    }));
+
+    const departmentHighlightTemplates = [
         {
-            title: displayedSpecialties[2]?.name || 'Orthopedic Surgery',
-            description: 'Comprehensive musculoskeletal care utilizing advanced arthroscopic techniques and joint replacement procedures.',
-            list: ['Sports Medicine', 'Joint Replacement', 'Spine Surgery'],
+            description: 'Comprehensive specialty support with reliable consultations and patient-centered treatment planning.',
+            list: ['Verified Doctors', 'Easy Discovery', 'Trusted Care'],
             icon: 'bi-shield-plus',
-            link: displayedSpecialties[2]?.id ? `/doctors?specialty=${displayedSpecialties[2].id}` : '/doctors',
         },
         {
-            title: displayedSpecialties[3]?.name || 'Pediatric Care',
-            description: 'Child-centered healthcare services from newborn to adolescence with family-focused treatment approaches.',
-            list: ['Neonatal Intensive Care', 'Developmental Pediatrics', 'Pediatric Surgery'],
+            description: 'Coordinated care journeys to help patients connect with the right expertise faster and more confidently.',
+            list: ['Specialist Access', 'Modern Support', 'Smooth Follow-up'],
             icon: 'bi-people',
-            link: displayedSpecialties[3]?.id ? `/doctors?specialty=${displayedSpecialties[3].id}` : '/doctors',
         },
         {
-            title: displayedSpecialties[4]?.name || 'Cancer Treatment',
-            description: 'Multidisciplinary oncology program offering personalized cancer care with latest therapeutic innovations.',
-            list: ['Precision Medicine', 'Immunotherapy', 'Radiation Oncology'],
+            description: 'Focused medical attention backed by experienced professionals and a convenient search-to-care experience.',
+            list: ['Timely Care', 'Expert Guidance', 'Better Outcomes'],
             icon: 'bi-activity',
-            link: displayedSpecialties[4]?.id ? `/doctors?specialty=${displayedSpecialties[4].id}` : '/doctors',
         },
     ];
+
+    const departmentHighlights = featuredDepartmentSpecialties.slice(2, 5).map((specialty, index) => ({
+        title: specialty.name,
+        description: specialty.description || departmentHighlightTemplates[index]?.description || 'Expert specialty care designed around real patient needs.',
+        list: departmentHighlightTemplates[index]?.list || ['Verified Specialists', 'Patient Support'],
+        icon: departmentHighlightTemplates[index]?.icon || 'bi-activity',
+        link: `/doctors?specialty=${specialty.id}`,
+    }));
 
     const serviceItems = (homeServices.length ? homeServices : fallbackServices).slice(0, 3).map((service, index) => ({
         id: service.id,
@@ -350,6 +359,14 @@ export default function Home({ auth, site, seo, specialties = [], featuredDoctor
 
                     <div className="container" data-aos="fade-up" data-aos-delay="100">
                         <div className="row g-5">
+                            {!departmentCards.length && !departmentHighlights.length && (
+                                <div className="col-12">
+                                    <div className="alert alert-light border-0 shadow-sm mb-0">
+                                        No featured departments are available right now. Mark specialties as <strong>Featured on Home Page</strong> from the admin panel to show them here.
+                                    </div>
+                                </div>
+                            )}
+
                             {departmentCards.map((department, index) => (
                                 <div className="col-lg-6" data-aos="zoom-in" data-aos-delay={100 + (index * 100)} key={department.title}>
                                     <div className="specialty-card">
@@ -515,7 +532,7 @@ export default function Home({ auth, site, seo, specialties = [], featuredDoctor
                                                     onChange={(event) => setSelectedSpecialty(event.target.value)}
                                                 >
                                                     <option value="">All Specialties</option>
-                                                    {displayedSpecialties.map((specialty) => (
+                                                    {searchableSpecialties.map((specialty) => (
                                                         <option key={specialty.id} value={specialty.id}>{specialty.name}</option>
                                                     ))}
                                                 </select>
