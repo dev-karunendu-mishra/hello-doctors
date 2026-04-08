@@ -4,7 +4,7 @@ import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const PROVIDER_TYPES = [
     { value: 'nurse', label: 'Nurse' },
@@ -20,8 +20,7 @@ const STEP_FIELDS = {
 
 const STEP_ITEMS = [
     { title: 'Personal Details', description: 'Create your provider account.' },
-    { title: 'Professional Details', description: 'Tell us how you support patients.' },
-    { title: 'Review & Submit', description: 'Confirm everything before sending for approval.' },
+    { title: 'Professional Details', description: 'Tell us how you support patients and submit.' },
 ];
 
 export default function RegisterProvider({ cities = [], services = [] }) {
@@ -64,13 +63,6 @@ export default function RegisterProvider({ cities = [], services = [] }) {
             setData('service_ids', [...current, id]);
         }
     };
-
-    const selectedServiceNames = useMemo(
-        () => services.filter((service) => data.service_ids.includes(service.id)).map((service) => service.name),
-        [data.service_ids, services]
-    );
-
-    const providerTypeLabel = PROVIDER_TYPES.find((type) => type.value === data.provider_type)?.label || 'Not selected';
 
     useEffect(() => {
         const errorKeys = Object.keys(errors);
@@ -209,7 +201,7 @@ export default function RegisterProvider({ cities = [], services = [] }) {
                         </div>
                     </div>
 
-                    <div className="grid gap-3 border-b border-gray-100 bg-gray-50 px-4 py-4 sm:grid-cols-3 sm:px-6">
+                    <div className="grid gap-3 border-b border-gray-100 bg-gray-50 px-4 py-4 sm:grid-cols-2 sm:px-6">
                         {STEP_ITEMS.map((step, index) => {
                             const isActive = currentStep === index;
                             const isComplete = index < currentStep || isStepComplete(index);
@@ -439,70 +431,9 @@ export default function RegisterProvider({ cities = [], services = [] }) {
                             </div>
                         )}
 
-                        {currentStep === 2 && (
-                            <div className="space-y-4">
-                                <div className="grid gap-4 lg:grid-cols-2">
-                                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                                        <h4 className="text-sm font-semibold text-gray-900">Account Summary</h4>
-                                        <dl className="mt-3 space-y-2 text-sm text-gray-600">
-                                            <div className="flex justify-between gap-3">
-                                                <dt className="font-medium text-gray-700">Full Name</dt>
-                                                <dd className="text-right">{data.name || 'Not added'}</dd>
-                                            </div>
-                                            <div className="flex justify-between gap-3">
-                                                <dt className="font-medium text-gray-700">Email</dt>
-                                                <dd className="text-right">{data.email || 'Not added'}</dd>
-                                            </div>
-                                            <div className="flex justify-between gap-3">
-                                                <dt className="font-medium text-gray-700">Phone</dt>
-                                                <dd className="text-right">{data.phone || 'Not added'}</dd>
-                                            </div>
-                                        </dl>
-                                    </div>
-
-                                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                                        <h4 className="text-sm font-semibold text-gray-900">Professional Summary</h4>
-                                        <dl className="mt-3 space-y-2 text-sm text-gray-600">
-                                            <div className="flex justify-between gap-3">
-                                                <dt className="font-medium text-gray-700">Provider Type</dt>
-                                                <dd className="text-right">{providerTypeLabel}</dd>
-                                            </div>
-                                            <div className="flex justify-between gap-3">
-                                                <dt className="font-medium text-gray-700">City</dt>
-                                                <dd className="text-right">{cities.find((city) => String(city.id) === String(data.city_id))?.name || 'Not selected'}</dd>
-                                            </div>
-                                            <div className="flex justify-between gap-3">
-                                                <dt className="font-medium text-gray-700">Experience</dt>
-                                                <dd className="text-right">{data.experience_years ? `${data.experience_years} years` : 'Not added'}</dd>
-                                            </div>
-                                            <div className="flex justify-between gap-3">
-                                                <dt className="font-medium text-gray-700">Service Radius</dt>
-                                                <dd className="text-right">{data.service_radius_km ? `${data.service_radius_km} km` : 'Not added'}</dd>
-                                            </div>
-                                        </dl>
-                                    </div>
-                                </div>
-
-                                {services.length > 0 && (
-                                    <div className="rounded-xl border border-gray-200 bg-white p-4">
-                                        <h4 className="text-sm font-semibold text-gray-900">Selected Services</h4>
-                                        <div className="mt-3 flex flex-wrap gap-2">
-                                            {selectedServiceNames.length > 0 ? (
-                                                selectedServiceNames.map((serviceName) => (
-                                                    <span key={serviceName} className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
-                                                        {serviceName}
-                                                    </span>
-                                                ))
-                                            ) : (
-                                                <span className="text-sm text-gray-500">No optional services selected yet.</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                                    Your provider profile will stay <strong>pending admin verification and activation</strong> before bookings can be assigned. You can still sign in and complete your profile and weekly availability meanwhile.
-                                </div>
+                        {currentStep === 1 && (
+                            <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                                Your provider profile will stay <strong>pending admin verification and activation</strong> before bookings can be assigned. You can still sign in and complete your profile and weekly availability meanwhile.
                             </div>
                         )}
                     </div>
@@ -530,11 +461,11 @@ export default function RegisterProvider({ cities = [], services = [] }) {
                                 onClick={goToNextStep}
                                 className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
                             >
-                                {currentStep === STEP_ITEMS.length - 2 ? 'Review Details' : 'Continue'}
+                                Continue
                             </button>
                         ) : (
                             <PrimaryButton disabled={processing}>
-                                {processing ? 'Registering...' : 'Submit Registration'}
+                                {processing ? 'Registering...' : 'Register as Provider'}
                             </PrimaryButton>
                         )}
                     </div>
