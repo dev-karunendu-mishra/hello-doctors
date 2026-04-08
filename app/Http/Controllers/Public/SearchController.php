@@ -19,7 +19,7 @@ class SearchController extends Controller
     public function index(Request $request): Response
     {
         $query = DoctorProfile::query()
-            ->with(['user', 'specialty', 'cities', 'searchTag'])
+            ->with(['user', 'specialty', 'cities', 'searchTag', 'workingHours', 'hospitalClinics.city', 'hospitalClinics.scheduleSlots'])
             ->verified()
             ->active();
 
@@ -102,7 +102,32 @@ class SearchController extends Controller
                 'experience_years' => $doctor->experience_years,
                 'consultation_fee' => $doctor->consultation_fee,
                 'is_available_online' => $doctor->is_available_online,
+                'is_available_today' => $this->isDoctorAvailableToday($doctor),
+                'availability_preview' => $this->buildAvailabilityPreview($doctor),
                 'website' => $doctor->website,
+                'clinic_schedules' => $doctor->hospitalClinics
+                    ->where('is_active', true)
+                    ->values()
+                    ->map(fn($clinic) => [
+                        'id' => $clinic->id,
+                        'hospital_clinic_name' => $clinic->hospital_clinic_name,
+                        'city' => $clinic->city?->name,
+                        'address' => $clinic->address,
+                        'latitude' => $clinic->latitude,
+                        'longitude' => $clinic->longitude,
+                        'consultation_fee' => $clinic->consultation_fee,
+                        'schedules' => $clinic->scheduleSlots
+                            ->where('is_available', true)
+                            ->sortBy('day_of_week')
+                            ->values()
+                            ->map(fn($slot) => [
+                                'day_of_week' => \App\Models\DoctorScheduleSlot::DAYS_OF_WEEK[$slot->day_of_week] ?? 'Unknown',
+                                'opening_time' => $slot->opening_time ? substr($slot->opening_time, 0, 5) : null,
+                                'closing_time' => $slot->closing_time ? substr($slot->closing_time, 0, 5) : null,
+                                'break_start_time' => $slot->break_start_time ? substr($slot->break_start_time, 0, 5) : null,
+                                'break_end_time' => $slot->break_end_time ? substr($slot->break_end_time, 0, 5) : null,
+                            ]),
+                    ]),
             ]);
 
         // Get filter options
@@ -159,6 +184,7 @@ class SearchController extends Controller
                 'consultation_fee' => $doctor->consultation_fee,
                 'website' => $doctor->website,
                 'is_available_online' => $doctor->is_available_online,
+                'is_available_today' => $this->isDoctorAvailableToday($doctor),
                 'meta_title' => $doctor->meta_title,
                 'meta_description' => $doctor->meta_description,
                 'meta_keywords' => $doctor->meta_keywords,
@@ -201,5 +227,113 @@ class SearchController extends Controller
                     ]),
             ],
         ]);
+    }
+
+    private function isDoctorAvailableToday(DoctorProfile $doctor): bool
+    {
+        $todayNumber = now()->dayOfWeek;
+        $todayName = strtolower(now()->format('l'));
+        $todayShortName = substr($todayName, 0, 3);
+
+        $hasClinicAvailability = $doctor->hospitalClinics
+            ->where('is_active', true)
+            ->contains(function ($clinic) use ($todayNumber) {
+                return $clinic->scheduleSlots->contains(function ($slot) use ($todayNumber) {
+                    return (bool) $slot->is_available && (int) $slot->day_of_week === $todayNumber;
+                });
+            });
+
+        if ($hasClinicAvailability) {
+            return true;
+        }
+
+        return $doctor->workingHours->contains(function ($workingHour) use ($todayName, $todayShortName) {
+            $dayValue = strtolower((string) $workingHour->day_of_week);
+
+            return (bool) $workingHour->is_available
+                && ($dayValue === $todayName || $dayValue === $todayShortName);
+        });
+    }
+
+    private function buildAvailabilityPreview(DoctorProfile $doctor): array
+    {
+        $primaryClinic = $doctor->hospitalClinics
+            ->where('is_active', true)
+            ->first(function ($clinic) {
+                return $clinic->scheduleSlots->contains(fn($slot) => (bool) $slot->is_available);
+            });
+
+        if (!$primaryClinic) {
+            return [
+                'clinic_name' => null,
+                'clinic_city' => null,
+                'days' => [],
+            ];
+        }
+
+        $days = collect(range(0, 2))->map(function ($offset) use ($primaryClinic) {
+            $date = now()->copy()->startOfDay()->addDays($offset);
+            $slot = $primaryClinic->scheduleSlots
+                ->where('is_available', true)
+                ->firstWhere('day_of_week', $date->dayOfWeek);
+
+            $times = $slot ? $this->generatePreviewTimesFromSlot($slot) : [];
+            $groupedTimes = collect($times)
+                ->groupBy(function ($time) {
+                    $hour = (int) date('G', strtotime($time));
+
+                    return $hour < 12 ? 'Morning' : ($hour < 17 ? 'Afternoon' : 'Evening');
+                })
+                ->map(fn($items) => $items->values())
+                ->toArray();
+
+            return [
+                'date' => $date->toDateString(),
+                'label' => $offset === 0 ? 'Today' : ($offset === 1 ? 'Tomorrow' : $date->format('D, j M')),
+                'slots_count' => count($times),
+                'groups' => $groupedTimes,
+            ];
+        })->values()->all();
+
+        return [
+            'clinic_name' => $primaryClinic->hospital_clinic_name,
+            'clinic_city' => $primaryClinic->city?->name,
+            'days' => $days,
+        ];
+    }
+
+    private function generatePreviewTimesFromSlot($slot): array
+    {
+        if (!$slot->opening_time || !$slot->closing_time) {
+            return [];
+        }
+
+        $opening = now()->copy()->setTimeFromTimeString(substr((string) $slot->opening_time, 0, 5));
+        $closing = now()->copy()->setTimeFromTimeString(substr((string) $slot->closing_time, 0, 5));
+        $breakStart = $slot->break_start_time
+            ? now()->copy()->setTimeFromTimeString(substr((string) $slot->break_start_time, 0, 5))
+            : null;
+        $breakEnd = $slot->break_end_time
+            ? now()->copy()->setTimeFromTimeString(substr((string) $slot->break_end_time, 0, 5))
+            : null;
+        $duration = max((int) ($slot->slot_duration_minutes ?? 15), 15);
+        $times = [];
+
+        while ($opening < $closing && count($times) < 12) {
+            if ($breakStart && $breakEnd && $opening >= $breakStart && $opening < $breakEnd) {
+                $opening->addMinutes($duration);
+                continue;
+            }
+
+            $slotEnd = $opening->copy()->addMinutes($duration);
+            if ($slotEnd > $closing) {
+                break;
+            }
+
+            $times[] = $opening->format('h:i A');
+            $opening->addMinutes($duration);
+        }
+
+        return $times;
     }
 }

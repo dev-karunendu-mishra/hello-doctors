@@ -1,76 +1,15 @@
 import { Head, Link } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Card, Row, Col, Typography, Descriptions, Tag, Avatar, Divider, Button, Empty, Form, Input, Modal, Radio, Select, Space, message } from 'antd';
-import { UserOutlined, PhoneOutlined, MailOutlined, GlobalOutlined, EnvironmentOutlined, MedicineBoxOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { Avatar, Button, Card, Col, Descriptions, Divider, Row, Tag, Typography, message } from 'antd';
+import { ClockCircleOutlined, EnvironmentOutlined, GlobalOutlined, MailOutlined, MedicineBoxOutlined, PhoneOutlined, UserOutlined } from '@ant-design/icons';
 import PublicLayout from '@/Layouts/PublicLayout';
+import DoctorBookingModal from '@/Components/DoctorBookingModal';
 
 const { Title, Paragraph } = Typography;
 
-const consultationTypes = [
-    { value: 'in-person', label: 'In Person' },
-    { value: 'online', label: 'Online' },
-    { value: 'phone', label: 'Phone' },
-];
-
-const ONLINE_DISCOUNT_PERCENT = 10;
-
-const getPricingSummary = (amount, paymentMethod) => {
-    const baseAmount = Number(amount || 0);
-    const discountAmount = paymentMethod === 'online'
-        ? Number(((baseAmount * ONLINE_DISCOUNT_PERCENT) / 100).toFixed(2))
-        : 0;
-
-    return {
-        baseAmount,
-        discountAmount,
-        payableAmount: Number(Math.max(baseAmount - discountAmount, 0).toFixed(2)),
-    };
-};
-
-const loadRazorpayScript = () =>
-    new Promise((resolve) => {
-        if (document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')) {
-            resolve(true);
-            return;
-        }
-
-        const script = document.createElement('script');
-        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-        script.onload = () => resolve(true);
-        script.onerror = () => resolve(false);
-        document.body.appendChild(script);
-    });
-
-const groupSlots = (slots = []) => {
-    const groups = {
-        Morning: [],
-        Afternoon: [],
-        Evening: [],
-    };
-
-    slots.forEach((slot) => {
-        const hour = parseInt(String(slot?.time || '00:00').split(':')[0], 10);
-
-        if (hour < 12) {
-            groups.Morning.push(slot);
-        } else if (hour < 17) {
-            groups.Afternoon.push(slot);
-        } else {
-            groups.Evening.push(slot);
-        }
-    });
-
-    return Object.entries(groups).filter(([, items]) => items.length > 0);
-};
-
 export default function DoctorProfile({ auth, doctor }) {
     const [bookingOpen, setBookingOpen] = useState(false);
-    const [bookingSaving, setBookingSaving] = useState(false);
-    const [slotsLoading, setSlotsLoading] = useState(false);
-    const [availableSlots, setAvailableSlots] = useState([]);
-    const [selectedClinicId, setSelectedClinicId] = useState(null);
-    const [selectedDate, setSelectedDate] = useState('');
-    const [bookingForm] = Form.useForm();
+    const [hasHandledAutoOpen, setHasHandledAutoOpen] = useState(false);
 
     const clinicSchedules = doctor.clinic_schedules || [];
     const isPatient = auth?.user?.role === 'patient';
@@ -80,8 +19,6 @@ export default function DoctorProfile({ auth, doctor }) {
         () => clinicSchedules.filter((clinic) => Array.isArray(clinic.schedules) && clinic.schedules.length > 0),
         [clinicSchedules],
     );
-    const selectedPaymentMethod = Form.useWatch('payment_method', bookingForm) || 'online';
-    const selectedClinic = bookableClinics.find((clinic) => String(clinic.id) === String(selectedClinicId)) || bookableClinics[0] || null;
     const bookingUnavailable = bookableClinics.length === 0;
     const bookingAvailabilityNote = bookingUnavailable
         ? 'Appointment booking is currently unavailable because this doctor has no active schedule or bookable slots yet.'
@@ -118,168 +55,97 @@ export default function DoctorProfile({ auth, doctor }) {
         return `https://www.google.com/maps?q=${lat},${lng}`;
     };
 
-    const fetchAvailableSlots = async (clinicId, date) => {
-        if (!clinicId || !date || !isPatient) {
+
+    useEffect(() => {
+        if (typeof window === 'undefined' || hasHandledAutoOpen) {
             return;
         }
 
-        setSlotsLoading(true);
+        const shouldAutoOpen = new URLSearchParams(window.location.search).get('book') === '1';
 
-        try {
-            const response = await window.axios.get(`/patient/data/clinics/${clinicId}/available-slots`, {
-                params: { date },
-            });
-
-            const slots = response?.data?.slots || [];
-            setAvailableSlots(slots);
-
-            const currentSlot = bookingForm.getFieldValue('appointment_time');
-            if (currentSlot && !slots.some((slot) => slot.time === currentSlot)) {
-                bookingForm.setFieldValue('appointment_time', null);
-            }
-        } catch (error) {
-            setAvailableSlots([]);
-            message.error(error?.response?.data?.message || 'Failed to load available slots.');
-        } finally {
-            setSlotsLoading(false);
+        if (!shouldAutoOpen) {
+            setHasHandledAutoOpen(true);
+            return;
         }
-    };
 
-    useEffect(() => {
-        if (bookingOpen && selectedClinicId && selectedDate && isPatient) {
-            fetchAvailableSlots(selectedClinicId, selectedDate);
+        setHasHandledAutoOpen(true);
+
+        if (isPatient && !bookingUnavailable) {
+            openBookingModal();
         }
-    }, [bookingOpen, selectedClinicId, selectedDate, isPatient]);
+    }, [bookingUnavailable, hasHandledAutoOpen, isPatient]);
 
     const openBookingModal = () => {
-        if (!bookableClinics.length) {
+        if (bookingUnavailable) {
             message.info('No appointment slots are currently available for this doctor.');
             return;
         }
 
-        const initialClinic = bookableClinics[0];
-        const initialDate = new Date().toISOString().slice(0, 10);
-
-        setSelectedClinicId(initialClinic.id);
-        setSelectedDate(initialDate);
-        setAvailableSlots([]);
-        bookingForm.setFieldsValue({
-            clinic_id: initialClinic.id,
-            appointment_date: initialDate,
-            appointment_time: null,
-            consultation_type: doctor.is_available_online ? 'online' : 'in-person',
-            payment_method: 'online',
-            reason_for_visit: '',
-        });
         setBookingOpen(true);
     };
 
-    const confirmBooking = async () => {
-        try {
-            const values = await bookingForm.validateFields();
-            setBookingSaving(true);
+    const availabilityLabel = bookingUnavailable
+        ? 'Schedule Updating'
+        : (doctor.is_available_today ? 'Available Today' : 'Check Schedule');
+    const availabilityClassName = `doctor-listing-availability ${doctor.is_available_today ? '' : 'is-muted'}`;
 
-            const bookingParams = {
-                type: 'appointment',
-                payment_method: values.payment_method,
-                doctor_hospital_clinic_id: values.clinic_id,
-                appointment_date: values.appointment_date,
-                appointment_time: values.appointment_time,
-                consultation_type: values.consultation_type,
-                reason_for_visit: values.reason_for_visit,
-            };
-
-            const orderRes = await window.axios.post('/patient/data/payment/create-order', bookingParams);
-            const orderData = orderRes.data;
-
-            if (orderData.skip_payment) {
-                await window.axios.post('/patient/data/appointments', {
-                    doctor_hospital_clinic_id: values.clinic_id,
-                    appointment_date: values.appointment_date,
-                    appointment_time: values.appointment_time,
-                    consultation_type: values.consultation_type,
-                    reason_for_visit: values.reason_for_visit,
-                    payment_method: values.payment_method === 'online' ? undefined : 'cod',
-                });
-
-                message.success(values.payment_method === 'online'
-                    ? 'Appointment booked successfully.'
-                    : 'Appointment booked successfully. Please pay at the clinic during your visit.');
-                setBookingOpen(false);
-                return;
-            }
-
-            const loaded = await loadRazorpayScript();
-            if (!loaded) {
-                message.error('Could not load payment gateway. Please try again.');
-                return;
-            }
-
-            await new Promise((resolve, reject) => {
-                const rzp = new window.Razorpay({
-                    key: orderData.key_id,
-                    order_id: orderData.order_id,
-                    amount: orderData.amount,
-                    currency: orderData.currency,
-                    name: 'Hello Doctors',
-                    description: `Appointment with ${doctor.name}`,
-                    handler: async (response) => {
-                        try {
-                            await window.axios.post('/patient/data/payment/verify', {
-                                ...bookingParams,
-                                razorpay_order_id: response.razorpay_order_id,
-                                razorpay_payment_id: response.razorpay_payment_id,
-                                razorpay_signature: response.razorpay_signature,
-                            });
-                            message.success('Appointment booked and payment successful!');
-                            setBookingOpen(false);
-                            resolve();
-                        } catch (error) {
-                            message.error(error?.response?.data?.message || 'Payment was captured but booking failed.');
-                            reject(error);
-                        }
-                    },
-                    modal: {
-                        ondismiss: () => {
-                            message.warning('Payment was not completed. Your slot has not been booked.');
-                            resolve();
-                        },
-                    },
-                    theme: { color: '#1677ff' },
-                });
-
-                rzp.open();
-            });
-        } catch (error) {
-            if (error?.errorFields) {
-                return;
-            }
-
-            message.error(error?.response?.data?.message || 'Booking failed. Please try again.');
-        } finally {
-            setBookingSaving(false);
+    const renderBookingActionButton = () => {
+        if (bookingUnavailable) {
+            return (
+                <button type="button" className="doctor-listing-primary-btn is-disabled" disabled>
+                    <span>Appointment Unavailable</span>
+                    <small>Schedule will open soon</small>
+                </button>
+            );
         }
+
+        if (isPatient) {
+            return (
+                <button type="button" className="doctor-listing-primary-btn" onClick={openBookingModal}>
+                    <span>Book Clinic Visit</span>
+                    <small>No Booking Fee</small>
+                </button>
+            );
+        }
+
+        if (!isLoggedIn) {
+            return (
+                <Link href="/login" className="doctor-listing-primary-btn">
+                    <span>Login to Book</span>
+                    <small>Secure appointment access</small>
+                </Link>
+            );
+        }
+
+        return (
+            <Link href="/patient/find-doctors" className="doctor-listing-primary-btn">
+                <span>Book from Dashboard</span>
+                <small>Continue as patient</small>
+            </Link>
+        );
     };
 
-    const bookingCta = bookingUnavailable ? (
-        <Button type="primary" size="large" disabled>
-            Appointment Unavailable
-        </Button>
-    ) : isPatient ? (
-        <Button type="primary" size="large" onClick={openBookingModal}>
-            Book Appointment
-        </Button>
-    ) : !isLoggedIn ? (
-        <Link href="/login">
-            <Button type="primary" size="large">Login to Book Appointment</Button>
-        </Link>
-    ) : (
-        <Link href="/patient/find-doctors">
-            <Button type="primary" size="large">Book from Patient Dashboard</Button>
-        </Link>
-    );
+    const renderSecondaryActionButton = () => {
+        if (doctor.phone) {
+            return (
+                <a href={`tel:${doctor.phone}`} className="doctor-listing-secondary-btn">
+                    <PhoneOutlined />
+                    Contact Clinic
+                </a>
+            );
+        }
 
-    const pricing = getPricingSummary(selectedClinic?.consultation_fee || doctor.consultation_fee, selectedPaymentMethod);
+        if (doctor.email) {
+            return (
+                <a href={`mailto:${doctor.email}`} className="doctor-listing-secondary-btn">
+                    <MailOutlined />
+                    Send Email
+                </a>
+            );
+        }
+
+        return null;
+    };
 
     // Generate Schema.org structured data for SEO
     const structuredData = {
@@ -405,14 +271,19 @@ export default function DoctorProfile({ auth, doctor }) {
                                     )}
                                 </Descriptions>
 
-                                <Space wrap size="middle" style={{ marginTop: 16 }}>
-                                    {bookingCta}
+                                <div className="doctor-detail-action-panel">
+                                    <span className={availabilityClassName}>
+                                        <i className={`bi ${doctor.is_available_today ? 'bi-calendar-check' : 'bi-calendar-x'}`} />
+                                        {availabilityLabel}
+                                    </span>
+                                    {renderBookingActionButton()}
+                                    {renderSecondaryActionButton()}
                                     {isPatient && (
-                                        <Link href="/patient/appointments">
-                                            <Button size="large">My Appointments</Button>
+                                        <Link href="/patient/appointments" className="doctor-detail-inline-link">
+                                            View My Appointments
                                         </Link>
                                     )}
-                                </Space>
+                                </div>
 
                                 <Paragraph
                                     type="secondary"
@@ -557,187 +428,21 @@ export default function DoctorProfile({ auth, doctor }) {
                         <Paragraph>
                             {bookingAvailabilityNote}
                         </Paragraph>
-                        <Space wrap size="middle" style={{ justifyContent: 'center' }}>
-                            {bookingCta}
-                            {doctor.phone && (
-                                <Button size="large" icon={<PhoneOutlined />} href={`tel:${doctor.phone}`}>
-                                    Call Now
-                                </Button>
-                            )}
-                            {doctor.email && (
-                                <Button size="large" icon={<MailOutlined />} href={`mailto:${doctor.email}`}>
-                                    Send Email
-                                </Button>
-                            )}
-                        </Space>
+                        <div className="doctor-detail-contact-panel">
+                            <span className={availabilityClassName}>
+                                <i className={`bi ${doctor.is_available_today ? 'bi-calendar-check' : 'bi-calendar-x'}`} />
+                                {availabilityLabel}
+                            </span>
+                            {renderBookingActionButton()}
+                            {renderSecondaryActionButton()}
+                        </div>
                     </Card>
 
-                    <Modal
-                        title={`Book Appointment with ${doctor.name}`}
+                    <DoctorBookingModal
+                        doctor={doctor}
                         open={bookingOpen}
-                        onCancel={() => setBookingOpen(false)}
-                        onOk={confirmBooking}
-                        okText="Confirm Booking"
-                        confirmLoading={bookingSaving}
-                        okButtonProps={{ disabled: slotsLoading || !selectedClinic || availableSlots.length === 0 }}
-                        width={720}
-                        destroyOnClose
-                    >
-                        <Form form={bookingForm} layout="vertical">
-                            <Row gutter={16}>
-                                <Col xs={24} md={12}>
-                                    <Form.Item
-                                        label="Select Clinic"
-                                        name="clinic_id"
-                                        rules={[{ required: true, message: 'Please select a clinic.' }]}
-                                    >
-                                        <Select
-                                            placeholder="Choose clinic"
-                                            options={bookableClinics.map((clinic) => ({
-                                                value: clinic.id,
-                                                label: `${clinic.hospital_clinic_name}${clinic.city ? ` - ${clinic.city}` : ''}`,
-                                            }))}
-                                            onChange={(value) => {
-                                                setSelectedClinicId(value);
-                                                bookingForm.setFieldValue('appointment_time', null);
-                                            }}
-                                        />
-                                    </Form.Item>
-                                </Col>
-
-                                <Col xs={24} md={12}>
-                                    <Form.Item
-                                        label="Appointment Date"
-                                        name="appointment_date"
-                                        rules={[{ required: true, message: 'Please select an appointment date.' }]}
-                                    >
-                                        <Input
-                                            type="date"
-                                            min={new Date().toISOString().slice(0, 10)}
-                                            onChange={(event) => {
-                                                const value = event.target.value;
-                                                setSelectedDate(value);
-                                                bookingForm.setFieldValue('appointment_date', value);
-                                                bookingForm.setFieldValue('appointment_time', null);
-                                            }}
-                                        />
-                                    </Form.Item>
-                                </Col>
-                            </Row>
-
-                            {selectedClinic && (
-                                <Card size="small" style={{ marginBottom: 16, background: '#f8fbff' }}>
-                                    <strong>{selectedClinic.hospital_clinic_name}</strong>
-                                    <div>{[selectedClinic.city, selectedClinic.address].filter(Boolean).join(' | ')}</div>
-                                    <div style={{ marginTop: 4 }}>Consultation Fee: ₹{selectedClinic.consultation_fee || doctor.consultation_fee || 0}</div>
-                                </Card>
-                            )}
-
-                            <Form.Item name="appointment_time" rules={[{ required: true, message: 'Please select an available slot.' }]} hidden>
-                                <Input type="hidden" />
-                            </Form.Item>
-
-                            <div style={{ marginBottom: 16 }}>
-                                <div style={{ fontWeight: 600, marginBottom: 8 }}>Available Slots</div>
-                                {slotsLoading ? (
-                                    <Paragraph type="secondary">Loading available slots...</Paragraph>
-                                ) : availableSlots.length > 0 ? (
-                                    groupSlots(availableSlots).map(([label, slots]) => (
-                                        <div key={label} style={{ marginBottom: 12 }}>
-                                            <div style={{ fontWeight: 500, marginBottom: 8 }}>{label}</div>
-                                            <Space wrap>
-                                                {slots.map((slot) => {
-                                                    const slotValue = slot.time;
-                                                    const isSelected = bookingForm.getFieldValue('appointment_time') === slotValue;
-
-                                                    return (
-                                                        <Button
-                                                            key={`${label}-${slotValue}`}
-                                                            type={isSelected ? 'primary' : 'default'}
-                                                            onClick={() => bookingForm.setFieldValue('appointment_time', slotValue)}
-                                                        >
-                                                            {slot.label || slot.time}
-                                                        </Button>
-                                                    );
-                                                })}
-                                            </Space>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <Empty description="No slots available for the selected date." image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                                )}
-
-                                {bookingForm.getFieldError('appointment_time').length > 0 && (
-                                    <div style={{ color: '#ff4d4f', marginTop: 8 }}>
-                                        {bookingForm.getFieldError('appointment_time')[0]}
-                                    </div>
-                                )}
-                            </div>
-
-                            <Row gutter={16}>
-                                <Col xs={24} md={12}>
-                                    <Form.Item
-                                        label="Consultation Type"
-                                        name="consultation_type"
-                                        rules={[{ required: true, message: 'Please select consultation type.' }]}
-                                    >
-                                        <Select
-                                            options={consultationTypes.filter((option) => doctor.is_available_online || option.value !== 'online')}
-                                        />
-                                    </Form.Item>
-                                </Col>
-
-                                <Col xs={24} md={12}>
-                                    <Form.Item label="Payment Method" name="payment_method">
-                                        <Radio.Group>
-                                            <Space direction="vertical">
-                                                <Radio value="online">Pay Online ({ONLINE_DISCOUNT_PERCENT}% off)</Radio>
-                                                <Radio value="cod">Pay at Clinic</Radio>
-                                            </Space>
-                                        </Radio.Group>
-                                    </Form.Item>
-                                </Col>
-                            </Row>
-
-                            <Alert
-                                type={selectedPaymentMethod === 'online' ? 'success' : 'warning'}
-                                showIcon
-                                style={{ marginBottom: 12 }}
-                                message={selectedPaymentMethod === 'online'
-                                    ? `You save ₹${pricing.discountAmount.toFixed(2)} with online payment.`
-                                    : 'No discount is applied for pay-at-clinic bookings.'}
-                            />
-
-                            <Alert
-                                type="info"
-                                showIcon
-                                style={{ marginBottom: 12 }}
-                                message="Refund Policy"
-                                description="For online payments only: cancel more than 1 hour before the appointment to get a 90% refund; within 1 hour, you get an 80% refund. No refund applies for pay-at-clinic bookings or after the visit time."
-                            />
-
-                            <Form.Item label="Reason for Visit" name="reason_for_visit">
-                                <Input.TextArea rows={3} placeholder="Describe symptoms or consultation reason" />
-                            </Form.Item>
-
-                            <div style={{ background: '#fafafa', borderRadius: 8, padding: 12 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                    <span>Consultation Fee</span>
-                                    <strong>₹{pricing.baseAmount.toFixed(2)}</strong>
-                                </div>
-                                {selectedPaymentMethod === 'online' && pricing.discountAmount > 0 && (
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, color: '#389e0d' }}>
-                                        <span>Online Payment Discount</span>
-                                        <strong>-₹{pricing.discountAmount.toFixed(2)}</strong>
-                                    </div>
-                                )}
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-                                    <span>Payable Amount</span>
-                                    <span>₹{pricing.payableAmount.toFixed(2)}</span>
-                                </div>
-                            </div>
-                        </Form>
-                    </Modal>
+                        onClose={() => setBookingOpen(false)}
+                    />
                 </div>
             </div>
             </PublicLayout>

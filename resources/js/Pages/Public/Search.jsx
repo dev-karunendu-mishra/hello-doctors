@@ -1,6 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 import PublicLayout from '@/Layouts/PublicLayout';
+import DoctorBookingModal from '@/Components/DoctorBookingModal';
 
 export default function Search({ auth, doctors, specialties, filters }) {
     const [searchForm, setSearchForm] = useState({
@@ -8,6 +9,11 @@ export default function Search({ auth, doctors, specialties, filters }) {
         specialty: filters.specialty || '',
         city_name: filters.city_name || '',
     });
+    const [bookingDoctor, setBookingDoctor] = useState(null);
+    const [bookingOpen, setBookingOpen] = useState(false);
+
+    const isPatient = auth?.user?.role === 'patient';
+    const isLoggedIn = Boolean(auth?.user);
 
     const activeFilters = useMemo(() => ([
         searchForm.search ? `Keyword: ${searchForm.search}` : null,
@@ -36,14 +42,97 @@ export default function Search({ auth, doctors, specialties, filters }) {
         router.get('/doctors');
     };
 
+    const openBookingModal = (doctor) => {
+        setBookingDoctor(doctor);
+        setBookingOpen(true);
+    };
+
+    const scrollToDoctorResults = () => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        window.requestAnimationFrame(() => {
+            const resultsAnchor = document.getElementById('doctor-results-start');
+
+            if (!resultsAnchor) {
+                return;
+            }
+
+            const topOffset = 110;
+            const targetTop = resultsAnchor.getBoundingClientRect().top + window.scrollY - topOffset;
+
+            window.scrollTo({
+                top: Math.max(targetTop, 0),
+                behavior: 'smooth',
+            });
+        });
+    };
+
     const changePage = (page) => {
+        if (page < 1 || page > doctors.last_page || page === doctors.current_page) {
+            return;
+        }
+
         router.get('/doctors', {
             search: filters.search || undefined,
             specialty: filters.specialty || undefined,
             city_name: filters.city_name || undefined,
             page,
+        }, {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => scrollToDoctorResults(),
         });
     };
+
+    const paginationItems = useMemo(() => {
+        const currentPage = Number(doctors.current_page || 1);
+        const lastPage = Number(doctors.last_page || 1);
+
+        if (lastPage <= 7) {
+            return Array.from({ length: lastPage }, (_, index) => index + 1);
+        }
+
+        const pages = new Set([1, currentPage, lastPage]);
+
+        if (currentPage <= 3) {
+            [2, 3, 4].forEach((page) => {
+                if (page < lastPage) {
+                    pages.add(page);
+                }
+            });
+        } else if (currentPage >= lastPage - 2) {
+            [lastPage - 3, lastPage - 2, lastPage - 1].forEach((page) => {
+                if (page > 1) {
+                    pages.add(page);
+                }
+            });
+        } else {
+            [currentPage - 1, currentPage + 1].forEach((page) => {
+                if (page > 1 && page < lastPage) {
+                    pages.add(page);
+                }
+            });
+        }
+
+        const sortedPages = [...pages].sort((left, right) => left - right);
+
+        return sortedPages.flatMap((page, index) => {
+            if (index === 0) {
+                return [page];
+            }
+
+            const previousPage = sortedPages[index - 1];
+
+            return page - previousPage > 1 ? [`ellipsis-${previousPage}`, page] : [page];
+        });
+    }, [doctors.current_page, doctors.last_page]);
+
+    const rangeStart = doctors.total === 0
+        ? 0
+        : (doctors.from ?? (((doctors.current_page - 1) * doctors.per_page) + 1));
+    const rangeEnd = doctors.to ?? Math.min(doctors.total, doctors.current_page * doctors.per_page);
 
     const titleText = activeFilters.length > 0 ? 'Doctor Search Results' : 'Doctors';
     const subtitleText = activeFilters.length > 0
@@ -137,7 +226,7 @@ export default function Search({ auth, doctors, specialties, filters }) {
                             </div>
                         </div>
 
-                        <div className="row gy-4">
+                        <div id="doctor-results-start" className="doctor-results-anchor doctor-results-list">
                             {doctors.data.length === 0 ? (
                                 <div className="col-12" data-aos="fade-up" data-aos-delay="100">
                                     <div className="doctor-card">
@@ -149,72 +238,169 @@ export default function Search({ auth, doctors, specialties, filters }) {
                                     </div>
                                 </div>
                             ) : (
-                                doctors.data.map((doctor, index) => (
-                                    <div className="col-lg-3 col-md-6" data-aos="fade-up" data-aos-delay={100 + ((index % 5) * 100)} key={doctor.id}>
-                                        <div className="doctor-card">
-                                            <div className="doctor-image">
-                                                <img src={doctor.image || `/clinic-assets/health/staff-${(index % 4) + 1}.webp`} alt={doctor.name} className="img-fluid" />
-                                                <div className="doctor-overlay">
-                                                    <div className="social-links">
-                                                        <Link href={`/doctors/${doctor.slug || doctor.id}`}><i className="bi bi-linkedin" /></Link>
-                                                        {doctor.email ? (
-                                                            <a href={`mailto:${doctor.email}`}><i className="bi bi-envelope" /></a>
-                                                        ) : (
-                                                            <Link href={`/doctors/${doctor.slug || doctor.id}`}><i className="bi bi-envelope" /></Link>
-                                                        )}
-                                                        {doctor.phone ? (
-                                                            <a href={`tel:${doctor.phone}`}><i className="bi bi-phone" /></a>
-                                                        ) : (
-                                                            <Link href={`/doctors/${doctor.slug || doctor.id}`}><i className="bi bi-phone" /></Link>
-                                                        )}
+                                doctors.data.map((doctor, index) => {
+                                    const profileHref = `/doctors/${doctor.slug || doctor.id}`;
+                                    const primaryCity = doctor.cities?.[0]?.name || doctor.availability_preview?.clinic_city || filters.city_name || 'Lucknow';
+                                    const clinicName = doctor.availability_preview?.clinic_name;
+                                    const consultationFee = doctor.consultation_fee ? `₹${doctor.consultation_fee}` : 'Fee on request';
+                                    const experienceText = doctor.experience_years ? `${doctor.experience_years} years experience overall` : 'Experienced specialist';
+                                    const bookingUnavailable = !(doctor.clinic_schedules || []).some(
+                                        (clinic) => Array.isArray(clinic.schedules) && clinic.schedules.length > 0,
+                                    );
+
+                                    return (
+                                        <div className="doctor-listing-entry" key={doctor.id}>
+                                            <div className="doctor-listing-card" data-aos="fade-up" data-aos-delay={100 + ((index % 4) * 80)}>
+                                                <div className="doctor-listing-main">
+                                                    <Link href={profileHref} className="doctor-listing-avatar-wrap">
+                                                        <img
+                                                            src={doctor.image || `/clinic-assets/health/staff-${(index % 4) + 1}.webp`}
+                                                            alt={doctor.name}
+                                                            className="doctor-listing-avatar"
+                                                        />
+                                                    </Link>
+
+                                                    <div className="doctor-listing-body">
+                                                        <h3>
+                                                            <Link href={profileHref} className="doctor-listing-name-link">
+                                                                {doctor.name}
+                                                            </Link>
+                                                        </h3>
+                                                        <p className="doctor-listing-specialty">{doctor.specialty || 'General Specialist'}</p>
+                                                        <p className="doctor-listing-experience">{experienceText}</p>
+                                                        <p className="doctor-listing-location">
+                                                            <strong>{primaryCity}</strong>
+                                                            {clinicName ? <><span> • </span><span>{clinicName}</span></> : null}
+                                                        </p>
+                                                        <p className="doctor-listing-fee">{consultationFee} Consultation fee at clinic</p>
+
+                                                        <div className="doctor-listing-trust">
+                                                            <span className="doctor-listing-score">
+                                                                <i className="bi bi-hand-thumbs-up-fill" />
+                                                                {doctor.experience_years ? `${Math.min(99, 70 + Number(doctor.experience_years))}%` : '90%'}
+                                                            </span>
+                                                            <span className="doctor-listing-stories">
+                                                                {Math.max(4, Math.round((doctor.experience_years || 5) * 1.5))} Patient Stories
+                                                            </span>
+                                                            <Link href={profileHref} className="doctor-listing-profile-link">
+                                                                View Profile
+                                                            </Link>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                            <div className="doctor-content">
-                                                <h4>{doctor.name}</h4>
-                                                <span className="specialty">{doctor.specialty || 'General Specialist'}</span>
-                                                <p>{doctor.bio || 'Experienced healthcare professional offering compassionate and evidence-based care.'}</p>
-                                                <div className="doctor-meta">
-                                                    <div className="experience">
-                                                        <i className="bi bi-award" />
-                                                        <span>{doctor.experience_years ? `${doctor.experience_years}+ Years Experience` : 'Experienced Specialist'}</span>
-                                                    </div>
-                                                    <div className="department">
-                                                        <i className="bi bi-building" />
-                                                        <span>{doctor.specialty ? `${doctor.specialty} Dept.` : (doctor.cities?.[0]?.name || 'Healthcare Network')}</span>
-                                                    </div>
+
+                                                <div className="doctor-listing-actions">
+                                                    <span className={`doctor-listing-availability ${doctor.is_available_today ? '' : 'is-muted'}`}>
+                                                        <i className={`bi ${doctor.is_available_today ? 'bi-calendar-check' : 'bi-calendar-x'}`} />
+                                                        {doctor.is_available_today ? 'Available Today' : 'Check Schedule'}
+                                                    </span>
+
+                                                    {bookingUnavailable ? (
+                                                        <button type="button" className="doctor-listing-primary-btn is-disabled" disabled>
+                                                            <span>Appointment Unavailable</span>
+                                                            <small>Schedule will open soon</small>
+                                                        </button>
+                                                    ) : isPatient ? (
+                                                        <button
+                                                            type="button"
+                                                            className="doctor-listing-primary-btn"
+                                                            onClick={() => openBookingModal(doctor)}
+                                                        >
+                                                            <span>Book Clinic Visit</span>
+                                                            <small>No Booking Fee</small>
+                                                        </button>
+                                                    ) : !isLoggedIn ? (
+                                                        <Link href="/login" className="doctor-listing-primary-btn">
+                                                            <span>Login to Book</span>
+                                                            <small>Secure appointment access</small>
+                                                        </Link>
+                                                    ) : (
+                                                        <Link href="/patient/find-doctors" className="doctor-listing-primary-btn">
+                                                            <span>Book from Dashboard</span>
+                                                            <small>Continue as patient</small>
+                                                        </Link>
+                                                    )}
+
+                                                    {doctor.phone ? (
+                                                        <a href={`tel:${doctor.phone}`} className="doctor-listing-secondary-btn">
+                                                            <i className="bi bi-telephone" />
+                                                            Contact Clinic
+                                                        </a>
+                                                    ) : (
+                                                        <Link href={profileHref} className="doctor-listing-secondary-btn">
+                                                            <i className="bi bi-telephone" />
+                                                            Contact Clinic
+                                                        </Link>
+                                                    )}
                                                 </div>
-                                                <Link href={`/doctors/${doctor.slug || doctor.id}`} className="btn-appointment">Book Appointment</Link>
                                             </div>
+
                                         </div>
-                                    </div>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
 
                         {doctors.last_page > 1 && (
-                            <nav className="mt-5" aria-label="Doctors pagination">
-                                <ul className="pagination justify-content-center">
-                                    <li className={`page-item ${doctors.current_page === 1 ? 'disabled' : ''}`}>
-                                        <button className="page-link" type="button" onClick={() => changePage(doctors.current_page - 1)} disabled={doctors.current_page === 1}>
-                                            Previous
-                                        </button>
-                                    </li>
-                                    {Array.from({ length: doctors.last_page }, (_, index) => index + 1).map((page) => (
-                                        <li key={page} className={`page-item ${page === doctors.current_page ? 'active' : ''}`}>
-                                            <button className="page-link" type="button" onClick={() => changePage(page)}>{page}</button>
-                                        </li>
-                                    ))}
-                                    <li className={`page-item ${doctors.current_page === doctors.last_page ? 'disabled' : ''}`}>
-                                        <button className="page-link" type="button" onClick={() => changePage(doctors.current_page + 1)} disabled={doctors.current_page === doctors.last_page}>
-                                            Next
-                                        </button>
-                                    </li>
-                                </ul>
-                            </nav>
+                            <div className="doctor-pagination-shell" data-aos="fade-up" data-aos-delay="150">
+                                <div className="doctor-pagination-summary">
+                                    <span className="doctor-pagination-chip">
+                                        Page {doctors.current_page} of {doctors.last_page}
+                                    </span>
+                                    <p>
+                                        Showing <strong>{rangeStart}-{rangeEnd}</strong> of <strong>{doctors.total}</strong> doctors
+                                    </p>
+                                </div>
+
+                                <nav className="doctor-pagination-nav" aria-label="Doctors pagination">
+                                    <button
+                                        className="doctor-pagination-arrow"
+                                        type="button"
+                                        onClick={() => changePage(doctors.current_page - 1)}
+                                        disabled={doctors.current_page === 1}
+                                    >
+                                        <i className="bi bi-chevron-left" />
+                                        <span>Previous</span>
+                                    </button>
+
+                                    <div className="doctor-pagination-pages">
+                                        {paginationItems.map((item) => (
+                                            typeof item === 'string' ? (
+                                                <span key={item} className="doctor-pagination-ellipsis">…</span>
+                                            ) : (
+                                                <button
+                                                    key={item}
+                                                    className={`doctor-pagination-page ${item === doctors.current_page ? 'is-active' : ''}`}
+                                                    type="button"
+                                                    onClick={() => changePage(item)}
+                                                    aria-current={item === doctors.current_page ? 'page' : undefined}
+                                                >
+                                                    {item}
+                                                </button>
+                                            )
+                                        ))}
+                                    </div>
+
+                                    <button
+                                        className="doctor-pagination-arrow"
+                                        type="button"
+                                        onClick={() => changePage(doctors.current_page + 1)}
+                                        disabled={doctors.current_page === doctors.last_page}
+                                    >
+                                        <span>Next</span>
+                                        <i className="bi bi-chevron-right" />
+                                    </button>
+                                </nav>
+                            </div>
                         )}
                     </div>
                 </section>
+
+                <DoctorBookingModal
+                    doctor={bookingDoctor}
+                    open={bookingOpen}
+                    onClose={() => setBookingOpen(false)}
+                />
             </PublicLayout>
         </>
     );

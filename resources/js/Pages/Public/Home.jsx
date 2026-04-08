@@ -1,6 +1,9 @@
-import { Head, Link } from '@inertiajs/react';
-import { useState } from 'react';
+import { Head, Link, router } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
+import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
 import PublicLayout from '@/Layouts/PublicLayout';
+import { useLocation } from '@/Contexts/LocationContext';
 
 const fallbackSpecialties = [
     { id: 'cardiology', name: 'Cardiovascular Medicine', image_url: '/clinic-assets/cardiology-1.webp', doctors_count: 24 },
@@ -54,9 +57,146 @@ const specialtyShowcase = [
     { title: 'Advanced Technology', image: '/clinic-assets/facilities-6.webp', text: 'State-of-the-art medical equipment' },
 ];
 
-export default function Home({ auth, site, seo, specialties = [], featuredDoctors = [], stats = {}, homeServices = [], homeServicesStats = {} }) {
+const DEFAULT_MAP_CENTER = [25.4358, 81.8463];
+
+const normalizeSearchCityValue = (value) => {
+    const trimmed = String(value || '').trim();
+
+    if (!trimmed) {
+        return '';
+    }
+
+    return trimmed.toLowerCase() === 'prayagraj' ? 'Allahabad' : trimmed;
+};
+
+const normalizeCityLookupValue = (value) => {
+    const normalized = String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
+
+    if (!normalized) {
+        return '';
+    }
+
+    return normalized === 'prayagraj' ? 'allahabad' : normalized;
+};
+
+const findMatchingCityFromLocation = (value, cities = []) => {
+    const locationParts = String(value || '')
+        .split(',')
+        .map((part) => normalizeCityLookupValue(part))
+        .filter(Boolean);
+
+    if (!locationParts.length) {
+        return null;
+    }
+
+    return cities.find((city) => {
+        const normalizedCityName = normalizeCityLookupValue(city.name);
+
+        return locationParts.some((part) => part === normalizedCityName);
+    }) || null;
+};
+
+if (typeof window !== 'undefined') {
+    delete L.Icon.Default.prototype._getIconUrl;
+    L.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+    });
+}
+
+function HomeMapViewport({ position, isVisible }) {
+    const map = useMap();
+
+    useEffect(() => {
+        if (!isVisible) {
+            return undefined;
+        }
+
+        const timer = window.setTimeout(() => {
+            map.invalidateSize();
+
+            if (position) {
+                map.setView([position.lat, position.lng], Math.max(map.getZoom(), 14), {
+                    animate: true,
+                });
+            }
+        }, 180);
+
+        return () => window.clearTimeout(timer);
+    }, [isVisible, map, position]);
+
+    return null;
+}
+
+function HomeLocationSelectionMarker({ position, onSelect }) {
+    useMapEvents({
+        click(event) {
+            onSelect({
+                lat: event.latlng.lat,
+                lng: event.latlng.lng,
+            });
+        },
+    });
+
+    if (!position) {
+        return null;
+    }
+
+    return (
+        <Marker
+            position={[position.lat, position.lng]}
+            draggable
+            eventHandlers={{
+                dragend: (event) => {
+                    const { lat, lng } = event.target.getLatLng();
+                    onSelect({ lat, lng });
+                },
+            }}
+        />
+    );
+}
+
+function HomeLocationPickerMap({ position, onSelect, isVisible }) {
+    const [isClient, setIsClient] = useState(false);
+
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
+
+    if (!isClient) {
+        return <div className="home-map-picker-placeholder">Loading map…</div>;
+    }
+
+    const center = position ? [position.lat, position.lng] : DEFAULT_MAP_CENTER;
+
+    return (
+        <div className="home-map-picker-canvas">
+            <MapContainer center={center} zoom={position ? 14 : 7} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false}>
+                <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                <HomeMapViewport position={position} isVisible={isVisible} />
+                <HomeLocationSelectionMarker position={position} onSelect={onSelect} />
+            </MapContainer>
+        </div>
+    );
+}
+
+export default function Home({ auth, site, seo, cities = [], specialties = [], featuredDoctors = [], stats = {}, homeServices = [], homeServicesStats = {} }) {
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedSpecialty, setSelectedSpecialty] = useState('');
+    const [selectedCity, setSelectedCity] = useState('');
+    const [detectedSearchCity, setDetectedSearchCity] = useState('');
+    const [selectedCoords, setSelectedCoords] = useState(null);
+    const [showMapPicker, setShowMapPicker] = useState(false);
+    const [isManualLocationOverride, setIsManualLocationOverride] = useState(false);
+    const [hasRequestedLocation, setHasRequestedLocation] = useState(false);
+    const [isResolvingMapLocation, setIsResolvingMapLocation] = useState(false);
+    const { location, coordinates, isLoadingLocation, detectLocation } = useLocation();
 
     const pageTitle = seo?.meta_title || (site?.name && site?.tagline ? `${site.name} - ${site.tagline}` : 'Hello Doctors - Find Best Doctors');
     const pageDescription = seo?.meta_description || 'Find and connect with verified healthcare professionals across Uttar Pradesh. Search by specialty, city, or doctor name.';
@@ -142,21 +282,109 @@ export default function Home({ auth, site, seo, specialties = [], featuredDoctor
     const aboutPatientsCount = Math.max((stats.total_doctors || 50) * 300, 15000);
     const contactPhone = site?.contact?.phone || '+91 (555) 123-4567';
     const contactPhoneHref = `tel:${String(contactPhone).replace(/[^+\d]/g, '')}`;
+    const isLocationBusy = isLoadingLocation || isResolvingMapLocation;
+    const activeLocation = normalizeSearchCityValue(isManualLocationOverride ? selectedCity : (detectedSearchCity || location || '')).trim();
+    const locationChipLabel = isLocationBusy
+        ? 'Updating location...'
+        : isManualLocationOverride
+            ? (selectedCity ? `Location: ${selectedCity}` : 'Enter your location')
+            : (location ? `Location: ${location}` : 'Use current location');
+
+    useEffect(() => {
+        if (typeof window === 'undefined' || isManualLocationOverride || hasRequestedLocation) {
+            return;
+        }
+
+        setHasRequestedLocation(true);
+        detectLocation({ silent: true }).catch(() => {});
+    }, [detectLocation, hasRequestedLocation, isManualLocationOverride]);
+
+    useEffect(() => {
+        if (!coordinates) {
+            return;
+        }
+
+        const lat = Number(coordinates.latitude ?? coordinates.lat);
+        const lng = Number(coordinates.longitude ?? coordinates.lng);
+
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            setSelectedCoords({ lat, lng });
+        }
+    }, [coordinates]);
+
+    useEffect(() => {
+        if (isManualLocationOverride || !location) {
+            return;
+        }
+
+        const matchedCity = findMatchingCityFromLocation(location, cities);
+        const locationParts = location.split(',').map((part) => part.trim()).filter(Boolean);
+        const derivedCity = matchedCity?.name || locationParts[1] || locationParts[0] || location;
+
+        setDetectedSearchCity(normalizeSearchCityValue(derivedCity));
+    }, [cities, isManualLocationOverride, location]);
+
+    const resolveLocationFromCoordinates = async (latitude, longitude) => {
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`,
+            {
+                headers: {
+                    'User-Agent': 'HelloDoctors/1.0',
+                },
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`Reverse geocoding failed with status ${response.status}`);
+        }
+
+        const data = await response.json();
+        const address = data.address || {};
+
+        return address.city
+            || address.town
+            || address.village
+            || address.county
+            || address.state_district
+            || data.display_name
+            || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+    };
+
+    const handleMapLocationSelection = async (coords) => {
+        setSelectedCoords(coords);
+        setIsManualLocationOverride(true);
+        setIsResolvingMapLocation(true);
+
+        try {
+            const resolvedLocation = await resolveLocationFromCoordinates(coords.lat, coords.lng);
+            setSelectedCity(resolvedLocation);
+        } catch (error) {
+            console.error('Failed to resolve map-selected location:', error);
+            setSelectedCity(`${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`);
+        } finally {
+            setIsResolvingMapLocation(false);
+        }
+    };
+
+    const handleDetectCurrentLocation = () => {
+        setIsManualLocationOverride(false);
+        setHasRequestedLocation(true);
+        detectLocation({ silent: false }).catch(() => {});
+    };
+
+    const handleManualLocationChange = (event) => {
+        const nextLocation = event.target.value;
+        setIsManualLocationOverride(true);
+        setSelectedCity(nextLocation);
+    };
 
     const handleDoctorSearch = (event) => {
         event.preventDefault();
 
-        const params = new URLSearchParams();
-
-        if (searchQuery) {
-            params.append('search', searchQuery);
-        }
-
-        if (selectedSpecialty) {
-            params.append('specialty', selectedSpecialty);
-        }
-
-        window.location.href = `/doctors?${params.toString()}`;
+        router.get('/doctors', {
+            search: searchQuery || undefined,
+            city_name: activeLocation || undefined,
+        });
     };
 
     return (
@@ -489,41 +717,125 @@ export default function Home({ auth, site, seo, specialties = [], featuredDoctor
 
                     <div className="container" data-aos="fade-up" data-aos-delay="100">
                         <div className="row justify-content-center mb-5" data-aos="fade-up" data-aos-delay="200">
-                            <div className="col-lg-8 text-center">
-                                <div className="search-section">
-                                    <h3 className="search-title">Find Your Perfect Healthcare Provider</h3>
-                                    <p className="search-subtitle">Search through our comprehensive directory of experienced medical professionals</p>
-                                    <form className="search-form" onSubmit={handleDoctorSearch}>
-                                        <div className="search-input-group">
-                                            <div className="input-wrapper">
-                                                <i className="bi bi-person" />
-                                                <input
-                                                    type="text"
-                                                    className="form-control"
-                                                    name="doctor_name"
-                                                    placeholder="Enter doctor name"
-                                                    value={searchQuery}
-                                                    onChange={(event) => setSearchQuery(event.target.value)}
-                                                />
+                            <div className="col-lg-9 col-xl-8">
+                                <div className="search-section search-section-compact-home">
+                                    <form className="home-search-form" onSubmit={handleDoctorSearch}>
+                                        <div className="home-search-panel">
+                                            <div className="home-search-top">
+                                                <div className="home-search-copy">
+                                                    <span className="home-search-kicker">Quick search</span>
+                                                    <h3>Find care near you</h3>
+                                                    <p>Use your current location and search instantly for trusted doctors.</p>
+                                                </div>
+
+                                                <div className="home-search-status">
+                                                    <div className={`home-location-chip ${isLoadingLocation ? 'is-loading' : ''}`}>
+                                                        {isLoadingLocation ? (
+                                                            <span className="home-location-spinner" aria-hidden="true" />
+                                                        ) : (
+                                                            <i className={`bi ${isManualLocationOverride ? 'bi-pin-map-fill' : 'bi-geo-alt-fill'}`} />
+                                                        )}
+                                                        <span>{locationChipLabel}</span>
+                                                    </div>
+
+                                                    <button
+                                                        type="button"
+                                                        className="home-location-action"
+                                                        onClick={handleDetectCurrentLocation}
+                                                        disabled={isLoadingLocation}
+                                                    >
+                                                        {isLoadingLocation ? 'Locating...' : 'Use current'}
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <div className="select-wrapper">
-                                                <i className="bi bi-heart-pulse" />
-                                                <select
-                                                    className="form-select"
-                                                    name="specialty"
-                                                    value={selectedSpecialty}
-                                                    onChange={(event) => setSelectedSpecialty(event.target.value)}
-                                                >
-                                                    <option value="">All Specialties</option>
-                                                    {displayedSpecialties.map((specialty) => (
-                                                        <option key={specialty.id} value={specialty.id}>{specialty.name}</option>
-                                                    ))}
-                                                </select>
+
+                                            <div className="home-search-bar">
+                                                <div className="home-search-field home-search-keyword">
+                                                    <i className="bi bi-search" />
+                                                    <input
+                                                        type="text"
+                                                        className="form-control"
+                                                        name="doctor_name"
+                                                        placeholder="Search doctors, clinics, hospitals, etc."
+                                                        value={searchQuery}
+                                                        onChange={(event) => setSearchQuery(event.target.value)}
+                                                    />
+                                                </div>
+
+                                                <button type="submit" className="home-search-submit">
+                                                    Search
+                                                </button>
                                             </div>
-                                            <button type="submit" className="search-btn">
-                                                <i className="bi bi-search" />
-                                                Find Doctors
-                                            </button>
+
+                                            <div className="home-search-footer">
+                                                <div className="home-search-actions">
+                                                    <button
+                                                        type="button"
+                                                        className={`home-location-toggle ${isManualLocationOverride ? 'is-active' : ''}`}
+                                                        onClick={() => setIsManualLocationOverride((value) => !value)}
+                                                    >
+                                                        <i className="bi bi-pencil-square" />
+                                                        {isManualLocationOverride ? 'Hide manual override' : 'Change location manually'}
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        className={`home-map-toggle ${showMapPicker ? 'is-active' : ''}`}
+                                                        onClick={() => setShowMapPicker((value) => !value)}
+                                                    >
+                                                        <i className="bi bi-map" />
+                                                        {showMapPicker ? 'Hide map' : 'Pick from map'}
+                                                    </button>
+                                                </div>
+
+                                                <span className="home-search-note">
+                                                    {showMapPicker
+                                                        ? 'Click anywhere on the map to set your search location.'
+                                                        : (isManualLocationOverride ? 'Manual location is active.' : 'Using browser-based location detection.')}
+                                                </span>
+                                            </div>
+
+                                            {isManualLocationOverride && (
+                                                <div className="home-location-override-input">
+                                                    <i className="bi bi-pin-map" />
+                                                    <input
+                                                        type="text"
+                                                        className="form-control"
+                                                        name="manual_city_name"
+                                                        list="home-city-suggestions"
+                                                        placeholder="Enter your city"
+                                                        value={selectedCity}
+                                                        onChange={handleManualLocationChange}
+                                                    />
+                                                    <datalist id="home-city-suggestions">
+                                                        {cities.map((city) => (
+                                                            <option key={city.id || city.name} value={city.name} />
+                                                        ))}
+                                                    </datalist>
+                                                </div>
+                                            )}
+
+                                            {showMapPicker && (
+                                                <div className="home-map-picker-wrap">
+                                                    <div className="home-map-picker-head">
+                                                        <div>
+                                                            <h4>Pick your location from the map</h4>
+                                                            <p>Click or drag the marker to refine your area.</p>
+                                                        </div>
+                                                        {selectedCoords && (
+                                                            <span className="home-map-coords">
+                                                                {selectedCoords.lat.toFixed(4)}, {selectedCoords.lng.toFixed(4)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    <HomeLocationPickerMap
+                                                        position={selectedCoords}
+                                                        onSelect={handleMapLocationSelection}
+                                                        isVisible={showMapPicker}
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
                                     </form>
                                 </div>

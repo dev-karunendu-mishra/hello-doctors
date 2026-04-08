@@ -50,7 +50,6 @@ class HandleInertiaRequests extends Middleware
         $generalSettings = $getSiteSettings('general');
         $contactSettings = $getSiteSettings('contact');
         $authUser = $request->user();
-
         return [
             ...parent::share($request),
             'auth' => [
