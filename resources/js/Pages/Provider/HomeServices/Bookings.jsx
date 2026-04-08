@@ -98,6 +98,19 @@ export default function ProviderHomeServiceBookings() {
 
     const canMarkCompleted = (status) => ['assigned', 'confirmed', 'in_progress'].includes(status);
 
+    const getAddressQuery = (booking) => {
+        const address = booking?.address;
+        if (!address) return '';
+
+        return [
+            address.line1,
+            address.line2,
+            address.landmark,
+            address.city?.name,
+            address.pincode,
+        ].filter(Boolean).join(', ');
+    };
+
     const getMapLink = (booking) => {
         const address = booking?.address;
         if (!address) return null;
@@ -106,17 +119,26 @@ export default function ProviderHomeServiceBookings() {
             return `https://www.google.com/maps?q=${address.latitude},${address.longitude}`;
         }
 
-        const query = [
-            address.line1,
-            address.line2,
-            address.landmark,
-            address.city?.name,
-            address.pincode,
-        ].filter(Boolean).join(', ');
+        const query = getAddressQuery(booking);
 
         if (!query) return null;
 
         return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+    };
+
+    const getMapEmbedUrl = (booking) => {
+        const address = booking?.address;
+        if (!address) return null;
+
+        if (address.latitude !== null && address.latitude !== undefined && address.longitude !== null && address.longitude !== undefined) {
+            return `https://www.google.com/maps?q=${address.latitude},${address.longitude}&z=15&output=embed`;
+        }
+
+        const query = getAddressQuery(booking);
+
+        if (!query) return null;
+
+        return `https://www.google.com/maps?q=${encodeURIComponent(query)}&z=15&output=embed`;
     };
 
     const loadBookings = async (nextFilters = filters, page = 1) => {
@@ -430,16 +452,34 @@ export default function ProviderHomeServiceBookings() {
                         </Card>
 
                         <Card size="small" title="Address">
-                            <Space direction="vertical" size={2}>
-                                <Text>{detailBooking.address?.line1 || '-'}</Text>
-                                {detailBooking.address?.line2 ? <Text>{detailBooking.address.line2}</Text> : null}
-                                {detailBooking.address?.landmark ? (
-                                    <Text type="secondary">Landmark: {detailBooking.address.landmark}</Text>
-                                ) : null}
-                                <Text>
-                                    {detailBooking.address?.city?.name || '-'}
-                                    {detailBooking.address?.pincode ? ` - ${detailBooking.address.pincode}` : ''}
-                                </Text>
+                            <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                                <Space direction="vertical" size={2}>
+                                    <Text>{detailBooking.address?.line1 || '-'}</Text>
+                                    {detailBooking.address?.line2 ? <Text>{detailBooking.address.line2}</Text> : null}
+                                    {detailBooking.address?.landmark ? (
+                                        <Text type="secondary">Landmark: {detailBooking.address.landmark}</Text>
+                                    ) : null}
+                                    <Text>
+                                        {detailBooking.address?.city?.name || '-'}
+                                        {detailBooking.address?.pincode ? ` - ${detailBooking.address.pincode}` : ''}
+                                    </Text>
+                                </Space>
+
+                                {getMapEmbedUrl(detailBooking) ? (
+                                    <iframe
+                                        title={`booking-map-${detailBooking.id}`}
+                                        src={getMapEmbedUrl(detailBooking)}
+                                        style={{ width: '100%', height: 220, border: 0, borderRadius: 12 }}
+                                        loading="lazy"
+                                        referrerPolicy="no-referrer-when-downgrade"
+                                    />
+                                ) : (
+                                    <Alert
+                                        type="info"
+                                        showIcon
+                                        message="Map preview is not available for this address yet."
+                                    />
+                                )}
                             </Space>
                         </Card>
                     </Space>
