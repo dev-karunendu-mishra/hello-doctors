@@ -69,6 +69,36 @@ const normalizeSearchCityValue = (value) => {
     return trimmed.toLowerCase() === 'prayagraj' ? 'Allahabad' : trimmed;
 };
 
+const normalizeCityLookupValue = (value) => {
+    const normalized = String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
+
+    if (!normalized) {
+        return '';
+    }
+
+    return normalized === 'prayagraj' ? 'allahabad' : normalized;
+};
+
+const findMatchingCityFromLocation = (value, cities = []) => {
+    const locationParts = String(value || '')
+        .split(',')
+        .map((part) => normalizeCityLookupValue(part))
+        .filter(Boolean);
+
+    if (!locationParts.length) {
+        return null;
+    }
+
+    return cities.find((city) => {
+        const normalizedCityName = normalizeCityLookupValue(city.name);
+
+        return locationParts.some((part) => part === normalizedCityName);
+    }) || null;
+};
+
 if (typeof window !== 'undefined') {
     delete L.Icon.Default.prototype._getIconUrl;
     L.Icon.Default.mergeOptions({
@@ -287,10 +317,9 @@ export default function Home({ auth, site, seo, cities = [], specialties = [], f
             return;
         }
 
-        const normalizedLocation = location.toLowerCase();
-        const matchedCity = cities.find((city) => normalizedLocation.includes(String(city.name || '').toLowerCase()));
+        const matchedCity = findMatchingCityFromLocation(location, cities);
         const locationParts = location.split(',').map((part) => part.trim()).filter(Boolean);
-        const derivedCity = matchedCity?.name || locationParts[0] || location;
+        const derivedCity = matchedCity?.name || locationParts[1] || locationParts[0] || location;
 
         setDetectedSearchCity(normalizeSearchCityValue(derivedCity));
     }, [cities, isManualLocationOverride, location]);
