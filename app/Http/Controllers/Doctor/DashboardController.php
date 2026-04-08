@@ -43,19 +43,31 @@ class DashboardController extends Controller
         $today = today()->toDateString();
 
         $todayAppointments = $doctorProfile->appointments()
-            ->with(['patient:id,name,email,phone'])
+            ->with([
+                'patient:id,name,email,phone',
+                'doctorHospitalClinic.city',
+                'doctorPracticeLocation.address.cityRecord',
+                'doctorPracticeLocation.clinic',
+            ])
             ->whereDate('appointment_date', $today)
             ->orderBy('appointment_time')
-            ->get();
+            ->get()
+            ->map(fn(Appointment $appointment) => $appointment->ensureDisplayRelations());
 
         $upcomingAppointments = $doctorProfile->appointments()
-            ->with(['patient:id,name,email,phone', 'doctorHospitalClinic.city'])
+            ->with([
+                'patient:id,name,email,phone',
+                'doctorHospitalClinic.city',
+                'doctorPracticeLocation.address.cityRecord',
+                'doctorPracticeLocation.clinic',
+            ])
             ->where('appointment_date', '>', $today)
             ->whereIn('status', [Appointment::STATUS_PENDING, Appointment::STATUS_CONFIRMED])
             ->orderBy('appointment_date')
             ->orderBy('appointment_time')
             ->take(10)
-            ->get();
+            ->get()
+            ->map(fn(Appointment $appointment) => $appointment->ensureDisplayRelations());
 
         $stats = [
             'todayAppointments'    => $todayAppointments->count(),

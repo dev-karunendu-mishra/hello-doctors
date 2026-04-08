@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Patient;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\DoctorHospitalClinic;
+use App\Models\DoctorPracticeLocation;
 use App\Services\AppointmentNotificationService;
 use App\Services\RefundService;
 use Carbon\Carbon;
@@ -31,7 +32,15 @@ class AppointmentController extends Controller
         ]);
 
         $query = Appointment::query()
-            ->with(['doctorHospitalClinic.city', 'doctorHospitalClinic.doctorProfile.user', 'doctorHospitalClinic.doctorProfile.specialty'])
+            ->with([
+                'doctorHospitalClinic.city',
+                'doctorHospitalClinic.doctorProfile.user',
+                'doctorHospitalClinic.doctorProfile.specialty',
+                'doctorPracticeLocation.address.cityRecord',
+                'doctorPracticeLocation.clinic',
+                'doctorPracticeLocation.doctorProfile.user',
+                'doctorPracticeLocation.doctorProfile.specialty',
+            ])
             ->where('patient_id', Auth::id())
             ->orderByDesc('appointment_date')
             ->orderByDesc('appointment_time');
@@ -55,15 +64,19 @@ class AppointmentController extends Controller
             ]);
         }
 
+        $appointments = $query->paginate(20);
+        $appointments->getCollection()->transform(fn(Appointment $appointment) => $appointment->ensureDisplayRelations());
+
         return response()->json([
-            'data' => $query->paginate(20),
+            'data' => $appointments,
         ]);
     }
 
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'doctor_hospital_clinic_id' => ['required', 'exists:doctor_hospital_clinics,id'],
+            'doctor_hospital_clinic_id' => ['nullable', 'exists:doctor_hospital_clinics,id', 'required_without:doctor_practice_location_id'],
+            'doctor_practice_location_id' => ['nullable', 'exists:doctor_practice_locations,id', 'required_without:doctor_hospital_clinic_id'],
             'appointment_date' => ['required', 'date', 'after_or_equal:today'],
             'appointment_time' => ['required', 'date_format:H:i'],
             'consultation_type' => ['nullable', 'in:in-person,online,phone'],
@@ -71,7 +84,27 @@ class AppointmentController extends Controller
             'payment_method' => ['nullable', 'in:cod'],
         ]);
 
-        $clinic = DoctorHospitalClinic::with('doctorProfile.user')->findOrFail($validated['doctor_hospital_clinic_id']);
+        $practiceLocation = !empty($validated['doctor_practice_location_id'])
+            ? DoctorPracticeLocation::query()
+                ->with(['address.cityRecord', 'clinic', 'doctorProfile.user'])
+                ->findOrFail($validated['doctor_practice_location_id'])
+            : null;
+
+        $legacyClinicId = !empty($validated['doctor_hospital_clinic_id'])
+            ? (int) $validated['doctor_hospital_clinic_id']
+            : $this->resolveLegacyClinicIdFromPracticeLocation($practiceLocation);
+
+        if (!$practiceLocation && $legacyClinicId) {
+            $practiceLocation = $this->resolvePracticeLocationFromLegacyClinicId($legacyClinicId);
+        }
+
+        if (!$legacyClinicId) {
+            return response()->json([
+                'message' => 'Selected practice location is not yet available for direct booking in the current transition flow.',
+            ], 422);
+        }
+
+        $clinic = DoctorHospitalClinic::with('doctorProfile.user')->findOrFail($legacyClinicId);
 
         if (!$clinic->is_active || !$clinic->doctorProfile || !$clinic->doctorProfile->is_verified || !$clinic->doctorProfile->user?->is_active) {
             return response()->json([
@@ -107,10 +140,14 @@ class AppointmentController extends Controller
         $paymentStatus = $feeAmount > 0 ? Appointment::PAYMENT_PENDING : Appointment::PAYMENT_PAID;
 
         try {
-            $appointment = DB::transaction(function () use ($validated, $appointmentDate, $appointmentTime, $paymentMethod, $paymentStatus, $feeAmount) {
+            $appointment = DB::transaction(function () use ($practiceLocation, $legacyClinicId, $clinic, $validated, $appointmentDate, $appointmentTime, $paymentMethod, $paymentStatus, $feeAmount) {
                 return Appointment::create([
                     'patient_id' => Auth::id(),
-                    'doctor_hospital_clinic_id' => $validated['doctor_hospital_clinic_id'],
+                    'doctor_hospital_clinic_id' => $legacyClinicId,
+                    'doctor_practice_location_id' => $practiceLocation?->id,
+                    'appointment_address_snapshot' => $this->makeAppointmentAddressSnapshot($practiceLocation, $clinic),
+                    'appointment_contact_phone' => $practiceLocation?->resolved_contact_phone ?: $clinic->phone ?: $clinic->doctorProfile?->user?->phone,
+                    'appointment_contact_email' => $practiceLocation?->resolved_contact_email ?: $clinic->email ?: $clinic->doctorProfile?->user?->email,
                     'appointment_date' => $appointmentDate->toDateString(),
                     'appointment_time' => $appointmentTime,
                     'consultation_type' => $validated['consultation_type'] ?? Appointment::CONSULTATION_IN_PERSON,
@@ -137,7 +174,14 @@ class AppointmentController extends Controller
 
         return response()->json([
             'message' => 'Appointment booked successfully.',
-            'data' => $appointment->load(['doctorHospitalClinic.city', 'doctorHospitalClinic.doctorProfile.user']),
+            'data' => $appointment->load([
+                'doctorHospitalClinic.city',
+                'doctorHospitalClinic.doctorProfile.user',
+                'doctorPracticeLocation.address.cityRecord',
+                'doctorPracticeLocation.clinic',
+                'doctorPracticeLocation.doctorProfile.user',
+                'doctorPracticeLocation.doctorProfile.specialty',
+            ])->ensureDisplayRelations(),
         ], 201);
     }
 
@@ -189,7 +233,73 @@ class AppointmentController extends Controller
 
         return response()->json([
             'message' => $message,
-            'data' => $appointment->fresh(['doctorHospitalClinic.city', 'doctorHospitalClinic.doctorProfile.user']),
+            'data' => $appointment->fresh([
+                'doctorHospitalClinic.city',
+                'doctorHospitalClinic.doctorProfile.user',
+                'doctorPracticeLocation.address.cityRecord',
+                'doctorPracticeLocation.clinic',
+                'doctorPracticeLocation.doctorProfile.user',
+                'doctorPracticeLocation.doctorProfile.specialty',
+            ])?->ensureDisplayRelations(),
         ]);
+    }
+
+    protected function resolvePracticeLocationFromLegacyClinicId(int $legacyClinicId): ?DoctorPracticeLocation
+    {
+        return DoctorPracticeLocation::query()
+            ->with(['address.cityRecord', 'clinic', 'doctorProfile.user'])
+            ->whereHas('address', function ($query) use ($legacyClinicId) {
+                $query->where('meta->legacy_source', 'doctor_hospital_clinics')
+                    ->where('meta->legacy_id', $legacyClinicId);
+            })
+            ->first();
+    }
+
+    protected function resolveLegacyClinicIdFromPracticeLocation(?DoctorPracticeLocation $practiceLocation): ?int
+    {
+        if (!$practiceLocation) {
+            return null;
+        }
+
+        $meta = $practiceLocation->address?->meta ?? [];
+
+        if (($meta['legacy_source'] ?? null) === 'doctor_hospital_clinics' && !empty($meta['legacy_id'])) {
+            return (int) $meta['legacy_id'];
+        }
+
+        return null;
+    }
+
+    protected function makeAppointmentAddressSnapshot(?DoctorPracticeLocation $practiceLocation, DoctorHospitalClinic $clinic): array
+    {
+        if ($practiceLocation?->address) {
+            return [
+                'display_name' => $practiceLocation->display_name ?: $practiceLocation->clinic?->name,
+                'clinic_name' => $practiceLocation->clinic?->name,
+                'line1' => $practiceLocation->address->line1,
+                'line2' => $practiceLocation->address->line2,
+                'landmark' => $practiceLocation->address->landmark,
+                'city' => $practiceLocation->address->city ?: $practiceLocation->address->cityRecord?->name,
+                'city_id' => $practiceLocation->address->city_id,
+                'state' => $practiceLocation->address->state,
+                'pincode' => $practiceLocation->address->pincode,
+                'latitude' => $practiceLocation->address->latitude,
+                'longitude' => $practiceLocation->address->longitude,
+            ];
+        }
+
+        return [
+            'display_name' => $clinic->hospital_clinic_name,
+            'clinic_name' => $clinic->hospital_clinic_name,
+            'line1' => $clinic->address,
+            'line2' => null,
+            'landmark' => $clinic->landmarks,
+            'city' => $clinic->city?->name,
+            'city_id' => $clinic->city_id,
+            'state' => $clinic->city?->state,
+            'pincode' => null,
+            'latitude' => $clinic->latitude,
+            'longitude' => $clinic->longitude,
+        ];
     }
 }

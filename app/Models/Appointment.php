@@ -17,6 +17,10 @@ class Appointment extends Model
         'appointment_number',
         'patient_id',
         'doctor_hospital_clinic_id',
+        'doctor_practice_location_id',
+        'appointment_address_snapshot',
+        'appointment_contact_phone',
+        'appointment_contact_email',
         'appointment_date',
         'appointment_time',
         'status',
@@ -42,6 +46,7 @@ class Appointment extends Model
 
     protected $casts = [
         'appointment_date' => 'date',
+        'appointment_address_snapshot' => 'array',
         'confirmed_at' => 'datetime',
         'completed_at' => 'datetime',
         'cancelled_at' => 'datetime',
@@ -86,11 +91,64 @@ class Appointment extends Model
     }
 
     /**
-     * Get the doctor's clinic where appointment is scheduled
+     * Get the doctor's clinic where appointment is scheduled.
      */
     public function doctorHospitalClinic(): BelongsTo
     {
         return $this->belongsTo(DoctorHospitalClinic::class, 'doctor_hospital_clinic_id');
+    }
+
+    /**
+     * Get the new nullable practice location during the transition period.
+     */
+    public function doctorPracticeLocation(): BelongsTo
+    {
+        return $this->belongsTo(DoctorPracticeLocation::class, 'doctor_practice_location_id');
+    }
+
+    public function ensureDisplayRelations(): self
+    {
+        $this->loadMissing([
+            'doctorHospitalClinic.city',
+            'doctorHospitalClinic.doctorProfile.user',
+            'doctorHospitalClinic.doctorProfile.specialty',
+            'doctorPracticeLocation.address.cityRecord',
+            'doctorPracticeLocation.clinic',
+            'doctorPracticeLocation.doctorProfile.user',
+            'doctorPracticeLocation.doctorProfile.specialty',
+        ]);
+
+        if ($this->doctorHospitalClinic || !$this->doctorPracticeLocation) {
+            return $this;
+        }
+
+        $location = $this->doctorPracticeLocation;
+        $address = $location->address;
+
+        $displayClinic = DoctorHospitalClinic::make([
+            'id' => $this->doctor_hospital_clinic_id ?: $location->id,
+            'doctor_profile_id' => $location->doctor_profile_id,
+            'hospital_clinic_name' => $location->display_name ?: $location->clinic?->name ?: 'Private Practice',
+            'address' => collect([$address?->line1, $address?->line2])->filter()->join(', '),
+            'landmarks' => $address?->landmark,
+            'city_id' => $address?->city_id,
+            'consultation_fee' => $location->resolved_consultation_fee,
+            'phone' => $location->resolved_contact_phone,
+            'email' => $location->resolved_contact_email,
+            'is_active' => (bool) $location->is_active,
+        ]);
+
+        if ($address?->cityRecord) {
+            $displayClinic->setRelation('city', $address->cityRecord);
+        }
+
+        if ($location->doctorProfile) {
+            $displayClinic->setRelation('doctorProfile', $location->doctorProfile);
+        }
+
+        $this->setRelation('doctorHospitalClinic', $displayClinic);
+
+        return $this;
     }
 
     /**

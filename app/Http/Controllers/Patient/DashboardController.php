@@ -14,17 +14,30 @@ class DashboardController extends Controller
         $user = $request->user();
 
         $upcomingAppointments = $user?->upcomingAppointments()
-            ->with(['doctorHospitalClinic.doctorProfile.user', 'doctorHospitalClinic.doctorProfile.specialty'])
+            ->with([
+                'doctorHospitalClinic.doctorProfile.user',
+                'doctorHospitalClinic.doctorProfile.specialty',
+                'doctorPracticeLocation.doctorProfile.user',
+                'doctorPracticeLocation.doctorProfile.specialty',
+                'doctorPracticeLocation.address.cityRecord',
+                'doctorPracticeLocation.clinic',
+            ])
             ->take(5)
             ->get()
-            ->map(fn ($item) => [
-                'id' => $item->id,
-                'doctor_name' => $item->doctorHospitalClinic?->doctorProfile?->user?->name,
-                'date' => $item->appointment_date?->format('Y-m-d'),
-                'time' => substr((string) $item->appointment_time, 0, 5),
-                'status' => $item->status,
-                'specialization' => $item->doctorHospitalClinic?->doctorProfile?->specialty?->name,
-            ]) ?? [];
+            ->map(function ($item) {
+                $item->ensureDisplayRelations();
+
+                return [
+                    'id' => $item->id,
+                    'doctor_name' => $item->doctorHospitalClinic?->doctorProfile?->user?->name
+                        ?: $item->doctorPracticeLocation?->doctorProfile?->user?->name,
+                    'date' => $item->appointment_date?->format('Y-m-d'),
+                    'time' => substr((string) $item->appointment_time, 0, 5),
+                    'status' => $item->status,
+                    'specialization' => $item->doctorHospitalClinic?->doctorProfile?->specialty?->name
+                        ?: $item->doctorPracticeLocation?->doctorProfile?->specialty?->name,
+                ];
+            }) ?? [];
 
         $recentRecords = [];
         

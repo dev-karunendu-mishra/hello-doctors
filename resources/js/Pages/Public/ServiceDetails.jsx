@@ -128,6 +128,11 @@ const loadRazorpayScript = () =>
         document.body.appendChild(script);
     });
 
+const getAddressIdentifiers = (address, rawAddressId = null) => ({
+    addressId: address?.legacy_address_id ?? rawAddressId ?? address?.id ?? null,
+    unifiedAddressId: address?.unified_address_id ?? null,
+});
+
 export default function ServiceDetails({ auth, service }) {
     const { site = {} } = usePage().props;
     const [bookingOpen, setBookingOpen] = useState(false);
@@ -149,9 +154,14 @@ export default function ServiceDetails({ auth, service }) {
     const statTwo = service?.duration_minutes ? `${service.duration_minutes} Min` : detail.stats[1].number;
     const contactPhone = site?.contact?.phone || '+91 (555) 123-4567';
     const contactPhoneHref = `tel:${String(contactPhone).replace(/[^+\d]/g, '')}`;
+    const selectedAddressId = Form.useWatch('address_id', bookingForm);
     const selectedCityId = Form.useWatch('city_id', bookingForm);
     const selectedDate = Form.useWatch('service_date', bookingForm);
     const selectedPaymentMethod = Form.useWatch('payment_method', bookingForm) || 'online';
+    const selectedAddress = useMemo(
+        () => addresses.find((address) => String(address.id) === String(selectedAddressId)) || null,
+        [addresses, selectedAddressId],
+    );
     const canDirectBook = Boolean(service?.id) && Number(service?.providers_count || 0) > 0;
     const bookingNote = !canDirectBook
         ? 'This home service is currently unavailable because no verified provider schedules are active yet.'
@@ -200,6 +210,7 @@ export default function ServiceDetails({ auth, service }) {
             setCities(cityList);
             bookingForm.setFieldsValue({
                 address_id: defaultAddress?.id || null,
+                unified_address_id: defaultAddress?.unified_address_id || null,
                 city_id: defaultAddress?.city_id || null,
                 service_date: bookingForm.getFieldValue('service_date') || defaultDate,
                 provider_slot: null,
@@ -261,6 +272,7 @@ export default function ServiceDetails({ auth, service }) {
         const address = addresses.find((item) => item.id === addressId);
         if (address) {
             bookingForm.setFieldValue('city_id', address.city_id);
+            bookingForm.setFieldValue('unified_address_id', address.unified_address_id || null);
         }
     };
 
@@ -284,11 +296,17 @@ export default function ServiceDetails({ auth, service }) {
                 return;
             }
 
+            const resolvedAddress = selectedAddress
+                || addresses.find((item) => String(item.id) === String(values.address_id))
+                || null;
+            const { addressId, unifiedAddressId } = getAddressIdentifiers(resolvedAddress, values.address_id);
+
             const bookingParams = {
                 type: 'home_service',
                 payment_method: values.payment_method,
                 home_service_id: service.id,
-                address_id: values.address_id,
+                address_id: addressId,
+                unified_address_id: unifiedAddressId,
                 provider_id: providerId,
                 service_date: values.service_date,
                 service_time: serviceTime,
@@ -301,7 +319,8 @@ export default function ServiceDetails({ auth, service }) {
             if (orderData.skip_payment) {
                 await window.axios.post('/patient/data/home-service-bookings', {
                     home_service_id: service.id,
-                    address_id: values.address_id,
+                    address_id: addressId,
+                    unified_address_id: unifiedAddressId,
                     provider_id: providerId,
                     service_date: values.service_date,
                     service_time: serviceTime,

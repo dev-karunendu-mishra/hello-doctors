@@ -46,6 +46,7 @@ export default function Schedule() {
         () => clinics.find((clinic) => clinic.id === clinicId) || null,
         [clinics, clinicId]
     );
+    const selectedPracticeLocationId = selectedClinic?.doctor_practice_location_id || null;
 
     const loadInitial = async () => {
         setLoading(true);
@@ -175,6 +176,7 @@ export default function Schedule() {
             const values = await scheduleForm.validateFields();
             setSavingSchedule(true);
             await window.axios.post(`/doctor/data/hospital-clinics/${clinicId}/schedules`, {
+                doctor_practice_location_id: selectedPracticeLocationId,
                 schedules: values.schedules,
             });
             message.success('Schedule updated.');

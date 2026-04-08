@@ -19,7 +19,18 @@ class SearchController extends Controller
     public function index(Request $request): Response
     {
         $query = DoctorProfile::query()
-            ->with(['user', 'specialty', 'cities', 'searchTag', 'workingHours', 'hospitalClinics.city', 'hospitalClinics.scheduleSlots'])
+            ->with([
+                'user',
+                'specialty',
+                'cities',
+                'searchTag',
+                'workingHours',
+                'hospitalClinics.city',
+                'hospitalClinics.scheduleSlots',
+                'practiceLocations.address.cityRecord',
+                'practiceLocations.clinic',
+                'practiceLocations.schedules',
+            ])
             ->verified()
             ->active();
 
@@ -40,16 +51,44 @@ class SearchController extends Controller
             });
         }
 
-        // Filter by city
+        // Filter by city using the new unified addresses first, with legacy fallback.
         if ($request->filled('city')) {
-            $query->byCity($request->city);
+            $cityId = (int) $request->city;
+
+            $query->where(function ($q) use ($cityId) {
+                $q->whereHas('practiceLocations', function ($locationQuery) use ($cityId) {
+                    $locationQuery->where('is_active', true)
+                        ->whereHas('address', function ($addressQuery) use ($cityId) {
+                            $addressQuery->where('city_id', $cityId);
+                        });
+                })->orWhereHas('hospitalClinics', function ($clinicQuery) use ($cityId) {
+                    $clinicQuery->where('is_active', true)
+                        ->where('city_id', $cityId);
+                })->orWhereHas('cities', function ($cityQuery) use ($cityId) {
+                    $cityQuery->where('cities.id', $cityId);
+                });
+            });
         }
 
         // Filter by city name (for custom city input or detected location)
         if ($request->filled('city_name') && !$request->filled('city')) {
             $city = City::where('name', 'LIKE', "%{$request->city_name}%")->first();
             if ($city) {
-                $query->byCity($city->id);
+                $cityId = (int) $city->id;
+
+                $query->where(function ($q) use ($cityId) {
+                    $q->whereHas('practiceLocations', function ($locationQuery) use ($cityId) {
+                        $locationQuery->where('is_active', true)
+                            ->whereHas('address', function ($addressQuery) use ($cityId) {
+                                $addressQuery->where('city_id', $cityId);
+                            });
+                    })->orWhereHas('hospitalClinics', function ($clinicQuery) use ($cityId) {
+                        $clinicQuery->where('is_active', true)
+                            ->where('city_id', $cityId);
+                    })->orWhereHas('cities', function ($cityQuery) use ($cityId) {
+                        $cityQuery->where('cities.id', $cityId);
+                    });
+                });
             }
         }
 
@@ -94,40 +133,14 @@ class SearchController extends Controller
                 'specialty_id' => $doctor->specialty?->id,
                 'image' => $doctor->profile_image_url,
                 'bio' => Str::limit($doctor->bio, 150),
-                'cities' => $doctor->cities->map(fn($city) => [
-                    'id' => $city->id,
-                    'name' => $city->name,
-                    'address' => $city->pivot->address,
-                ]),
+                'cities' => $this->buildDoctorCities($doctor),
                 'experience_years' => $doctor->experience_years,
                 'consultation_fee' => $doctor->consultation_fee,
                 'is_available_online' => $doctor->is_available_online,
                 'is_available_today' => $this->isDoctorAvailableToday($doctor),
                 'availability_preview' => $this->buildAvailabilityPreview($doctor),
                 'website' => $doctor->website,
-                'clinic_schedules' => $doctor->hospitalClinics
-                    ->where('is_active', true)
-                    ->values()
-                    ->map(fn($clinic) => [
-                        'id' => $clinic->id,
-                        'hospital_clinic_name' => $clinic->hospital_clinic_name,
-                        'city' => $clinic->city?->name,
-                        'address' => $clinic->address,
-                        'latitude' => $clinic->latitude,
-                        'longitude' => $clinic->longitude,
-                        'consultation_fee' => $clinic->consultation_fee,
-                        'schedules' => $clinic->scheduleSlots
-                            ->where('is_available', true)
-                            ->sortBy('day_of_week')
-                            ->values()
-                            ->map(fn($slot) => [
-                                'day_of_week' => \App\Models\DoctorScheduleSlot::DAYS_OF_WEEK[$slot->day_of_week] ?? 'Unknown',
-                                'opening_time' => $slot->opening_time ? substr($slot->opening_time, 0, 5) : null,
-                                'closing_time' => $slot->closing_time ? substr($slot->closing_time, 0, 5) : null,
-                                'break_start_time' => $slot->break_start_time ? substr($slot->break_start_time, 0, 5) : null,
-                                'break_end_time' => $slot->break_end_time ? substr($slot->break_end_time, 0, 5) : null,
-                            ]),
-                    ]),
+                'clinic_schedules' => $this->buildClinicSchedules($doctor),
             ]);
 
         // Get filter options
@@ -161,6 +174,9 @@ class SearchController extends Controller
             'workingHours.city',
             'hospitalClinics.city',
             'hospitalClinics.scheduleSlots',
+            'practiceLocations.address.cityRecord',
+            'practiceLocations.clinic',
+            'practiceLocations.schedules',
             'searchTag',
         ]);
 
@@ -188,12 +204,7 @@ class SearchController extends Controller
                 'meta_title' => $doctor->meta_title,
                 'meta_description' => $doctor->meta_description,
                 'meta_keywords' => $doctor->meta_keywords,
-                'cities' => $doctor->cities->map(fn($city) => [
-                    'id' => $city->id,
-                    'name' => $city->name,
-                    'address' => $city->pivot->address,
-                    'landmarks' => $city->pivot->landmarks,
-                ]),
+                'cities' => $this->buildDoctorCities($doctor),
                 'working_hours' => $doctor->workingHours->map(fn($wh) => [
                     'id' => $wh->id,
                     'city' => $wh->city?->name,
@@ -202,31 +213,129 @@ class SearchController extends Controller
                     'opening_time' => $wh->opening_time?->format('H:i'),
                     'closing_time' => $wh->closing_time?->format('H:i'),
                 ]),
-                'clinic_schedules' => $doctor->hospitalClinics
-                    ->where('is_active', true)
-                    ->values()
-                    ->map(fn($clinic) => [
-                        'id' => $clinic->id,
-                        'hospital_clinic_name' => $clinic->hospital_clinic_name,
-                        'city' => $clinic->city?->name,
-                        'address' => $clinic->address,
-                        'latitude' => $clinic->latitude,
-                        'longitude' => $clinic->longitude,
-                        'consultation_fee' => $clinic->consultation_fee,
-                        'schedules' => $clinic->scheduleSlots
-                            ->where('is_available', true)
-                            ->sortBy('day_of_week')
-                            ->values()
-                            ->map(fn($slot) => [
-                                'day_of_week' => \App\Models\DoctorScheduleSlot::DAYS_OF_WEEK[$slot->day_of_week] ?? 'Unknown',
-                                'opening_time' => $slot->opening_time ? substr($slot->opening_time, 0, 5) : null,
-                                'closing_time' => $slot->closing_time ? substr($slot->closing_time, 0, 5) : null,
-                                'break_start_time' => $slot->break_start_time ? substr($slot->break_start_time, 0, 5) : null,
-                                'break_end_time' => $slot->break_end_time ? substr($slot->break_end_time, 0, 5) : null,
-                            ]),
-                    ]),
+                'clinic_schedules' => $this->buildClinicSchedules($doctor),
             ],
         ]);
+    }
+
+    private function buildDoctorCities(DoctorProfile $doctor)
+    {
+        $legacyCities = $doctor->cities->map(fn($city) => [
+            'id' => $city->id,
+            'name' => $city->name,
+            'address' => $city->pivot->address,
+            'landmarks' => $city->pivot->landmarks,
+        ]);
+
+        $practiceCities = $doctor->practiceLocations
+            ->where('is_active', true)
+            ->map(function ($location) {
+                $address = $location->address;
+                $cityName = $address?->city ?: $address?->cityRecord?->name;
+
+                if (!$cityName && !$address?->city_id) {
+                    return null;
+                }
+
+                return [
+                    'id' => $address?->city_id,
+                    'name' => $cityName,
+                    'address' => collect([$address?->line1, $address?->line2])->filter()->join(', '),
+                    'landmarks' => $address?->landmark,
+                ];
+            })
+            ->filter();
+
+        return $practiceCities
+            ->concat($legacyCities)
+            ->unique(fn($city) => ($city['id'] ?? 'name:' . strtolower((string) ($city['name'] ?? ''))) . '|' . ($city['address'] ?? ''))
+            ->values();
+    }
+
+    private function buildClinicSchedules(DoctorProfile $doctor)
+    {
+        $practiceLocationSchedules = $doctor->practiceLocations
+            ->where('is_active', true)
+            ->sortByDesc('is_primary')
+            ->values()
+            ->map(function ($location) {
+                $address = $location->address;
+                $legacyClinicId = $this->resolveLegacyClinicIdFromPracticeLocation($location);
+
+                return [
+                    'id' => $legacyClinicId ?? $location->id,
+                    'doctor_practice_location_id' => $location->id,
+                    'legacy_clinic_id' => $legacyClinicId,
+                    'hospital_clinic_name' => $location->display_name ?: $location->clinic?->name ?: 'Private Practice',
+                    'city' => $address?->city ?: $address?->cityRecord?->name,
+                    'address' => collect([$address?->line1, $address?->line2])->filter()->join(', '),
+                    'latitude' => $address?->latitude,
+                    'longitude' => $address?->longitude,
+                    'consultation_fee' => $location->resolved_consultation_fee,
+                    'schedules' => $location->schedules
+                        ->where('is_available', true)
+                        ->sortBy('day_of_week')
+                        ->values()
+                        ->map(fn($schedule) => [
+                            'day_of_week' => \App\Models\DoctorPracticeSchedule::DAYS_OF_WEEK[$schedule->day_of_week] ?? 'Unknown',
+                            'opening_time' => $schedule->opening_time ? substr($schedule->opening_time, 0, 5) : null,
+                            'closing_time' => $schedule->closing_time ? substr($schedule->closing_time, 0, 5) : null,
+                            'break_start_time' => $schedule->break_start_time ? substr($schedule->break_start_time, 0, 5) : null,
+                            'break_end_time' => $schedule->break_end_time ? substr($schedule->break_end_time, 0, 5) : null,
+                        ]),
+                ];
+            })
+            ->filter(fn($location) => $location['schedules']->isNotEmpty());
+
+        if ($practiceLocationSchedules->isNotEmpty()) {
+            return $practiceLocationSchedules->values();
+        }
+
+        return $doctor->hospitalClinics
+            ->where('is_active', true)
+            ->values()
+            ->map(fn($clinic) => [
+                'id' => $clinic->id,
+                'doctor_practice_location_id' => $this->resolvePracticeLocationIdFromLegacyClinic($doctor, $clinic->id),
+                'legacy_clinic_id' => $clinic->id,
+                'hospital_clinic_name' => $clinic->hospital_clinic_name,
+                'city' => $clinic->city?->name,
+                'address' => $clinic->address,
+                'latitude' => $clinic->latitude,
+                'longitude' => $clinic->longitude,
+                'consultation_fee' => $clinic->consultation_fee,
+                'schedules' => $clinic->scheduleSlots
+                    ->where('is_available', true)
+                    ->sortBy('day_of_week')
+                    ->values()
+                    ->map(fn($slot) => [
+                        'day_of_week' => \App\Models\DoctorScheduleSlot::DAYS_OF_WEEK[$slot->day_of_week] ?? 'Unknown',
+                        'opening_time' => $slot->opening_time ? substr($slot->opening_time, 0, 5) : null,
+                        'closing_time' => $slot->closing_time ? substr($slot->closing_time, 0, 5) : null,
+                        'break_start_time' => $slot->break_start_time ? substr($slot->break_start_time, 0, 5) : null,
+                        'break_end_time' => $slot->break_end_time ? substr($slot->break_end_time, 0, 5) : null,
+                    ]),
+            ]);
+    }
+
+    private function resolveLegacyClinicIdFromPracticeLocation($location): ?int
+    {
+        $meta = $location->address?->meta ?? [];
+
+        if (($meta['legacy_source'] ?? null) === 'doctor_hospital_clinics' && !empty($meta['legacy_id'])) {
+            return (int) $meta['legacy_id'];
+        }
+
+        return null;
+    }
+
+    private function resolvePracticeLocationIdFromLegacyClinic(DoctorProfile $doctor, int $legacyClinicId): ?int
+    {
+        $location = $doctor->practiceLocations->first(function ($practiceLocation) use ($legacyClinicId) {
+            return $this->resolveLegacyClinicIdFromPracticeLocation($practiceLocation) === $legacyClinicId;
+        });
+
+        return $location?->id;
     }
 
     private function isDoctorAvailableToday(DoctorProfile $doctor): bool
@@ -234,6 +343,18 @@ class SearchController extends Controller
         $todayNumber = now()->dayOfWeek;
         $todayName = strtolower(now()->format('l'));
         $todayShortName = substr($todayName, 0, 3);
+
+        $hasPracticeLocationAvailability = $doctor->practiceLocations
+            ->where('is_active', true)
+            ->contains(function ($location) use ($todayNumber) {
+                return $location->schedules->contains(function ($schedule) use ($todayNumber) {
+                    return (bool) $schedule->is_available && (int) $schedule->day_of_week === $todayNumber;
+                });
+            });
+
+        if ($hasPracticeLocationAvailability) {
+            return true;
+        }
 
         $hasClinicAvailability = $doctor->hospitalClinics
             ->where('is_active', true)
@@ -257,6 +378,44 @@ class SearchController extends Controller
 
     private function buildAvailabilityPreview(DoctorProfile $doctor): array
     {
+        $primaryLocation = $doctor->practiceLocations
+            ->where('is_active', true)
+            ->first(function ($location) {
+                return $location->schedules->contains(fn($schedule) => (bool) $schedule->is_available);
+            });
+
+        if ($primaryLocation) {
+            $days = collect(range(0, 2))->map(function ($offset) use ($primaryLocation) {
+                $date = now()->copy()->startOfDay()->addDays($offset);
+                $schedule = $primaryLocation->schedules
+                    ->where('is_available', true)
+                    ->firstWhere('day_of_week', $date->dayOfWeek);
+
+                $times = $schedule ? $this->generatePreviewTimesFromSlot($schedule) : [];
+                $groupedTimes = collect($times)
+                    ->groupBy(function ($time) {
+                        $hour = (int) date('G', strtotime($time));
+
+                        return $hour < 12 ? 'Morning' : ($hour < 17 ? 'Afternoon' : 'Evening');
+                    })
+                    ->map(fn($items) => $items->values())
+                    ->toArray();
+
+                return [
+                    'date' => $date->toDateString(),
+                    'label' => $offset === 0 ? 'Today' : ($offset === 1 ? 'Tomorrow' : $date->format('D, j M')),
+                    'slots_count' => count($times),
+                    'groups' => $groupedTimes,
+                ];
+            })->values()->all();
+
+            return [
+                'clinic_name' => $primaryLocation->display_name ?: $primaryLocation->clinic?->name,
+                'clinic_city' => $primaryLocation->address?->city ?: $primaryLocation->address?->cityRecord?->name,
+                'days' => $days,
+            ];
+        }
+
         $primaryClinic = $doctor->hospitalClinics
             ->where('is_active', true)
             ->first(function ($clinic) {

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Doctor;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Services\AppointmentNotificationService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,7 +22,7 @@ class AppointmentController extends Controller
         abort_unless($doctorProfile, 422, 'Doctor profile is missing.');
 
         $request->validate([
-            'clinic_id' => ['nullable', 'integer', 'exists:doctor_hospital_clinics,id'],
+            'clinic_id' => ['nullable', 'integer'],
             'status' => ['nullable', 'in:pending,confirmed,completed,cancelled,no-show'],
             'date' => ['nullable', 'date'],
             'date_from' => ['nullable', 'date'],
@@ -29,15 +30,27 @@ class AppointmentController extends Controller
         ]);
 
         $query = Appointment::query()
-            ->with(['patient:id,name,email,phone', 'doctorHospitalClinic.city'])
-            ->whereHas('doctorHospitalClinic', function ($q) use ($doctorProfile) {
-                $q->where('doctor_profile_id', $doctorProfile->id);
+            ->with([
+                'patient:id,name,email,phone',
+                'doctorHospitalClinic.city',
+                'doctorHospitalClinic.doctorProfile.user:id,name,email',
+                'doctorPracticeLocation.address.cityRecord',
+                'doctorPracticeLocation.clinic',
+                'doctorPracticeLocation.doctorProfile.user:id,name,email',
+                'doctorPracticeLocation.doctorProfile.specialty:id,name',
+            ])
+            ->where(function (Builder $query) use ($doctorProfile) {
+                $query->whereHas('doctorPracticeLocation', function (Builder $inner) use ($doctorProfile) {
+                    $inner->where('doctor_profile_id', $doctorProfile->id);
+                })->orWhereHas('doctorHospitalClinic', function (Builder $inner) use ($doctorProfile) {
+                    $inner->where('doctor_profile_id', $doctorProfile->id);
+                });
             })
             ->orderBy('appointment_date')
             ->orderBy('appointment_time');
 
         if ($request->filled('clinic_id')) {
-            $query->where('doctor_hospital_clinic_id', $request->integer('clinic_id'));
+            $this->applyClinicFilter($query, $request->integer('clinic_id'));
         }
 
         if ($request->filled('status')) {
@@ -55,8 +68,11 @@ class AppointmentController extends Controller
             ]);
         }
 
+        $appointments = $query->paginate(20);
+        $appointments->getCollection()->transform(fn(Appointment $appointment) => $appointment->ensureDisplayRelations());
+
         return response()->json([
-            'data' => $query->paginate(20),
+            'data' => $appointments,
         ]);
     }
 
@@ -65,9 +81,18 @@ class AppointmentController extends Controller
         $doctorProfile = Auth::user()?->doctorProfile;
         abort_unless($doctorProfile, 422, 'Doctor profile is missing.');
 
-        $appointment->loadMissing('doctorHospitalClinic');
+        $appointment->loadMissing([
+            'doctorHospitalClinic',
+            'doctorPracticeLocation',
+        ]);
+
+        $resolvedDoctorProfileId = (int) (
+            $appointment->doctorPracticeLocation?->doctor_profile_id
+            ?: $appointment->doctorHospitalClinic?->doctor_profile_id
+        );
+
         abort_unless(
-            (int) $appointment->doctorHospitalClinic->doctor_profile_id === (int) $doctorProfile->id,
+            $resolvedDoctorProfileId === (int) $doctorProfile->id,
             403,
             'Unauthorized appointment access.'
         );
@@ -116,9 +141,31 @@ class AppointmentController extends Controller
             $this->appointmentNotifications->sendCompletionNotifications($appointment);
         }
 
+        $updatedAppointment = $appointment->fresh([
+            'patient:id,name,email,phone',
+            'doctorHospitalClinic.city',
+            'doctorHospitalClinic.doctorProfile.user:id,name,email',
+            'doctorPracticeLocation.address.cityRecord',
+            'doctorPracticeLocation.clinic',
+            'doctorPracticeLocation.doctorProfile.user:id,name,email',
+            'doctorPracticeLocation.doctorProfile.specialty:id,name',
+        ]);
+
         return response()->json([
             'message' => 'Appointment status updated successfully.',
-            'data' => $appointment->fresh(['patient:id,name,email,phone', 'doctorHospitalClinic.city']),
+            'data' => $updatedAppointment?->ensureDisplayRelations(),
         ]);
+    }
+
+    private function applyClinicFilter(Builder $query, int $clinicIdentifier): void
+    {
+        $query->where(function (Builder $inner) use ($clinicIdentifier) {
+            $inner->where('doctor_practice_location_id', $clinicIdentifier)
+                ->orWhere('doctor_hospital_clinic_id', $clinicIdentifier)
+                ->orWhereHas('doctorPracticeLocation.address', function (Builder $addressQuery) use ($clinicIdentifier) {
+                    $addressQuery->where('meta->legacy_source', 'doctor_hospital_clinics')
+                        ->where('meta->legacy_id', $clinicIdentifier);
+                });
+        });
     }
 }

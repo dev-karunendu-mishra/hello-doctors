@@ -54,6 +54,16 @@ const loadRazorpayScript = () =>
         document.body.appendChild(script);
     });
 
+const getClinicIdentifiers = (clinic) => {
+    const practiceLocationId = clinic?.doctor_practice_location_id ?? null;
+    const legacyClinicId = clinic?.legacy_clinic_id ?? (!practiceLocationId ? clinic?.id ?? null : null);
+
+    return {
+        legacyClinicId,
+        practiceLocationId,
+    };
+};
+
 const groupSlots = (slots) => {
     const groups = {
         Morning: [],
@@ -147,10 +157,12 @@ export default function FindDoctors() {
             const values = await bookingForm.validateFields();
             setBookingSaving(true);
 
+            const { legacyClinicId, practiceLocationId } = getClinicIdentifiers(bookingSelection.clinic);
             const bookingParams = {
                 type: 'appointment',
                 payment_method: values.payment_method,
-                doctor_hospital_clinic_id: bookingSelection.clinic.id,
+                doctor_hospital_clinic_id: legacyClinicId,
+                doctor_practice_location_id: practiceLocationId,
                 appointment_date: bookingSelection.date,
                 appointment_time: bookingSelection.slot.time,
                 consultation_type: values.consultation_type,
@@ -164,7 +176,8 @@ export default function FindDoctors() {
             // Free booking — book directly
             if (orderData.skip_payment) {
                 await window.axios.post('/patient/data/appointments', {
-                    doctor_hospital_clinic_id: bookingSelection.clinic.id,
+                    doctor_hospital_clinic_id: legacyClinicId,
+                    doctor_practice_location_id: practiceLocationId,
                     appointment_date: bookingSelection.date,
                     appointment_time: bookingSelection.slot.time,
                     consultation_type: values.consultation_type,

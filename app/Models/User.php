@@ -6,6 +6,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -120,11 +122,28 @@ class User extends Authenticatable
     }
 
     /**
-     * Get all home service addresses for this user
+     * Get all legacy home service addresses for this user.
      */
     public function homeServiceAddresses(): HasMany
     {
         return $this->hasMany(HomeServiceAddress::class, 'user_id');
+    }
+
+    /**
+     * Get all unified addresses for this user.
+     */
+    public function addresses(): MorphMany
+    {
+        return $this->morphMany(Address::class, 'addressable');
+    }
+
+    /**
+     * Get the primary unified address for this user.
+     */
+    public function primaryAddress(): MorphOne
+    {
+        return $this->morphOne(Address::class, 'addressable')
+            ->where('is_primary', true);
     }
 
     /**

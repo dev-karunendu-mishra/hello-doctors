@@ -120,6 +120,7 @@ Visit: `http://localhost:8000`
 - **[MIGRATION_GUIDE.md](MIGRATION_GUIDE.md)** - Comprehensive migration guide
 - **[DATABASE_SCHEMA.md](DATABASE_SCHEMA.md)** - Database structure and relationships
 - **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** - Technical implementation details
+- **[docs/ADDRESS_CLINIC_SCHEDULE_REFACTOR_PLAN.md](docs/ADDRESS_CLINIC_SCHEDULE_REFACTOR_PLAN.md)** - Exact migration-by-migration refactor plan for unified addresses, clinics, schedules, and safe data cutover
 - **[docs-hello-doctors/MIGRATION_ANALYSIS.md](docs-hello-doctors/MIGRATION_ANALYSIS.md)** - Old app analysis
 - **[docs-hello-doctors/IMPLEMENTATION_ROADMAP.md](docs-hello-doctors/IMPLEMENTATION_ROADMAP.md)** - Development roadmap
 

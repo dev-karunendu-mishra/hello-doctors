@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class HomeServiceProvider extends Model
 {
@@ -19,6 +21,7 @@ class HomeServiceProvider extends Model
         'license_number',
         'experience_years',
         'city_id',
+        'base_address_id',
         'service_radius_km',
         'is_verified',
         'is_active',
@@ -39,6 +42,22 @@ class HomeServiceProvider extends Model
     public function city(): BelongsTo
     {
         return $this->belongsTo(City::class, 'city_id');
+    }
+
+    public function baseAddress(): BelongsTo
+    {
+        return $this->belongsTo(Address::class, 'base_address_id');
+    }
+
+    public function addresses(): MorphMany
+    {
+        return $this->morphMany(Address::class, 'addressable');
+    }
+
+    public function primaryAddress(): MorphOne
+    {
+        return $this->morphOne(Address::class, 'addressable')
+            ->where('is_primary', true);
     }
 
     public function serviceLinks(): HasMany

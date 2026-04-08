@@ -34,6 +34,8 @@ class HomeServiceBooking extends Model
         'home_service_id',
         'provider_id',
         'address_id',
+        'unified_address_id',
+        'service_address_snapshot',
         'service_date',
         'service_time',
         'duration_minutes',
@@ -59,6 +61,7 @@ class HomeServiceBooking extends Model
 
     protected $casts = [
         'service_date' => 'date',
+        'service_address_snapshot' => 'array',
         'duration_minutes' => 'integer',
         'price' => 'decimal:2',
         'travel_fee' => 'decimal:2',
@@ -117,6 +120,11 @@ class HomeServiceBooking extends Model
     public function address(): BelongsTo
     {
         return $this->belongsTo(HomeServiceAddress::class, 'address_id');
+    }
+
+    public function unifiedAddress(): BelongsTo
+    {
+        return $this->belongsTo(Address::class, 'unified_address_id');
     }
 
     public function statusLogs(): HasMany

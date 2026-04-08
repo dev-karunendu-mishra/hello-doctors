@@ -124,6 +124,7 @@ export default function Index() {
         () => clinics.find((clinic) => clinic.id === managementClinicId) || null,
         [clinics, managementClinicId]
     );
+    const selectedPracticeLocationId = selectedClinic?.doctor_practice_location_id || null;
 
     const selectedDoctor = useMemo(
         () => doctors.find((doctor) => doctor.id === managementDoctorId) || null,
@@ -358,6 +359,7 @@ export default function Index() {
             const values = await scheduleForm.validateFields();
             setSavingSchedule(true);
             await api.post(`/admin/appointments-data/doctors/${managementDoctorId}/hospital-clinics/${managementClinicId}/schedules`, {
+                doctor_practice_location_id: selectedPracticeLocationId,
                 schedules: values.schedules,
             });
             message.success('Schedule saved successfully.');

@@ -4,21 +4,24 @@ namespace App\Http\Controllers\Api\Doctor;
 
 use App\Http\Controllers\Controller;
 use App\Models\DoctorHospitalClinic;
+use App\Models\DoctorPracticeLocation;
+use App\Models\DoctorPracticeSchedule;
 use App\Models\DoctorScheduleSlot;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class ScheduleController extends Controller
 {
     public function index(DoctorHospitalClinic $clinic): JsonResponse
     {
         $this->authorizeClinic($clinic);
+        $practiceLocation = $this->resolvePracticeLocationFromLegacyClinic($clinic);
 
         return response()->json([
-            'data' => $clinic->scheduleSlots()->orderBy('day_of_week')->get(),
+            'data' => $this->buildScheduleResponse($clinic, $practiceLocation),
         ]);
     }
 
@@ -31,6 +34,7 @@ class ScheduleController extends Controller
         ]);
 
         $validated = $request->validate([
+            'doctor_practice_location_id' => ['nullable', 'integer', 'exists:doctor_practice_locations,id'],
             'schedules' => ['required', 'array', 'min:1'],
             'schedules.*.day_of_week' => ['required', 'integer', 'between:0,6'],
             'schedules.*.opening_time' => ['nullable', 'date_format:H:i'],
@@ -43,30 +47,35 @@ class ScheduleController extends Controller
         ]);
 
         $this->validateSchedulePayload($validated['schedules']);
+        $practiceLocation = $this->resolvePracticeLocationFromLegacyClinic($clinic, $validated['doctor_practice_location_id'] ?? null);
 
-        DB::transaction(function () use ($validated, $clinic) {
+        DB::transaction(function () use ($validated, $clinic, $practiceLocation) {
             foreach ($validated['schedules'] as $day) {
+                $attributes = $this->buildScheduleAttributes($day);
+
                 DoctorScheduleSlot::updateOrCreate(
                     [
                         'doctor_hospital_clinic_id' => $clinic->id,
                         'day_of_week' => $day['day_of_week'],
                     ],
-                    [
-                        'opening_time' => $day['is_available'] ? ($day['opening_time'] ?? null) : null,
-                        'closing_time' => $day['is_available'] ? ($day['closing_time'] ?? null) : null,
-                        'break_start_time' => $day['is_available'] ? ($day['break_start_time'] ?? null) : null,
-                        'break_end_time' => $day['is_available'] ? ($day['break_end_time'] ?? null) : null,
-                        'slot_duration_minutes' => $day['slot_duration_minutes'],
-                        'max_appointments_per_slot' => $day['max_appointments_per_slot'],
-                        'is_available' => $day['is_available'],
-                    ]
+                    $attributes
                 );
+
+                if ($practiceLocation) {
+                    DoctorPracticeSchedule::updateOrCreate(
+                        [
+                            'doctor_practice_location_id' => $practiceLocation->id,
+                            'day_of_week' => $day['day_of_week'],
+                        ],
+                        $attributes
+                    );
+                }
             }
         });
 
         return response()->json([
             'message' => 'Schedule updated successfully.',
-            'data' => $clinic->scheduleSlots()->orderBy('day_of_week')->get(),
+            'data' => $this->buildScheduleResponse($clinic, $practiceLocation),
         ]);
     }
 
@@ -78,6 +87,7 @@ class ScheduleController extends Controller
         $request->merge($this->normalizeSingleSchedulePayload($request->all()));
 
         $validated = $request->validate([
+            'doctor_practice_location_id' => ['nullable', 'integer', 'exists:doctor_practice_locations,id'],
             'opening_time' => ['nullable', 'date_format:H:i'],
             'closing_time' => ['nullable', 'date_format:H:i'],
             'break_start_time' => ['nullable', 'date_format:H:i'],
@@ -92,25 +102,32 @@ class ScheduleController extends Controller
             ...$validated,
         ]]);
 
-        $slot = DoctorScheduleSlot::updateOrCreate(
-            [
-                'doctor_hospital_clinic_id' => $clinic->id,
-                'day_of_week' => $day,
-            ],
-            [
-                'opening_time' => $validated['is_available'] ? ($validated['opening_time'] ?? null) : null,
-                'closing_time' => $validated['is_available'] ? ($validated['closing_time'] ?? null) : null,
-                'break_start_time' => $validated['is_available'] ? ($validated['break_start_time'] ?? null) : null,
-                'break_end_time' => $validated['is_available'] ? ($validated['break_end_time'] ?? null) : null,
-                'slot_duration_minutes' => $validated['slot_duration_minutes'],
-                'max_appointments_per_slot' => $validated['max_appointments_per_slot'],
-                'is_available' => $validated['is_available'],
-            ]
-        );
+        $practiceLocation = $this->resolvePracticeLocationFromLegacyClinic($clinic, $validated['doctor_practice_location_id'] ?? null);
+        $attributes = $this->buildScheduleAttributes($validated);
+
+        DB::transaction(function () use ($clinic, $day, $attributes, $practiceLocation) {
+            DoctorScheduleSlot::updateOrCreate(
+                [
+                    'doctor_hospital_clinic_id' => $clinic->id,
+                    'day_of_week' => $day,
+                ],
+                $attributes
+            );
+
+            if ($practiceLocation) {
+                DoctorPracticeSchedule::updateOrCreate(
+                    [
+                        'doctor_practice_location_id' => $practiceLocation->id,
+                        'day_of_week' => $day,
+                    ],
+                    $attributes
+                );
+            }
+        });
 
         return response()->json([
             'message' => 'Day schedule updated successfully.',
-            'data' => $slot,
+            'data' => collect($this->buildScheduleResponse($clinic, $practiceLocation))->firstWhere('day_of_week', $day),
         ]);
     }
 
@@ -119,7 +136,15 @@ class ScheduleController extends Controller
         $this->authorizeClinic($clinic);
         abort_if($day < 0 || $day > 6, 422, 'Invalid day value.');
 
-        $clinic->scheduleSlots()->where('day_of_week', $day)->delete();
+        $practiceLocation = $this->resolvePracticeLocationFromLegacyClinic($clinic);
+
+        DB::transaction(function () use ($clinic, $day, $practiceLocation) {
+            $clinic->scheduleSlots()->where('day_of_week', $day)->delete();
+
+            if ($practiceLocation) {
+                $practiceLocation->schedules()->where('day_of_week', $day)->delete();
+            }
+        });
 
         return response()->json([
             'message' => 'Day schedule deleted successfully.',
@@ -214,5 +239,116 @@ class ScheduleController extends Controller
                 }
             }
         }
+    }
+
+    private function buildScheduleAttributes(array $schedule): array
+    {
+        return [
+            'opening_time' => $schedule['is_available'] ? ($schedule['opening_time'] ?? null) : null,
+            'closing_time' => $schedule['is_available'] ? ($schedule['closing_time'] ?? null) : null,
+            'break_start_time' => $schedule['is_available'] ? ($schedule['break_start_time'] ?? null) : null,
+            'break_end_time' => $schedule['is_available'] ? ($schedule['break_end_time'] ?? null) : null,
+            'slot_duration_minutes' => $schedule['slot_duration_minutes'],
+            'max_appointments_per_slot' => $schedule['max_appointments_per_slot'],
+            'is_available' => $schedule['is_available'],
+        ];
+    }
+
+    private function buildScheduleResponse(DoctorHospitalClinic $clinic, ?DoctorPracticeLocation $practiceLocation): array
+    {
+        $legacyByDay = $clinic->scheduleSlots()->orderBy('day_of_week')->get()->keyBy('day_of_week');
+
+        if (!$practiceLocation) {
+            return $legacyByDay
+                ->map(fn(DoctorScheduleSlot $slot) => $this->formatLegacySchedule($slot))
+                ->values()
+                ->all();
+        }
+
+        $practiceByDay = $practiceLocation->schedules()->orderBy('day_of_week')->get()->keyBy('day_of_week');
+        $days = $legacyByDay->keys()->merge($practiceByDay->keys())->unique()->sort()->values();
+
+        return $days
+            ->map(function ($day) use ($legacyByDay, $practiceByDay, $practiceLocation, $clinic) {
+                $legacySlot = $legacyByDay->get($day);
+                $practiceSchedule = $practiceByDay->get($day);
+
+                if ($practiceSchedule) {
+                    return $this->formatPracticeSchedule($practiceSchedule, $legacySlot, $clinic->id);
+                }
+
+                return $legacySlot
+                    ? $this->formatLegacySchedule($legacySlot, $practiceLocation->id)
+                    : null;
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private function formatLegacySchedule(DoctorScheduleSlot $slot, ?int $practiceLocationId = null): array
+    {
+        return [
+            'id' => $slot->id,
+            'legacy_schedule_id' => $slot->id,
+            'doctor_practice_schedule_id' => null,
+            'doctor_hospital_clinic_id' => $slot->doctor_hospital_clinic_id,
+            'doctor_practice_location_id' => $practiceLocationId,
+            'day_of_week' => (int) $slot->day_of_week,
+            'opening_time' => $slot->opening_time,
+            'closing_time' => $slot->closing_time,
+            'break_start_time' => $slot->break_start_time,
+            'break_end_time' => $slot->break_end_time,
+            'slot_duration_minutes' => (int) $slot->slot_duration_minutes,
+            'max_appointments_per_slot' => (int) $slot->max_appointments_per_slot,
+            'is_available' => (bool) $slot->is_available,
+            'created_at' => optional($slot->created_at)?->toISOString(),
+            'updated_at' => optional($slot->updated_at)?->toISOString(),
+        ];
+    }
+
+    private function formatPracticeSchedule(DoctorPracticeSchedule $schedule, ?DoctorScheduleSlot $legacySlot, int $clinicId): array
+    {
+        return [
+            'id' => $legacySlot?->id ?? $schedule->id,
+            'legacy_schedule_id' => $legacySlot?->id,
+            'doctor_practice_schedule_id' => $schedule->id,
+            'doctor_hospital_clinic_id' => $clinicId,
+            'doctor_practice_location_id' => $schedule->doctor_practice_location_id,
+            'day_of_week' => (int) $schedule->day_of_week,
+            'opening_time' => $schedule->opening_time,
+            'closing_time' => $schedule->closing_time,
+            'break_start_time' => $schedule->break_start_time,
+            'break_end_time' => $schedule->break_end_time,
+            'slot_duration_minutes' => (int) $schedule->slot_duration_minutes,
+            'max_appointments_per_slot' => (int) $schedule->max_appointments_per_slot,
+            'is_available' => (bool) $schedule->is_available,
+            'created_at' => optional($legacySlot?->created_at ?? $schedule->created_at)?->toISOString(),
+            'updated_at' => optional($schedule->updated_at ?? $legacySlot?->updated_at)?->toISOString(),
+        ];
+    }
+
+    private function resolvePracticeLocationFromLegacyClinic(DoctorHospitalClinic $clinic, ?int $preferredPracticeLocationId = null): ?DoctorPracticeLocation
+    {
+        if ($preferredPracticeLocationId) {
+            $practiceLocation = DoctorPracticeLocation::query()
+                ->with(['schedules', 'address.cityRecord', 'clinic'])
+                ->whereKey($preferredPracticeLocationId)
+                ->where('doctor_profile_id', $clinic->doctor_profile_id)
+                ->first();
+
+            abort_unless($practiceLocation, 422, 'Invalid practice location selected.');
+
+            return $practiceLocation;
+        }
+
+        return DoctorPracticeLocation::query()
+            ->with(['schedules', 'address.cityRecord', 'clinic'])
+            ->where('doctor_profile_id', $clinic->doctor_profile_id)
+            ->whereHas('address', function ($query) use ($clinic) {
+                $query->where('meta->legacy_source', 'doctor_hospital_clinics')
+                    ->where('meta->legacy_id', $clinic->id);
+            })
+            ->first();
     }
 }

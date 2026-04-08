@@ -50,6 +50,11 @@ const loadRazorpayScript = () =>
         document.body.appendChild(script);
     });
 
+const getAddressIdentifiers = (address, rawAddressId = null) => ({
+    addressId: address?.legacy_address_id ?? rawAddressId ?? address?.id ?? null,
+    unifiedAddressId: address?.unified_address_id ?? null,
+});
+
 export default function HomeServicesBook() {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
@@ -60,9 +65,15 @@ export default function HomeServicesBook() {
     const [slotData, setSlotData] = useState([]);
 
     const selectedServiceId = Form.useWatch('home_service_id', form);
+    const selectedAddressId = Form.useWatch('address_id', form);
     const selectedCityId = Form.useWatch('city_id', form);
     const selectedDate = Form.useWatch('service_date', form);
     const selectedPaymentMethod = Form.useWatch('payment_method', form) || 'online';
+
+    const selectedAddress = useMemo(
+        () => addresses.find((address) => String(address.id) === String(selectedAddressId)) || null,
+        [addresses, selectedAddressId],
+    );
 
     const serviceById = useMemo(() => {
         const map = new Map();
@@ -105,6 +116,7 @@ export default function HomeServicesBook() {
             const defaultAddress = (addressRes.data?.data || []).find((item) => item.is_default);
             if (defaultAddress) {
                 form.setFieldValue('address_id', defaultAddress.id);
+                form.setFieldValue('unified_address_id', defaultAddress.unified_address_id || null);
                 form.setFieldValue('city_id', defaultAddress.city_id);
             }
         } catch (error) {
@@ -154,6 +166,7 @@ export default function HomeServicesBook() {
         const address = addresses.find((item) => item.id === addressId);
         if (address) {
             form.setFieldValue('city_id', address.city_id);
+            form.setFieldValue('unified_address_id', address.unified_address_id || null);
         }
     };
 
@@ -177,11 +190,17 @@ export default function HomeServicesBook() {
                 return;
             }
 
+            const resolvedAddress = selectedAddress
+                || addresses.find((item) => String(item.id) === String(values.address_id))
+                || null;
+            const { addressId, unifiedAddressId } = getAddressIdentifiers(resolvedAddress, values.address_id);
+
             const bookingParams = {
                 type: 'home_service',
                 payment_method: values.payment_method,
                 home_service_id: values.home_service_id,
-                address_id: values.address_id,
+                address_id: addressId,
+                unified_address_id: unifiedAddressId,
                 provider_id: providerId,
                 service_date: dayjs(values.service_date).format('YYYY-MM-DD'),
                 service_time: serviceTime,
@@ -196,7 +215,8 @@ export default function HomeServicesBook() {
             if (orderData.skip_payment) {
                 await window.axios.post('/patient/data/home-service-bookings', {
                     home_service_id: values.home_service_id,
-                    address_id: values.address_id,
+                    address_id: addressId,
+                    unified_address_id: unifiedAddressId,
                     provider_id: providerId,
                     service_date: dayjs(values.service_date).format('YYYY-MM-DD'),
                     service_time: serviceTime,

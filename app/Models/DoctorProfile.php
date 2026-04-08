@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Str;
@@ -174,6 +175,23 @@ class DoctorProfile extends Model
     }
 
     /**
+     * Get unified addresses for this doctor profile.
+     */
+    public function addresses(): MorphMany
+    {
+        return $this->morphMany(Address::class, 'addressable');
+    }
+
+    /**
+     * Get the primary unified address for this doctor profile.
+     */
+    public function primaryAddress(): MorphOne
+    {
+        return $this->morphOne(Address::class, 'addressable')
+            ->where('is_primary', true);
+    }
+
+    /**
      * Get working hours
      */
     public function workingHours(): HasMany
@@ -182,11 +200,19 @@ class DoctorProfile extends Model
     }
 
     /**
-     * Get hospital/clinics managed by this doctor
+     * Get hospital/clinics managed by this doctor.
      */
     public function hospitalClinics(): HasMany
     {
         return $this->hasMany(DoctorHospitalClinic::class, 'doctor_profile_id');
+    }
+
+    /**
+     * Get unified practice locations for this doctor.
+     */
+    public function practiceLocations(): HasMany
+    {
+        return $this->hasMany(DoctorPracticeLocation::class, 'doctor_profile_id');
     }
 
     /**
@@ -196,9 +222,9 @@ class DoctorProfile extends Model
     {
         return $this->hasManyThrough(
             Appointment::class,
-            DoctorHospitalClinic::class,
+            DoctorPracticeLocation::class,
             'doctor_profile_id',
-            'doctor_hospital_clinic_id'
+            'doctor_practice_location_id'
         );
     }
 

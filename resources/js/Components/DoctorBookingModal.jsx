@@ -38,6 +38,16 @@ const loadRazorpayScript = () =>
         document.body.appendChild(script);
     });
 
+const getClinicIdentifiers = (clinic) => {
+    const practiceLocationId = clinic?.doctor_practice_location_id ?? null;
+    const legacyClinicId = clinic?.legacy_clinic_id ?? (!practiceLocationId ? clinic?.id ?? null : null);
+
+    return {
+        legacyClinicId,
+        practiceLocationId,
+    };
+};
+
 const groupSlots = (slots = []) => {
     const groups = {
         Morning: [],
@@ -98,6 +108,7 @@ export default function DoctorBookingModal({ doctor, open, onClose }) {
         setAvailableSlots([]);
         bookingForm.setFieldsValue({
             clinic_id: initialClinic.id,
+            doctor_practice_location_id: initialClinic.doctor_practice_location_id || null,
             appointment_date: initialDate,
             appointment_time: null,
             consultation_type: doctor.is_available_online ? 'online' : 'in-person',
@@ -107,7 +118,7 @@ export default function DoctorBookingModal({ doctor, open, onClose }) {
     }, [bookingForm, bookableClinics, doctor, open]);
 
     useEffect(() => {
-        if (!open || !selectedClinicId || !selectedDate) {
+        if (!open || !selectedClinic || !selectedDate) {
             return;
         }
 
@@ -115,11 +126,31 @@ export default function DoctorBookingModal({ doctor, open, onClose }) {
             setSlotsLoading(true);
 
             try {
-                const response = await window.axios.get(`/patient/data/clinics/${selectedClinicId}/available-slots`, {
-                    params: { date: selectedDate },
-                });
+                const { legacyClinicId, practiceLocationId } = getClinicIdentifiers(selectedClinic);
+                let slots = [];
 
-                const slots = response?.data?.slots || [];
+                if (legacyClinicId) {
+                    const response = await window.axios.get(`/patient/data/clinics/${legacyClinicId}/available-slots`, {
+                        params: { date: selectedDate },
+                    });
+
+                    slots = response?.data?.slots || [];
+                } else if (practiceLocationId) {
+                    const response = await window.axios.get('/patient/data/available-appointments', {
+                        params: {
+                            date_from: selectedDate,
+                            date_to: selectedDate,
+                        },
+                    });
+
+                    const matchedEntry = (response?.data?.data || []).find((entry) => (
+                        String(entry?.doctor?.id) === String(doctor?.id)
+                        && String(entry?.clinic?.doctor_practice_location_id) === String(practiceLocationId)
+                    ));
+
+                    slots = matchedEntry?.available_dates?.find((day) => day?.date === selectedDate)?.slots || [];
+                }
+
                 setAvailableSlots(slots);
 
                 const currentSlot = bookingForm.getFieldValue('appointment_time');
@@ -135,7 +166,7 @@ export default function DoctorBookingModal({ doctor, open, onClose }) {
         };
 
         fetchAvailableSlots();
-    }, [bookingForm, open, selectedClinicId, selectedDate]);
+    }, [bookingForm, doctor?.id, open, selectedClinic, selectedDate]);
 
     const handleClose = () => {
         setAvailableSlots([]);
@@ -154,10 +185,13 @@ export default function DoctorBookingModal({ doctor, open, onClose }) {
             const values = await bookingForm.validateFields();
             setBookingSaving(true);
 
+            const clinicForBooking = bookableClinics.find((clinic) => String(clinic.id) === String(values.clinic_id)) || selectedClinic;
+            const { legacyClinicId, practiceLocationId } = getClinicIdentifiers(clinicForBooking);
             const bookingParams = {
                 type: 'appointment',
                 payment_method: values.payment_method,
-                doctor_hospital_clinic_id: values.clinic_id,
+                doctor_hospital_clinic_id: legacyClinicId,
+                doctor_practice_location_id: practiceLocationId,
                 appointment_date: values.appointment_date,
                 appointment_time: values.appointment_time,
                 consultation_type: values.consultation_type,
@@ -169,7 +203,8 @@ export default function DoctorBookingModal({ doctor, open, onClose }) {
 
             if (orderData.skip_payment) {
                 await window.axios.post('/patient/data/appointments', {
-                    doctor_hospital_clinic_id: values.clinic_id,
+                    doctor_hospital_clinic_id: legacyClinicId,
+                    doctor_practice_location_id: practiceLocationId,
                     appointment_date: values.appointment_date,
                     appointment_time: values.appointment_time,
                     consultation_type: values.consultation_type,
@@ -263,12 +298,12 @@ export default function DoctorBookingModal({ doctor, open, onClose }) {
                     <Row gutter={16}>
                         <Col xs={24} md={12}>
                             <Form.Item
-                                label="Select Clinic"
+                                label="Select Location"
                                 name="clinic_id"
-                                rules={[{ required: true, message: 'Please select a clinic.' }]}
+                                rules={[{ required: true, message: 'Please select a clinic or practice location.' }]}
                             >
                                 <Select
-                                    placeholder="Choose clinic"
+                                    placeholder="Choose clinic or practice location"
                                     options={bookableClinics.map((clinic) => ({
                                         value: clinic.id,
                                         label: `${clinic.hospital_clinic_name}${clinic.city ? ` - ${clinic.city}` : ''}`,
