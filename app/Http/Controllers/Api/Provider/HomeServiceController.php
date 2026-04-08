@@ -179,6 +179,7 @@ class HomeServiceController extends Controller
         $request->validate([
             'status' => ['nullable', 'in:pending,assigned,confirmed,in_progress,completed,cancelled,no_show'],
             'date' => ['nullable', 'date'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:250'],
         ]);
 
         $provider = $this->provider();
@@ -197,7 +198,9 @@ class HomeServiceController extends Controller
             $query->whereDate('service_date', $request->date('date')->toDateString());
         }
 
-        return response()->json(['data' => $query->paginate(20)]);
+        $perPage = (int) ($request->integer('per_page') ?: 20);
+
+        return response()->json(['data' => $query->paginate($perPage)]);
     }
 
     public function updateBookingStatus(Request $request, HomeServiceBooking $booking): JsonResponse

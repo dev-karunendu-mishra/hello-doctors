@@ -1,5 +1,10 @@
 import AdminLayout from '@/Layouts/AdminLayout';
 import { Head, Link } from '@inertiajs/react';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import multiMonthPlugin from '@fullcalendar/multimonth';
+import timeGridPlugin from '@fullcalendar/timegrid';
 import {
     Alert,
     Button,
@@ -12,13 +17,14 @@ import {
     Modal,
     Select,
     Space,
+    Spin,
     Table,
     Tag,
     Typography,
     message,
 } from 'antd';
 import dayjs from 'dayjs';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const { Title, Text } = Typography;
 
@@ -42,6 +48,16 @@ const paymentStatusColor = {
 const paymentMethodLabel = {
     online: 'Online / UPI',
     cod: 'Cash on Visit',
+};
+
+const statusEventColor = {
+    pending: '#f59e0b',
+    assigned: '#1677ff',
+    confirmed: '#2563eb',
+    in_progress: '#06b6d4',
+    completed: '#16a34a',
+    cancelled: '#dc2626',
+    no_show: '#6b7280',
 };
 
 const statusOptions = [
@@ -77,7 +93,9 @@ const allowedTransitions = {
 export default function ProviderHomeServiceBookings() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [calendarLoading, setCalendarLoading] = useState(true);
     const [bookings, setBookings] = useState([]);
+    const [calendarBookings, setCalendarBookings] = useState([]);
     const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
     const [filters, setFilters] = useState({ status: null, date: null });
 
@@ -85,6 +103,7 @@ export default function ProviderHomeServiceBookings() {
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
     const [detailBooking, setDetailBooking] = useState(null);
+    const [isClient, setIsClient] = useState(false);
     const [statusForm] = Form.useForm();
     const watchedStatus = Form.useWatch('status', statusForm);
     const watchedPaymentMethod = Form.useWatch('payment_method', statusForm);
@@ -166,8 +185,31 @@ export default function ProviderHomeServiceBookings() {
         }
     };
 
+    const loadCalendarBookings = async (nextFilters = filters) => {
+        setCalendarLoading(true);
+        try {
+            const response = await window.axios.get('/provider/data/home-service/bookings', {
+                params: {
+                    page: 1,
+                    per_page: 250,
+                    status: nextFilters.status || undefined,
+                    date: nextFilters.date || undefined,
+                },
+            });
+
+            const paginated = response.data?.data || {};
+            setCalendarBookings(paginated.data || []);
+        } catch (error) {
+            message.error(error?.response?.data?.message || 'Failed to load calendar bookings.');
+        } finally {
+            setCalendarLoading(false);
+        }
+    };
+
     useEffect(() => {
+        setIsClient(true);
         loadBookings();
+        loadCalendarBookings();
     }, []);
 
     useEffect(() => {
@@ -189,7 +231,10 @@ export default function ProviderHomeServiceBookings() {
 
     const applyFilters = async (nextFilters) => {
         setFilters(nextFilters);
-        await loadBookings(nextFilters, 1);
+        await Promise.all([
+            loadBookings(nextFilters, 1),
+            loadCalendarBookings(nextFilters),
+        ]);
     };
 
     const openStatusModal = (booking, defaults = {}) => {
@@ -213,6 +258,29 @@ export default function ProviderHomeServiceBookings() {
         setDetailDrawerOpen(true);
     };
 
+    const calendarEvents = useMemo(() => {
+        return calendarBookings.map((booking) => {
+            const serviceDate = dayjs(booking.service_date).format('YYYY-MM-DD');
+            const serviceTime = String(booking.service_time || '00:00:00').slice(0, 8);
+            const start = `${serviceDate}T${serviceTime}`;
+            const duration = Number(booking.duration_minutes || 60);
+            const color = statusEventColor[booking.status] || '#1677ff';
+
+            return {
+                id: String(booking.id),
+                title: `${booking.service?.name || 'Service'} · ${booking.user?.name || 'Patient'}`,
+                start,
+                end: dayjs(start).add(duration, 'minute').format('YYYY-MM-DDTHH:mm:ss'),
+                backgroundColor: color,
+                borderColor: color,
+                extendedProps: {
+                    status: booking.status,
+                    bookingNumber: booking.booking_number,
+                },
+            };
+        });
+    }, [calendarBookings]);
+
     const saveStatus = async () => {
         if (!selectedBooking) return;
 
@@ -232,7 +300,10 @@ export default function ProviderHomeServiceBookings() {
             await window.axios.post(`/provider/data/home-service/bookings/${selectedBooking.id}/status`, payload);
             message.success('Booking and payment details updated.');
             setStatusModalOpen(false);
-            await loadBookings(filters, pagination.current);
+            await Promise.all([
+                loadBookings(filters, pagination.current),
+                loadCalendarBookings(filters),
+            ]);
         } catch (error) {
             if (error?.errorFields) return;
             message.error(error?.response?.data?.message || 'Failed to update booking status.');
@@ -263,6 +334,68 @@ export default function ProviderHomeServiceBookings() {
                     showIcon
                     message="Manage visit progress and mark cash / online payments once you collect them during the service visit."
                 />
+
+                <Card
+                    title="Bookings Calendar"
+                    extra={<Text type="secondary">Click any booking to view details</Text>}
+                >
+                    {isClient ? (
+                        calendarLoading ? (
+                            <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
+                                <Spin />
+                            </div>
+                        ) : calendarEvents.length > 0 ? (
+                            <FullCalendar
+                                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, multiMonthPlugin]}
+                                initialView="dayGridMonth"
+                                headerToolbar={{
+                                    left: 'prev,next today',
+                                    center: 'title',
+                                    right: 'multiMonthYear,dayGridMonth,timeGridWeek,timeGridDay',
+                                }}
+                                buttonText={{
+                                    multiMonthYear: 'Year',
+                                    dayGridMonth: 'Month',
+                                    timeGridWeek: 'Week',
+                                    timeGridDay: 'Day',
+                                    today: 'Today',
+                                }}
+                                views={{
+                                    multiMonthYear: {
+                                        type: 'multiMonth',
+                                        duration: { years: 1 },
+                                    },
+                                }}
+                                multiMonthMaxColumns={3}
+                                events={calendarEvents}
+                                height="auto"
+                                nowIndicator
+                                dayMaxEvents
+                                eventTimeFormat={{
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: true,
+                                }}
+                                eventClick={(info) => {
+                                    const booking = calendarBookings.find((item) => String(item.id) === String(info.event.id));
+                                    if (booking) {
+                                        openDetailDrawer(booking);
+                                    }
+                                }}
+                            />
+                        ) : (
+                            <Alert
+                                type="info"
+                                showIcon
+                                message="No bookings available for the selected filters to display on the calendar."
+                            />
+                        )
+                    ) : (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
+                            <Spin />
+                        </div>
+                    )}
+                </Card>
 
                 <Card>
                     <Space wrap style={{ marginBottom: 16 }}>
