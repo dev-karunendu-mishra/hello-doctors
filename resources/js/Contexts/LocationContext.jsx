@@ -44,7 +44,9 @@ export function LocationProvider({ children }) {
         setCoordinatesState(coords);
     };
 
-    const detectLocation = async () => {
+    const detectLocation = async (options = {}) => {
+        const { silent = false } = options;
+
         // Check if running in browser
         if (typeof window === 'undefined') {
             console.log('detectLocation called on server side, skipping');
@@ -53,7 +55,9 @@ export function LocationProvider({ children }) {
 
         if (!navigator.geolocation) {
             console.error('Geolocation is not supported by your browser');
-            alert('Geolocation is not supported by your browser');
+            if (!silent) {
+                alert('Geolocation is not supported by your browser');
+            }
             return;
         }
 
@@ -135,7 +139,9 @@ export function LocationProvider({ children }) {
                             console.log('Unknown location error');
                     }
                     
-                    alert(errorMessage);
+                    if (!silent) {
+                        alert(errorMessage);
+                    }
                     reject(error);
                 },
                 {

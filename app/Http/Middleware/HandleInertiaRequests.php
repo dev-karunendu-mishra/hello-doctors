@@ -49,7 +49,7 @@ class HandleInertiaRequests extends Middleware
         $seoSettings = $getSiteSettings('seo');
         $generalSettings = $getSiteSettings('general');
         $contactSettings = $getSiteSettings('contact');
-
+        $authUser = $request->user();
         return [
             ...parent::share($request),
             'auth' => [

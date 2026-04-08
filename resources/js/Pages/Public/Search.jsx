@@ -36,14 +36,92 @@ export default function Search({ auth, doctors, specialties, filters }) {
         router.get('/doctors');
     };
 
+    const scrollToDoctorResults = () => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        window.requestAnimationFrame(() => {
+            const resultsAnchor = document.getElementById('doctor-results-start');
+
+            if (!resultsAnchor) {
+                return;
+            }
+
+            const topOffset = 110;
+            const targetTop = resultsAnchor.getBoundingClientRect().top + window.scrollY - topOffset;
+
+            window.scrollTo({
+                top: Math.max(targetTop, 0),
+                behavior: 'smooth',
+            });
+        });
+    };
+
     const changePage = (page) => {
+        if (page < 1 || page > doctors.last_page || page === doctors.current_page) {
+            return;
+        }
+
         router.get('/doctors', {
             search: filters.search || undefined,
             specialty: filters.specialty || undefined,
             city_name: filters.city_name || undefined,
             page,
+        }, {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => scrollToDoctorResults(),
         });
     };
+
+    const paginationItems = useMemo(() => {
+        const currentPage = Number(doctors.current_page || 1);
+        const lastPage = Number(doctors.last_page || 1);
+
+        if (lastPage <= 7) {
+            return Array.from({ length: lastPage }, (_, index) => index + 1);
+        }
+
+        const pages = new Set([1, currentPage, lastPage]);
+
+        if (currentPage <= 3) {
+            [2, 3, 4].forEach((page) => {
+                if (page < lastPage) {
+                    pages.add(page);
+                }
+            });
+        } else if (currentPage >= lastPage - 2) {
+            [lastPage - 3, lastPage - 2, lastPage - 1].forEach((page) => {
+                if (page > 1) {
+                    pages.add(page);
+                }
+            });
+        } else {
+            [currentPage - 1, currentPage + 1].forEach((page) => {
+                if (page > 1 && page < lastPage) {
+                    pages.add(page);
+                }
+            });
+        }
+
+        const sortedPages = [...pages].sort((left, right) => left - right);
+
+        return sortedPages.flatMap((page, index) => {
+            if (index === 0) {
+                return [page];
+            }
+
+            const previousPage = sortedPages[index - 1];
+
+            return page - previousPage > 1 ? [`ellipsis-${previousPage}`, page] : [page];
+        });
+    }, [doctors.current_page, doctors.last_page]);
+
+    const rangeStart = doctors.total === 0
+        ? 0
+        : (doctors.from ?? (((doctors.current_page - 1) * doctors.per_page) + 1));
+    const rangeEnd = doctors.to ?? Math.min(doctors.total, doctors.current_page * doctors.per_page);
 
     const titleText = activeFilters.length > 0 ? 'Doctor Search Results' : 'Doctors';
     const subtitleText = activeFilters.length > 0
@@ -137,7 +215,7 @@ export default function Search({ auth, doctors, specialties, filters }) {
                             </div>
                         </div>
 
-                        <div className="row gy-4">
+                        <div id="doctor-results-start" className="doctor-results-anchor row gy-4">
                             {doctors.data.length === 0 ? (
                                 <div className="col-12" data-aos="fade-up" data-aos-delay="100">
                                     <div className="doctor-card">
@@ -156,7 +234,7 @@ export default function Search({ auth, doctors, specialties, filters }) {
                                                 <img src={doctor.image || `/clinic-assets/health/staff-${(index % 4) + 1}.webp`} alt={doctor.name} className="img-fluid" />
                                                 <div className="doctor-overlay">
                                                     <div className="social-links">
-                                                        <Link href={`/doctors/${doctor.slug || doctor.id}`}><i className="bi bi-linkedin" /></Link>
+                                                        {/* <Link href={`/doctors/${doctor.slug || doctor.id}`}><i className="bi bi-linkedin" /></Link>
                                                         {doctor.email ? (
                                                             <a href={`mailto:${doctor.email}`}><i className="bi bi-envelope" /></a>
                                                         ) : (
@@ -166,7 +244,7 @@ export default function Search({ auth, doctors, specialties, filters }) {
                                                             <a href={`tel:${doctor.phone}`}><i className="bi bi-phone" /></a>
                                                         ) : (
                                                             <Link href={`/doctors/${doctor.slug || doctor.id}`}><i className="bi bi-phone" /></Link>
-                                                        )}
+                                                        )} */}
                                                     </div>
                                                 </div>
                                             </div>
@@ -193,25 +271,56 @@ export default function Search({ auth, doctors, specialties, filters }) {
                         </div>
 
                         {doctors.last_page > 1 && (
-                            <nav className="mt-5" aria-label="Doctors pagination">
-                                <ul className="pagination justify-content-center">
-                                    <li className={`page-item ${doctors.current_page === 1 ? 'disabled' : ''}`}>
-                                        <button className="page-link" type="button" onClick={() => changePage(doctors.current_page - 1)} disabled={doctors.current_page === 1}>
-                                            Previous
-                                        </button>
-                                    </li>
-                                    {Array.from({ length: doctors.last_page }, (_, index) => index + 1).map((page) => (
-                                        <li key={page} className={`page-item ${page === doctors.current_page ? 'active' : ''}`}>
-                                            <button className="page-link" type="button" onClick={() => changePage(page)}>{page}</button>
-                                        </li>
-                                    ))}
-                                    <li className={`page-item ${doctors.current_page === doctors.last_page ? 'disabled' : ''}`}>
-                                        <button className="page-link" type="button" onClick={() => changePage(doctors.current_page + 1)} disabled={doctors.current_page === doctors.last_page}>
-                                            Next
-                                        </button>
-                                    </li>
-                                </ul>
-                            </nav>
+                            <div className="doctor-pagination-shell" data-aos="fade-up" data-aos-delay="150">
+                                <div className="doctor-pagination-summary">
+                                    <span className="doctor-pagination-chip">
+                                        Page {doctors.current_page} of {doctors.last_page}
+                                    </span>
+                                    <p>
+                                        Showing <strong>{rangeStart}-{rangeEnd}</strong> of <strong>{doctors.total}</strong> doctors
+                                    </p>
+                                </div>
+
+                                <nav className="doctor-pagination-nav" aria-label="Doctors pagination">
+                                    <button
+                                        className="doctor-pagination-arrow"
+                                        type="button"
+                                        onClick={() => changePage(doctors.current_page - 1)}
+                                        disabled={doctors.current_page === 1}
+                                    >
+                                        <i className="bi bi-chevron-left" />
+                                        <span>Previous</span>
+                                    </button>
+
+                                    <div className="doctor-pagination-pages">
+                                        {paginationItems.map((item) => (
+                                            typeof item === 'string' ? (
+                                                <span key={item} className="doctor-pagination-ellipsis">…</span>
+                                            ) : (
+                                                <button
+                                                    key={item}
+                                                    className={`doctor-pagination-page ${item === doctors.current_page ? 'is-active' : ''}`}
+                                                    type="button"
+                                                    onClick={() => changePage(item)}
+                                                    aria-current={item === doctors.current_page ? 'page' : undefined}
+                                                >
+                                                    {item}
+                                                </button>
+                                            )
+                                        ))}
+                                    </div>
+
+                                    <button
+                                        className="doctor-pagination-arrow"
+                                        type="button"
+                                        onClick={() => changePage(doctors.current_page + 1)}
+                                        disabled={doctors.current_page === doctors.last_page}
+                                    >
+                                        <span>Next</span>
+                                        <i className="bi bi-chevron-right" />
+                                    </button>
+                                </nav>
+                            </div>
                         )}
                     </div>
                 </section>

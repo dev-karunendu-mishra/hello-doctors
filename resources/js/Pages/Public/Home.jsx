@@ -1,6 +1,7 @@
-import { Head, Link } from '@inertiajs/react';
-import { useState } from 'react';
+import { Head, Link, router } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
 import PublicLayout from '@/Layouts/PublicLayout';
+import { useLocation } from '@/Contexts/LocationContext';
 
 const fallbackSpecialties = [
     { id: 'cardiology', name: 'Cardiovascular Medicine', image_url: '/clinic-assets/cardiology-1.webp', doctors_count: 24 },
@@ -54,9 +55,13 @@ const specialtyShowcase = [
     { title: 'Advanced Technology', image: '/clinic-assets/facilities-6.webp', text: 'State-of-the-art medical equipment' },
 ];
 
-export default function Home({ auth, site, seo, specialties = [], featuredDoctors = [], stats = {}, homeServices = [], homeServicesStats = {} }) {
+export default function Home({ auth, site, seo, cities = [], specialties = [], featuredDoctors = [], stats = {}, homeServices = [], homeServicesStats = {} }) {
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedSpecialty, setSelectedSpecialty] = useState('');
+    const [selectedCity, setSelectedCity] = useState('');
+    const [detectedSearchCity, setDetectedSearchCity] = useState('');
+    const [isManualLocationOverride, setIsManualLocationOverride] = useState(false);
+    const [hasRequestedLocation, setHasRequestedLocation] = useState(false);
+    const { location, isLoadingLocation, detectLocation } = useLocation();
 
     const pageTitle = seo?.meta_title || (site?.name && site?.tagline ? `${site.name} - ${site.tagline}` : 'Hello Doctors - Find Best Doctors');
     const pageDescription = seo?.meta_description || 'Find and connect with verified healthcare professionals across Uttar Pradesh. Search by specialty, city, or doctor name.';
@@ -142,21 +147,54 @@ export default function Home({ auth, site, seo, specialties = [], featuredDoctor
     const aboutPatientsCount = Math.max((stats.total_doctors || 50) * 300, 15000);
     const contactPhone = site?.contact?.phone || '+91 (555) 123-4567';
     const contactPhoneHref = `tel:${String(contactPhone).replace(/[^+\d]/g, '')}`;
+    const activeLocation = (isManualLocationOverride ? selectedCity : (detectedSearchCity || location || '')).trim();
+    const locationChipLabel = isLoadingLocation
+        ? 'Detecting location...'
+        : isManualLocationOverride
+            ? (selectedCity ? `Location: ${selectedCity}` : 'Enter your location')
+            : (location ? `Location: ${location}` : 'Use current location');
+
+    useEffect(() => {
+        if (typeof window === 'undefined' || isManualLocationOverride || hasRequestedLocation) {
+            return;
+        }
+
+        setHasRequestedLocation(true);
+        detectLocation({ silent: true }).catch(() => {});
+    }, [detectLocation, hasRequestedLocation, isManualLocationOverride]);
+
+    useEffect(() => {
+        if (isManualLocationOverride || !location) {
+            return;
+        }
+
+        const normalizedLocation = location.toLowerCase();
+        const matchedCity = cities.find((city) => normalizedLocation.includes(String(city.name || '').toLowerCase()));
+        const locationParts = location.split(',').map((part) => part.trim()).filter(Boolean);
+        const derivedCity = matchedCity?.name || locationParts[1] || locationParts[0] || location;
+
+        setDetectedSearchCity(derivedCity);
+    }, [cities, isManualLocationOverride, location]);
+
+    const handleDetectCurrentLocation = () => {
+        setIsManualLocationOverride(false);
+        setHasRequestedLocation(true);
+        detectLocation({ silent: false }).catch(() => {});
+    };
+
+    const handleManualLocationChange = (event) => {
+        const nextLocation = event.target.value;
+        setIsManualLocationOverride(true);
+        setSelectedCity(nextLocation);
+    };
 
     const handleDoctorSearch = (event) => {
         event.preventDefault();
 
-        const params = new URLSearchParams();
-
-        if (searchQuery) {
-            params.append('search', searchQuery);
-        }
-
-        if (selectedSpecialty) {
-            params.append('specialty', selectedSpecialty);
-        }
-
-        window.location.href = `/doctors?${params.toString()}`;
+        router.get('/doctors', {
+            search: searchQuery || undefined,
+            city_name: activeLocation || undefined,
+        });
     };
 
     return (
@@ -489,41 +527,90 @@ export default function Home({ auth, site, seo, specialties = [], featuredDoctor
 
                     <div className="container" data-aos="fade-up" data-aos-delay="100">
                         <div className="row justify-content-center mb-5" data-aos="fade-up" data-aos-delay="200">
-                            <div className="col-lg-8 text-center">
-                                <div className="search-section">
-                                    <h3 className="search-title">Find Your Perfect Healthcare Provider</h3>
-                                    <p className="search-subtitle">Search through our comprehensive directory of experienced medical professionals</p>
-                                    <form className="search-form" onSubmit={handleDoctorSearch}>
-                                        <div className="search-input-group">
-                                            <div className="input-wrapper">
-                                                <i className="bi bi-person" />
-                                                <input
-                                                    type="text"
-                                                    className="form-control"
-                                                    name="doctor_name"
-                                                    placeholder="Enter doctor name"
-                                                    value={searchQuery}
-                                                    onChange={(event) => setSearchQuery(event.target.value)}
-                                                />
+                            <div className="col-lg-9 col-xl-8">
+                                <div className="search-section search-section-compact-home">
+                                    <form className="home-search-form" onSubmit={handleDoctorSearch}>
+                                        <div className="home-search-panel">
+                                            <div className="home-search-top">
+                                                <div className="home-search-copy">
+                                                    <span className="home-search-kicker">Quick search</span>
+                                                    <h3>Find care near you</h3>
+                                                    <p>Use your current location and search instantly for trusted doctors.</p>
+                                                </div>
+
+                                                <div className="home-search-status">
+                                                    <div className={`home-location-chip ${isLoadingLocation ? 'is-loading' : ''}`}>
+                                                        {isLoadingLocation ? (
+                                                            <span className="home-location-spinner" aria-hidden="true" />
+                                                        ) : (
+                                                            <i className={`bi ${isManualLocationOverride ? 'bi-pin-map-fill' : 'bi-geo-alt-fill'}`} />
+                                                        )}
+                                                        <span>{locationChipLabel}</span>
+                                                    </div>
+
+                                                    <button
+                                                        type="button"
+                                                        className="home-location-action"
+                                                        onClick={handleDetectCurrentLocation}
+                                                        disabled={isLoadingLocation}
+                                                    >
+                                                        {isLoadingLocation ? 'Locating...' : 'Use current'}
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <div className="select-wrapper">
-                                                <i className="bi bi-heart-pulse" />
-                                                <select
-                                                    className="form-select"
-                                                    name="specialty"
-                                                    value={selectedSpecialty}
-                                                    onChange={(event) => setSelectedSpecialty(event.target.value)}
+
+                                            <div className="home-search-bar">
+                                                <div className="home-search-field home-search-keyword">
+                                                    <i className="bi bi-search" />
+                                                    <input
+                                                        type="text"
+                                                        className="form-control"
+                                                        name="doctor_name"
+                                                        placeholder="Search doctors, clinics, hospitals, etc."
+                                                        value={searchQuery}
+                                                        onChange={(event) => setSearchQuery(event.target.value)}
+                                                    />
+                                                </div>
+
+                                                <button type="submit" className="home-search-submit">
+                                                    Search
+                                                </button>
+                                            </div>
+
+                                            <div className="home-search-footer">
+                                                <button
+                                                    type="button"
+                                                    className={`home-location-toggle ${isManualLocationOverride ? 'is-active' : ''}`}
+                                                    onClick={() => setIsManualLocationOverride((value) => !value)}
                                                 >
-                                                    <option value="">All Specialties</option>
-                                                    {displayedSpecialties.map((specialty) => (
-                                                        <option key={specialty.id} value={specialty.id}>{specialty.name}</option>
-                                                    ))}
-                                                </select>
+                                                    <i className="bi bi-pencil-square" />
+                                                    {isManualLocationOverride ? 'Hide manual override' : 'Change location manually'}
+                                                </button>
+
+                                                <span className="home-search-note">
+                                                    {isManualLocationOverride ? 'Manual location is active.' : 'Using browser-based location detection.'}
+                                                </span>
                                             </div>
-                                            <button type="submit" className="search-btn">
-                                                <i className="bi bi-search" />
-                                                Find Doctors
-                                            </button>
+
+                                            {isManualLocationOverride && (
+                                                <div className="home-location-override-input">
+                                                    <i className="bi bi-pin-map" />
+                                                    <input
+                                                        type="text"
+                                                        className="form-control"
+                                                        name="manual_city_name"
+                                                        list="home-city-suggestions"
+                                                        placeholder="Enter your city"
+                                                        value={selectedCity}
+                                                        onChange={handleManualLocationChange}
+                                                    />
+                                                    <datalist id="home-city-suggestions">
+                                                        {cities.map((city) => (
+                                                            <option key={city.id || city.name} value={city.name} />
+                                                        ))}
+                                                    </datalist>
+                                                </div>
+                                            )}
                                         </div>
                                     </form>
                                 </div>
