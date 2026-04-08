@@ -140,21 +140,19 @@ class HomeServiceProviderSeeder extends Seeder
 
     private function resolveProviderRoleValue(): string
     {
-        $defaultRole = 'doctor';
-
         try {
             $column = DB::selectOne("SHOW COLUMNS FROM users LIKE 'role'");
-            $type = $column->Type ?? '';
+            $type = strtolower((string) ($column->Type ?? ''));
 
-            if (is_string($type) && str_contains($type, 'home_service_provider')) {
+            if (str_contains($type, 'home_service_provider')) {
                 return 'home_service_provider';
             }
         } catch (\Throwable $e) {
-            $this->command?->warn('Could not inspect users.role enum. Falling back to doctor role for sample providers.');
+            $this->command?->warn('Could not inspect users.role enum. Falling back to doctor role for sample providers on older schemas.');
         }
 
         $this->command?->warn('users.role does not support home_service_provider yet. Using doctor role for sample provider users.');
 
-        return $defaultRole;
+        return 'doctor';
     }
 }

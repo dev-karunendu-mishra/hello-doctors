@@ -31,12 +31,36 @@ const statusColor = {
     no_show: 'default',
 };
 
+const paymentStatusColor = {
+    pending: 'orange',
+    paid: 'green',
+    failed: 'red',
+    refunded: 'purple',
+};
+
+const paymentMethodLabel = {
+    online: 'Online / UPI',
+    cod: 'Cash on Visit',
+};
+
 const statusOptions = [
+    { value: 'assigned', label: 'Assigned' },
     { value: 'confirmed', label: 'Confirmed' },
     { value: 'in_progress', label: 'In Progress' },
     { value: 'completed', label: 'Completed' },
     { value: 'cancelled', label: 'Cancelled' },
     { value: 'no_show', label: 'No Show' },
+];
+
+const paymentStatusOptions = [
+    { value: 'pending', label: 'Pending' },
+    { value: 'paid', label: 'Paid' },
+    { value: 'failed', label: 'Failed' },
+];
+
+const paymentMethodOptions = [
+    { value: 'cod', label: 'Cash / Pay on Visit' },
+    { value: 'online', label: 'Online / UPI Transfer' },
 ];
 
 const allowedTransitions = {
@@ -63,9 +87,9 @@ export default function ProviderHomeServiceBookings() {
     const [statusForm] = Form.useForm();
 
     const getAllowedStatusOptions = (status) => {
-        const allowed = allowedTransitions[status] || [];
+        const allowed = new Set([status, ...(allowedTransitions[status] || [])]);
 
-        return statusOptions.filter((item) => allowed.includes(item.value));
+        return statusOptions.filter((item) => allowed.has(item.value));
     };
 
     const getMapLink = (booking) => {
@@ -92,7 +116,7 @@ export default function ProviderHomeServiceBookings() {
     const loadBookings = async (nextFilters = filters, page = 1) => {
         setLoading(true);
         try {
-            const response = await window.axios.get('/api/provider/home-service/bookings', {
+            const response = await window.axios.get('/provider/data/home-service/bookings', {
                 params: {
                     page,
                     status: nextFilters.status || undefined,
@@ -124,10 +148,11 @@ export default function ProviderHomeServiceBookings() {
     };
 
     const openStatusModal = (booking) => {
-        const options = getAllowedStatusOptions(booking.status);
         setSelectedBooking(booking);
         statusForm.setFieldsValue({
-            status: options[0]?.value || undefined,
+            status: booking.status,
+            payment_status: booking.payment_status || 'pending',
+            payment_method: booking.payment_method || 'cod',
             notes: '',
         });
         setStatusModalOpen(true);
@@ -144,8 +169,8 @@ export default function ProviderHomeServiceBookings() {
         try {
             const values = await statusForm.validateFields();
             setSaving(true);
-            await window.axios.post(`/api/provider/home-service/bookings/${selectedBooking.id}/status`, values);
-            message.success('Booking status updated.');
+            await window.axios.post(`/provider/data/home-service/bookings/${selectedBooking.id}/status`, values);
+            message.success('Booking and payment details updated.');
             setStatusModalOpen(false);
             await loadBookings(filters, pagination.current);
         } catch (error) {
@@ -176,7 +201,7 @@ export default function ProviderHomeServiceBookings() {
                 <Alert
                     type="info"
                     showIcon
-                    message="Manage status updates for your assigned visits and keep patient progress updated."
+                    message="Manage visit progress and mark cash / online payments once you collect them during the service visit."
                 />
 
                 <Card>
@@ -255,6 +280,20 @@ export default function ProviderHomeServiceBookings() {
                                 render: (_, record) => `${record.service_date} ${(record.service_time || '').slice(0, 5)}`,
                             },
                             {
+                                title: 'Payment',
+                                key: 'payment_status',
+                                render: (_, record) => (
+                                    <Tag color={paymentStatusColor[record.payment_status] || 'default'}>
+                                        {record.payment_status || 'pending'}
+                                    </Tag>
+                                ),
+                            },
+                            {
+                                title: 'Method',
+                                key: 'payment_method',
+                                render: (_, record) => paymentMethodLabel[record.payment_method || 'cod'] || record.payment_method || 'cod',
+                            },
+                            {
                                 title: 'Status',
                                 key: 'status',
                                 render: (_, record) => (
@@ -274,9 +313,8 @@ export default function ProviderHomeServiceBookings() {
                                         <Button
                                             size="small"
                                             onClick={() => openStatusModal(record)}
-                                            disabled={getAllowedStatusOptions(record.status).length === 0}
                                         >
-                                            Update Status
+                                            Update Status / Payment
                                         </Button>
                                     </Space>
                                 ),
@@ -318,6 +356,16 @@ export default function ProviderHomeServiceBookings() {
                                 <Text>Service: {detailBooking.service?.name || '-'}</Text>
                                 <Text>Date: {detailBooking.service_date || '-'}</Text>
                                 <Text>Time: {(detailBooking.service_time || '').slice(0, 5) || '-'}</Text>
+                                <Text>Total Amount: ₹{Number(detailBooking.total_amount || 0).toFixed(2)}</Text>
+                                <Text>
+                                    Payment:{' '}
+                                    <Tag color={paymentStatusColor[detailBooking.payment_status] || 'default'}>
+                                        {detailBooking.payment_status || 'pending'}
+                                    </Tag>
+                                    <span style={{ marginLeft: 8 }}>
+                                        {paymentMethodLabel[detailBooking.payment_method || 'cod'] || detailBooking.payment_method || 'cod'}
+                                    </span>
+                                </Text>
                                 <Text>
                                     Status:{' '}
                                     <Tag color={statusColor[detailBooking.status] || 'default'}>
@@ -349,7 +397,7 @@ export default function ProviderHomeServiceBookings() {
             </Drawer>
 
             <Modal
-                title="Update Booking Status"
+                title="Update Booking & Payment"
                 open={statusModalOpen}
                 onCancel={() => setStatusModalOpen(false)}
                 onOk={saveStatus}
@@ -357,11 +405,27 @@ export default function ProviderHomeServiceBookings() {
                 destroyOnClose
             >
                 <Form form={statusForm} layout="vertical">
-                    <Form.Item name="status" label="Status" rules={[{ required: true, message: 'Select status.' }]}>
+                    <Alert
+                        type="info"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                        message="If you collected cash or UPI during the visit, mark the payment as Paid here."
+                    />
+
+                    <Form.Item name="status" label="Service Status" rules={[{ required: true, message: 'Select status.' }]}>
                         <Select options={getAllowedStatusOptions(selectedBooking?.status)} />
                     </Form.Item>
+
+                    <Form.Item name="payment_method" label="Payment Method">
+                        <Select options={paymentMethodOptions} />
+                    </Form.Item>
+
+                    <Form.Item name="payment_status" label="Payment Status">
+                        <Select options={paymentStatusOptions} />
+                    </Form.Item>
+
                     <Form.Item name="notes" label="Notes">
-                        <Input.TextArea rows={4} maxLength={1000} />
+                        <Input.TextArea rows={4} maxLength={1000} placeholder="Optional service or payment note" />
                     </Form.Item>
                 </Form>
             </Modal>

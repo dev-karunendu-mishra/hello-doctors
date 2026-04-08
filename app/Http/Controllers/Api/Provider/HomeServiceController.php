@@ -90,7 +90,6 @@ class HomeServiceController extends Controller
             'experience_years' => ['nullable', 'integer', 'min:0', 'max:80'],
             'city_id' => ['required', 'integer', 'exists:cities,id'],
             'service_radius_km' => ['nullable', 'numeric', 'min:0', 'max:500'],
-            'is_active' => ['nullable', 'boolean'],
             'service_ids' => ['nullable', 'array'],
             'service_ids.*' => ['integer', 'exists:home_services,id'],
         ]);
@@ -102,7 +101,6 @@ class HomeServiceController extends Controller
                 'experience_years' => $validated['experience_years'] ?? 0,
                 'city_id' => $validated['city_id'],
                 'service_radius_km' => $validated['service_radius_km'] ?? null,
-                'is_active' => $validated['is_active'] ?? true,
             ]);
 
             if (array_key_exists('service_ids', $validated)) {
@@ -205,14 +203,17 @@ class HomeServiceController extends Controller
         abort_unless((int) $booking->provider_id === (int) $provider->id, 403, 'Unauthorized booking access.');
 
         $validated = $request->validate([
-            'status' => ['required', 'in:confirmed,in_progress,completed,cancelled,no_show'],
+            'status' => ['required', 'in:assigned,confirmed,in_progress,completed,cancelled,no_show'],
+            'payment_status' => ['nullable', 'in:pending,paid,failed'],
+            'payment_method' => ['nullable', 'in:online,cod'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $oldStatus = $booking->status;
+        $nextStatus = $validated['status'];
         $allowedTransitions = self::ALLOWED_PROVIDER_TRANSITIONS[$oldStatus] ?? [];
 
-        if (!in_array($validated['status'], $allowedTransitions, true)) {
+        if ($nextStatus !== $oldStatus && !in_array($nextStatus, $allowedTransitions, true)) {
             return response()->json([
                 'message' => 'Invalid status transition for provider.',
                 'errors' => [
@@ -220,7 +221,7 @@ class HomeServiceController extends Controller
                         sprintf(
                             'Cannot change booking status from %s to %s. Allowed: %s',
                             $oldStatus,
-                            $validated['status'],
+                            $nextStatus,
                             empty($allowedTransitions) ? 'none' : implode(', ', $allowedTransitions)
                         ),
                     ],
@@ -228,27 +229,88 @@ class HomeServiceController extends Controller
             ], 422);
         }
 
-        $update = ['status' => $validated['status']];
-        if ($validated['status'] === HomeServiceBooking::STATUS_COMPLETED) {
-            $update['completed_at'] = now();
-        }
-        if ($validated['status'] === HomeServiceBooking::STATUS_CANCELLED) {
-            $update['cancelled_at'] = now();
-            $update['cancel_reason'] = $validated['notes'] ?? 'Cancelled by provider';
+        $currentPaymentStatus = $booking->payment_status ?? HomeServiceBooking::PAYMENT_PENDING;
+        $currentPaymentMethod = $booking->payment_method ?? HomeServiceBooking::PAYMENT_METHOD_COD;
+        $nextPaymentStatus = $validated['payment_status'] ?? $currentPaymentStatus;
+        $nextPaymentMethod = $validated['payment_method'] ?? $currentPaymentMethod;
+        $isPaymentUpdateRequested = $nextPaymentStatus !== $currentPaymentStatus || $nextPaymentMethod !== $currentPaymentMethod;
+
+        $allowedPaymentTransitions = match ($currentPaymentStatus) {
+            HomeServiceBooking::PAYMENT_PENDING => [HomeServiceBooking::PAYMENT_PENDING, HomeServiceBooking::PAYMENT_PAID, HomeServiceBooking::PAYMENT_FAILED],
+            HomeServiceBooking::PAYMENT_FAILED => [HomeServiceBooking::PAYMENT_FAILED, HomeServiceBooking::PAYMENT_PAID],
+            HomeServiceBooking::PAYMENT_PAID => [HomeServiceBooking::PAYMENT_PAID],
+            HomeServiceBooking::PAYMENT_REFUNDED => [HomeServiceBooking::PAYMENT_REFUNDED],
+            default => [HomeServiceBooking::PAYMENT_PENDING, HomeServiceBooking::PAYMENT_PAID, HomeServiceBooking::PAYMENT_FAILED],
+        };
+
+        if ($isPaymentUpdateRequested && !in_array($nextPaymentStatus, $allowedPaymentTransitions, true)) {
+            return response()->json([
+                'message' => 'Invalid payment status transition for provider.',
+                'errors' => [
+                    'payment_status' => [
+                        sprintf('Cannot change payment status from %s to %s.', $currentPaymentStatus, $nextPaymentStatus),
+                    ],
+                ],
+            ], 422);
         }
 
-        $booking->update($update);
+        if ($nextPaymentStatus === HomeServiceBooking::PAYMENT_PAID
+            && !in_array($nextStatus, [
+                HomeServiceBooking::STATUS_CONFIRMED,
+                HomeServiceBooking::STATUS_IN_PROGRESS,
+                HomeServiceBooking::STATUS_COMPLETED,
+            ], true)) {
+            return response()->json([
+                'message' => 'Payment can only be marked as paid after the visit has been confirmed or started.',
+                'errors' => [
+                    'payment_status' => [
+                        'Move the booking to confirmed, in progress, or completed before marking payment as paid.',
+                    ],
+                ],
+            ], 422);
+        }
 
-        $booking->statusLogs()->create([
-            'old_status' => $oldStatus,
-            'new_status' => $validated['status'],
-            'changed_by_user_id' => Auth::id(),
-            'notes' => $validated['notes'] ?? null,
-        ]);
+        $update = [];
+
+        if ($nextStatus !== $oldStatus) {
+            $update['status'] = $nextStatus;
+
+            if ($nextStatus === HomeServiceBooking::STATUS_COMPLETED) {
+                $update['completed_at'] = now();
+            }
+
+            if ($nextStatus === HomeServiceBooking::STATUS_CANCELLED) {
+                $update['cancelled_at'] = now();
+                $update['cancel_reason'] = $validated['notes'] ?? 'Cancelled by provider';
+            }
+        }
+
+        if ($isPaymentUpdateRequested) {
+            $update['payment_status'] = $nextPaymentStatus;
+            $update['payment_method'] = $nextPaymentMethod;
+        }
+
+        if (!empty($update)) {
+            $booking->update($update);
+        }
+
+        if ($nextStatus !== $oldStatus || $isPaymentUpdateRequested) {
+            $logNotes = array_filter([
+                $validated['notes'] ?? null,
+                $isPaymentUpdateRequested ? sprintf('Payment updated to %s via %s', $nextPaymentStatus, strtoupper($nextPaymentMethod)) : null,
+            ]);
+
+            $booking->statusLogs()->create([
+                'old_status' => $oldStatus,
+                'new_status' => $nextStatus,
+                'changed_by_user_id' => Auth::id(),
+                'notes' => !empty($logNotes) ? implode(' | ', $logNotes) : null,
+            ]);
+        }
 
         return response()->json([
-            'message' => 'Booking status updated successfully.',
-            'data' => $booking->fresh(['service:id,name', 'user:id,name']),
+            'message' => 'Booking details updated successfully.',
+            'data' => $booking->fresh(['service:id,name', 'user:id,name', 'address.city:id,name']),
         ]);
     }
 }

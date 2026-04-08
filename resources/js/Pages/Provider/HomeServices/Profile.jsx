@@ -13,7 +13,6 @@ import {
     Space,
     Spin,
     Statistic,
-    Switch,
     Tag,
     Typography,
     message,
@@ -41,9 +40,9 @@ export default function ProviderHomeServiceProfile() {
         setLoading(true);
         try {
             const [profileRes, citiesRes, servicesRes] = await Promise.all([
-                window.axios.get('/api/provider/home-service/profile'),
-                window.axios.get('/api/meta/cities'),
-                window.axios.get('/api/meta/home-services'),
+                window.axios.get('/provider/data/home-service/profile'),
+                window.axios.get('/provider/data/meta/cities'),
+                window.axios.get('/provider/data/meta/home-services'),
             ]);
 
             const provider = profileRes.data?.data || null;
@@ -79,7 +78,7 @@ export default function ProviderHomeServiceProfile() {
         try {
             const values = await form.validateFields();
             setSaving(true);
-            await window.axios.put('/api/provider/home-service/profile', values);
+            await window.axios.put('/provider/data/home-service/profile', values);
             message.success('Profile updated successfully.');
             await loadData();
         } catch (error) {
@@ -172,6 +171,15 @@ export default function ProviderHomeServiceProfile() {
                             </Row>
                         </Card>
 
+                        {!profile?.is_verified || !profile?.is_active ? (
+                            <Alert
+                                type={profile?.is_verified ? 'warning' : 'info'}
+                                showIcon
+                                message="Your provider account is still under admin control."
+                                description="You can complete your profile and availability now, but only verified and active providers receive home-service assignments."
+                            />
+                        ) : null}
+
                         <Card title="Profile & Service Mapping">
                             <Form form={form} layout="vertical">
                                 <Row gutter={16}>
@@ -226,11 +234,6 @@ export default function ProviderHomeServiceProfile() {
                                         </Form.Item>
                                     </Col>
 
-                                    <Col xs={24}>
-                                        <Form.Item name="is_active" label="Available for Assignment" valuePropName="checked">
-                                            <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
-                                        </Form.Item>
-                                    </Col>
                                 </Row>
 
                                 <Button type="primary" loading={saving} onClick={onSave}>

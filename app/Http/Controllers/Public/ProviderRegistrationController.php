@@ -64,7 +64,7 @@ class ProviderRegistrationController extends Controller
                 'experience_years'  => $request->experience_years ?? 0,
                 'service_radius_km' => $request->service_radius_km,
                 'is_verified'       => false,
-                'is_active'         => true,
+                'is_active'         => false,
             ]);
 
             if ($request->filled('service_ids')) {
