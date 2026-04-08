@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Address;
 use App\Models\City;
+use App\Models\Clinic;
 use App\Models\DoctorHospitalClinic;
+use App\Models\DoctorPracticeLocation;
 use App\Models\DoctorProfile;
 use App\Models\Specialty;
 use App\Models\User;
@@ -263,7 +266,16 @@ class DoctorManagementController extends Controller
      */
     public function show(DoctorProfile $doctor): Response
     {
-        $doctor->load(['user', 'specialty', 'cities', 'hospitalClinics.city', 'hospitalClinics.scheduleSlots']);
+        $doctor->load([
+            'user',
+            'specialty',
+            'cities',
+            'hospitalClinics.city',
+            'hospitalClinics.scheduleSlots',
+            'practiceLocations.address.cityRecord',
+            'practiceLocations.clinic',
+            'practiceLocations.schedules',
+        ]);
 
         return Inertia::render('Admin/Doctors/Show', [
             'doctor' => [
@@ -292,35 +304,14 @@ class DoctorManagementController extends Controller
                 'meta_title' => $doctor->meta_title,
                 'meta_description' => $doctor->meta_description,
                 'meta_keywords' => $doctor->meta_keywords,
-                'hospital_clinics' => $doctor->hospitalClinics->map(fn($clinic) => [
-                    'id' => $clinic->id,
-                    'hospital_clinic_name' => $clinic->hospital_clinic_name,
-                    'address' => $clinic->address,
-                    'latitude' => $clinic->latitude,
-                    'longitude' => $clinic->longitude,
-                    'landmarks' => $clinic->landmarks,
-                    'city' => $clinic->city ? [
-                        'id' => $clinic->city->id,
-                        'name' => $clinic->city->name,
-                    ] : null,
-                    'phone' => $clinic->phone,
-                    'email' => $clinic->email,
-                    'consultation_fee' => $clinic->consultation_fee,
-                    'is_active' => (bool) $clinic->is_active,
-                    'schedules' => $clinic->scheduleSlots
-                        ->sortBy('day_of_week')
-                        ->map(fn($schedule) => [
-                            'day_of_week' => $schedule->day_of_week,
-                            'opening_time' => $schedule->opening_time,
-                            'closing_time' => $schedule->closing_time,
-                            'break_start_time' => $schedule->break_start_time,
-                            'break_end_time' => $schedule->break_end_time,
-                            'slot_duration_minutes' => $schedule->slot_duration_minutes,
-                            'max_appointments_per_slot' => $schedule->max_appointments_per_slot,
-                            'is_available' => (bool) $schedule->is_available,
-                        ])
-                        ->values(),
-                ])->values(),
+                'practice_locations' => $doctor->practiceLocations
+                    ->sortByDesc(fn ($location) => (int) $location->is_primary)
+                    ->values()
+                    ->map(fn ($location) => $this->formatPracticeLocationForAdmin($location))
+                    ->values(),
+                'hospital_clinics' => $doctor->hospitalClinics
+                    ->map(fn ($clinic) => $this->formatLegacyClinicForAdmin($clinic))
+                    ->values(),
                 'created_at' => optional($doctor->created_at)?->toDateTimeString(),
                 'updated_at' => optional($doctor->updated_at)?->toDateTimeString(),
             ],
@@ -332,7 +323,15 @@ class DoctorManagementController extends Controller
      */
     public function edit(DoctorProfile $doctor): Response
     {
-        $doctor->load(['user', 'cities', 'hospitalClinics.city', 'hospitalClinics.scheduleSlots']);
+        $doctor->load([
+            'user',
+            'cities',
+            'hospitalClinics.city',
+            'hospitalClinics.scheduleSlots',
+            'practiceLocations.address.cityRecord',
+            'practiceLocations.clinic',
+            'practiceLocations.schedules',
+        ]);
 
         $cities = City::active()->orderBy('name')->get();
         $specialties = Specialty::active()->get();
@@ -375,29 +374,14 @@ class DoctorManagementController extends Controller
                     'id' => $city->id,
                     'name' => $city->name,
                 ])->values(),
-                'hospital_clinics' => $doctor->hospitalClinics->map(fn($clinic) => [
-                    'id' => $clinic->id,
-                    'hospital_clinic_name' => $clinic->hospital_clinic_name,
-                    'address' => $clinic->address,
-                    'latitude' => $clinic->latitude,
-                    'longitude' => $clinic->longitude,
-                    'landmarks' => $clinic->landmarks,
-                    'city_id' => $clinic->city_id,
-                    'phone' => $clinic->phone,
-                    'email' => $clinic->email,
-                    'consultation_fee' => $clinic->consultation_fee,
-                    'is_active' => (bool) $clinic->is_active,
-                    'schedules' => $clinic->scheduleSlots->map(fn($schedule) => [
-                        'day_of_week' => $schedule->day_of_week,
-                        'opening_time' => $this->normalizeTimeValue($schedule->opening_time),
-                        'closing_time' => $this->normalizeTimeValue($schedule->closing_time),
-                        'break_start_time' => $this->normalizeTimeValue($schedule->break_start_time),
-                        'break_end_time' => $this->normalizeTimeValue($schedule->break_end_time),
-                        'slot_duration_minutes' => $schedule->slot_duration_minutes,
-                        'max_appointments_per_slot' => $schedule->max_appointments_per_slot,
-                        'is_available' => (bool) $schedule->is_available,
-                    ])->values(),
-                ]),
+                'practice_locations' => $doctor->practiceLocations
+                    ->sortByDesc(fn ($location) => (int) $location->is_primary)
+                    ->values()
+                    ->map(fn ($location) => $this->formatPracticeLocationForAdmin($location))
+                    ->values(),
+                'hospital_clinics' => $doctor->hospitalClinics
+                    ->map(fn ($clinic) => $this->formatLegacyClinicForAdmin($clinic))
+                    ->values(),
             ],
             'cities' => $cities,
             'specialties' => $specialties,
@@ -448,6 +432,11 @@ class DoctorManagementController extends Controller
             'cities.*' => 'exists:cities,id',
             'clinics' => 'array',
             'clinics.*.id' => 'nullable|integer|exists:doctor_hospital_clinics,id',
+            'clinics.*.doctor_practice_location_id' => 'nullable|integer|exists:doctor_practice_locations,id',
+            'clinics.*.clinic_entity_id' => 'nullable|integer|exists:clinics,id',
+            'clinics.*.unified_address_id' => 'nullable|integer|exists:addresses,id',
+            'clinics.*.clinic_type' => 'nullable|in:clinic,hospital,chamber,diagnostic_center',
+            'clinics.*.is_primary' => 'boolean',
             'clinics.*.hospital_clinic_name' => 'required|string|max:100',
             'clinics.*.address' => 'required|string',
             'clinics.*.latitude' => 'nullable|numeric|between:-90,90',
@@ -530,45 +519,47 @@ class DoctorManagementController extends Controller
             }
 
             if (array_key_exists('clinics', $validated)) {
-                $submittedClinicIds = collect($validated['clinics'])
-                    ->pluck('id')
-                    ->filter()
-                    ->map(fn($id) => (int) $id)
-                    ->values();
-
-                DoctorHospitalClinic::query()
-                    ->where('doctor_profile_id', $doctor->id)
-                    ->when($submittedClinicIds->isNotEmpty(), fn($query) => $query->whereNotIn('id', $submittedClinicIds))
-                    ->when($submittedClinicIds->isEmpty(), fn($query) => $query)
-                    ->delete();
+                $retainedLegacyClinicIds = [];
+                $retainedPracticeLocationIds = [];
 
                 foreach ($validated['clinics'] as $clinicData) {
-                    $clinicId = $clinicData['id'] ?? null;
                     $clinic = null;
+                    $clinicId = $clinicData['id'] ?? null;
+                    $practiceLocationId = $clinicData['doctor_practice_location_id'] ?? null;
 
                     if ($clinicId) {
                         $clinic = DoctorHospitalClinic::query()
                             ->where('doctor_profile_id', $doctor->id)
                             ->where('id', $clinicId)
                             ->first();
+                    }
 
-                        if ($clinic) {
-                            $clinic->update([
-                                'hospital_clinic_name' => trim($clinicData['hospital_clinic_name']),
-                                'address' => $clinicData['address'],
-                                'latitude' => $clinicData['latitude'] ?? null,
-                                'longitude' => $clinicData['longitude'] ?? null,
-                                'landmarks' => $clinicData['landmarks'] ?? null,
-                                'city_id' => $clinicData['city_id'],
-                                'phone' => $clinicData['phone'] ?? null,
-                                'email' => $clinicData['email'] ?? null,
-                                'consultation_fee' => $clinicData['consultation_fee'] ?? null,
-                                'is_active' => $clinicData['is_active'] ?? true,
-                            ]);
+                    if (!$clinic && $practiceLocationId) {
+                        $practiceLocation = DoctorPracticeLocation::query()
+                            ->with(['address', 'clinic'])
+                            ->where('doctor_profile_id', $doctor->id)
+                            ->whereKey($practiceLocationId)
+                            ->first();
+
+                        if ($practiceLocation) {
+                            $clinic = $this->resolveLegacyClinicFromPracticeLocation($practiceLocation);
                         }
                     }
 
-                    if (!$clinic) {
+                    if ($clinic) {
+                        $clinic->update([
+                            'hospital_clinic_name' => trim($clinicData['hospital_clinic_name']),
+                            'address' => $clinicData['address'],
+                            'latitude' => $clinicData['latitude'] ?? null,
+                            'longitude' => $clinicData['longitude'] ?? null,
+                            'landmarks' => $clinicData['landmarks'] ?? null,
+                            'city_id' => $clinicData['city_id'],
+                            'phone' => $clinicData['phone'] ?? null,
+                            'email' => $clinicData['email'] ?? null,
+                            'consultation_fee' => $clinicData['consultation_fee'] ?? null,
+                            'is_active' => $clinicData['is_active'] ?? true,
+                        ]);
+                    } else {
                         $clinic = DoctorHospitalClinic::create([
                             'doctor_profile_id' => $doctor->id,
                             'hospital_clinic_name' => trim($clinicData['hospital_clinic_name']),
@@ -584,6 +575,15 @@ class DoctorManagementController extends Controller
                         ]);
                     }
 
+                    $retainedLegacyClinicIds[] = (int) $clinic->id;
+
+                    $practiceLocation = $this->syncUnifiedClinicEntities(
+                        $clinic->fresh(['city', 'doctorProfile.user']),
+                        $clinicData
+                    );
+
+                    $retainedPracticeLocationIds[] = (int) $practiceLocation->id;
+
                     $submittedSchedules = collect($clinicData['schedules'] ?? [])
                         ->unique('day_of_week')
                         ->values();
@@ -597,23 +597,51 @@ class DoctorManagementController extends Controller
                         ->whereNotIn('day_of_week', $submittedDays)
                         ->delete();
 
+                    $practiceLocation->schedules()
+                        ->whereNotIn('day_of_week', $submittedDays)
+                        ->delete();
+
                     foreach ($submittedSchedules as $scheduleData) {
                         $isAvailable = (bool) ($scheduleData['is_available'] ?? false);
+                        $attributes = [
+                            'opening_time' => $isAvailable ? ($scheduleData['opening_time'] ?? null) : null,
+                            'closing_time' => $isAvailable ? ($scheduleData['closing_time'] ?? null) : null,
+                            'break_start_time' => $isAvailable ? ($scheduleData['break_start_time'] ?? null) : null,
+                            'break_end_time' => $isAvailable ? ($scheduleData['break_end_time'] ?? null) : null,
+                            'slot_duration_minutes' => (int) ($scheduleData['slot_duration_minutes'] ?? 30),
+                            'max_appointments_per_slot' => (int) ($scheduleData['max_appointments_per_slot'] ?? 1),
+                            'is_available' => $isAvailable,
+                        ];
 
                         $clinic->scheduleSlots()->updateOrCreate(
                             ['day_of_week' => (int) $scheduleData['day_of_week']],
-                            [
-                                'opening_time' => $isAvailable ? ($scheduleData['opening_time'] ?? null) : null,
-                                'closing_time' => $isAvailable ? ($scheduleData['closing_time'] ?? null) : null,
-                                'break_start_time' => $isAvailable ? ($scheduleData['break_start_time'] ?? null) : null,
-                                'break_end_time' => $isAvailable ? ($scheduleData['break_end_time'] ?? null) : null,
-                                'slot_duration_minutes' => (int) ($scheduleData['slot_duration_minutes'] ?? 30),
-                                'max_appointments_per_slot' => (int) ($scheduleData['max_appointments_per_slot'] ?? 1),
-                                'is_available' => $isAvailable,
-                            ]
+                            $attributes
+                        );
+
+                        $practiceLocation->schedules()->updateOrCreate(
+                            ['doctor_practice_location_id' => $practiceLocation->id, 'day_of_week' => (int) $scheduleData['day_of_week']],
+                            $attributes
                         );
                     }
                 }
+
+                $legacyClinicsToDelete = $doctor->hospitalClinics();
+                if (!empty($retainedLegacyClinicIds)) {
+                    $legacyClinicsToDelete->whereNotIn('id', $retainedLegacyClinicIds);
+                }
+
+                $legacyClinicsToDelete
+                    ->get()
+                    ->each(fn(DoctorHospitalClinic $clinic) => $this->deleteLegacyClinicAndUnifiedData($clinic));
+
+                $practiceLocationsToDelete = $doctor->practiceLocations()->with(['address', 'clinic']);
+                if (!empty($retainedPracticeLocationIds)) {
+                    $practiceLocationsToDelete->whereNotIn('id', $retainedPracticeLocationIds);
+                }
+
+                $practiceLocationsToDelete
+                    ->get()
+                    ->each(fn(DoctorPracticeLocation $location) => $this->deleteUnifiedPracticeLocation($location));
             }
 
             DB::commit();
@@ -625,6 +653,296 @@ class DoctorManagementController extends Controller
             DB::rollBack();
             return back()->withErrors(['error' => 'Failed to update doctor.'])->withInput();
         }
+    }
+
+    private function formatPracticeLocationForAdmin(DoctorPracticeLocation $location): array
+    {
+        $address = $location->address;
+        $city = $address?->cityRecord;
+
+        return [
+            'id' => data_get($address?->meta, 'legacy_id'),
+            'doctor_practice_location_id' => $location->id,
+            'clinic_entity_id' => $location->clinic_id,
+            'unified_address_id' => $address?->id,
+            'clinic_type' => $location->clinic?->type ?? 'clinic',
+            'hospital_clinic_name' => $location->display_name ?: $location->clinic?->name ?: 'Private Practice',
+            'address' => collect([$address?->line1, $address?->line2])->filter()->join(', '),
+            'latitude' => $address?->latitude,
+            'longitude' => $address?->longitude,
+            'landmarks' => $address?->landmark,
+            'city_id' => $address?->city_id,
+            'city' => $city ? [
+                'id' => $city->id,
+                'name' => $city->name,
+            ] : null,
+            'phone' => $location->resolved_contact_phone,
+            'email' => $location->resolved_contact_email,
+            'consultation_fee' => $location->consultation_fee,
+            'is_primary' => (bool) $location->is_primary,
+            'is_active' => (bool) $location->is_active,
+            'schedules' => $this->formatSchedulesForAdmin($location->schedules),
+        ];
+    }
+
+    private function formatLegacyClinicForAdmin(DoctorHospitalClinic $clinic): array
+    {
+        $practiceLocation = $this->resolvePracticeLocationFromLegacyClinic($clinic);
+        $address = $practiceLocation?->address;
+
+        return [
+            'id' => $clinic->id,
+            'doctor_practice_location_id' => $practiceLocation?->id,
+            'clinic_entity_id' => $practiceLocation?->clinic_id,
+            'unified_address_id' => $address?->id,
+            'clinic_type' => $practiceLocation?->clinic?->type ?? 'clinic',
+            'hospital_clinic_name' => $practiceLocation?->display_name ?: $clinic->hospital_clinic_name,
+            'address' => $address
+                ? collect([$address->line1, $address->line2])->filter()->join(', ')
+                : $clinic->address,
+            'latitude' => $address?->latitude ?? $clinic->latitude,
+            'longitude' => $address?->longitude ?? $clinic->longitude,
+            'landmarks' => $address?->landmark ?? $clinic->landmarks,
+            'city_id' => $address?->city_id ?? $clinic->city_id,
+            'phone' => $practiceLocation?->resolved_contact_phone ?? $clinic->phone,
+            'email' => $practiceLocation?->resolved_contact_email ?? $clinic->email,
+            'consultation_fee' => $practiceLocation?->consultation_fee ?? $clinic->consultation_fee,
+            'is_primary' => (bool) ($practiceLocation?->is_primary ?? false),
+            'is_active' => (bool) ($practiceLocation?->is_active ?? $clinic->is_active),
+            'schedules' => $practiceLocation
+                ? $this->formatSchedulesForAdmin($practiceLocation->schedules)
+                : $this->formatSchedulesForAdmin($clinic->scheduleSlots),
+        ];
+    }
+
+    private function formatSchedulesForAdmin($schedules): array
+    {
+        return collect($schedules)
+            ->sortBy('day_of_week')
+            ->map(fn($schedule) => [
+                'day_of_week' => $schedule->day_of_week,
+                'opening_time' => $this->normalizeTimeValue($schedule->opening_time),
+                'closing_time' => $this->normalizeTimeValue($schedule->closing_time),
+                'break_start_time' => $this->normalizeTimeValue($schedule->break_start_time),
+                'break_end_time' => $this->normalizeTimeValue($schedule->break_end_time),
+                'slot_duration_minutes' => $schedule->slot_duration_minutes,
+                'max_appointments_per_slot' => $schedule->max_appointments_per_slot,
+                'is_available' => (bool) $schedule->is_available,
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function resolvePracticeLocationFromLegacyClinic(DoctorHospitalClinic $legacyClinic, ?int $preferredPracticeLocationId = null): ?DoctorPracticeLocation
+    {
+        if ($preferredPracticeLocationId) {
+            $preferredLocation = DoctorPracticeLocation::query()
+                ->with(['address.cityRecord', 'clinic', 'schedules', 'doctorProfile.user'])
+                ->where('doctor_profile_id', $legacyClinic->doctor_profile_id)
+                ->whereKey($preferredPracticeLocationId)
+                ->first();
+
+            if ($preferredLocation) {
+                return $preferredLocation;
+            }
+        }
+
+        return DoctorPracticeLocation::query()
+            ->with(['address.cityRecord', 'clinic', 'schedules', 'doctorProfile.user'])
+            ->where('doctor_profile_id', $legacyClinic->doctor_profile_id)
+            ->where(function ($query) use ($legacyClinic) {
+                $query->whereHas('address', function ($addressQuery) use ($legacyClinic) {
+                    $addressQuery->where('meta->legacy_source', 'doctor_hospital_clinics')
+                        ->where('meta->legacy_id', $legacyClinic->id);
+                })->orWhere(function ($fallbackQuery) use ($legacyClinic) {
+                    $fallbackQuery->where('display_name', trim((string) $legacyClinic->hospital_clinic_name))
+                        ->whereHas('address', function ($addressQuery) use ($legacyClinic) {
+                            $addressQuery->where('city_id', $legacyClinic->city_id);
+                        });
+                });
+            })
+            ->first();
+    }
+
+    private function resolveLegacyClinicFromPracticeLocation(DoctorPracticeLocation $practiceLocation): ?DoctorHospitalClinic
+    {
+        $legacyId = data_get($practiceLocation->address?->meta, 'legacy_id');
+
+        if ($legacyId) {
+            return DoctorHospitalClinic::query()
+                ->where('doctor_profile_id', $practiceLocation->doctor_profile_id)
+                ->whereKey($legacyId)
+                ->first();
+        }
+
+        $name = trim((string) ($practiceLocation->display_name ?: $practiceLocation->clinic?->name));
+        if ($name === '') {
+            return null;
+        }
+
+        return DoctorHospitalClinic::query()
+            ->where('doctor_profile_id', $practiceLocation->doctor_profile_id)
+            ->where('city_id', $practiceLocation->address?->city_id)
+            ->whereRaw('LOWER(hospital_clinic_name) = ?', [mb_strtolower($name)])
+            ->first();
+    }
+
+    private function syncUnifiedClinicEntities(DoctorHospitalClinic $legacyClinic, array $payload = []): DoctorPracticeLocation
+    {
+        $practiceLocation = $this->resolvePracticeLocationFromLegacyClinic(
+            $legacyClinic,
+            $payload['doctor_practice_location_id'] ?? null
+        );
+
+        $clinicEntity = $practiceLocation?->clinic;
+        if (!$clinicEntity && !empty($payload['clinic_entity_id'])) {
+            $clinicEntity = Clinic::query()->find($payload['clinic_entity_id']);
+        }
+        $clinicEntity = $clinicEntity ?: new Clinic();
+
+        $clinicEntity->fill([
+            'name' => trim($payload['hospital_clinic_name'] ?? $legacyClinic->hospital_clinic_name),
+            'type' => $payload['clinic_type'] ?? $clinicEntity->type ?? 'clinic',
+            'phone' => $payload['phone'] ?? $legacyClinic->phone,
+            'email' => $payload['email'] ?? $legacyClinic->email,
+            'website' => $clinicEntity->website,
+            'is_active' => (bool) ($payload['is_active'] ?? $legacyClinic->is_active),
+        ]);
+        $clinicEntity->save();
+
+        $city = City::query()->find($payload['city_id'] ?? $legacyClinic->city_id);
+        $normalizedAddress = $this->normalizeAddressLines($payload['address'] ?? $legacyClinic->address);
+        $meta = array_merge($practiceLocation?->address?->meta ?? [], [
+            'legacy_source' => 'doctor_hospital_clinics',
+            'legacy_id' => $legacyClinic->id,
+        ]);
+
+        if ($normalizedAddress['was_truncated']) {
+            $meta['full_address'] = $normalizedAddress['full_address'];
+        }
+
+        $address = $practiceLocation?->address;
+        if (!$address && !empty($payload['unified_address_id'])) {
+            $address = Address::query()->find($payload['unified_address_id']);
+        }
+        $address = $address ?: new Address();
+        $address->fill([
+            'addressable_type' => Clinic::class,
+            'addressable_id' => $clinicEntity->id,
+            'label' => 'Clinic Address',
+            'line1' => $normalizedAddress['line1'],
+            'line2' => $normalizedAddress['line2'],
+            'landmark' => $payload['landmarks'] ?? $legacyClinic->landmarks,
+            'city' => $city?->name,
+            'city_id' => $city?->id,
+            'state' => $city?->state,
+            'pincode' => $address->pincode,
+            'latitude' => $payload['latitude'] ?? $legacyClinic->latitude,
+            'longitude' => $payload['longitude'] ?? $legacyClinic->longitude,
+            'is_primary' => true,
+            'meta' => $meta,
+        ]);
+        $address->save();
+
+        $requestedIsPrimary = array_key_exists('is_primary', $payload)
+            ? (bool) $payload['is_primary']
+            : null;
+
+        if ($requestedIsPrimary === true) {
+            DoctorPracticeLocation::query()
+                ->where('doctor_profile_id', $legacyClinic->doctor_profile_id)
+                ->when($practiceLocation?->exists, fn($query) => $query->whereKeyNot($practiceLocation->id))
+                ->update(['is_primary' => false]);
+        }
+
+        if ($requestedIsPrimary === false) {
+            $isPrimary = !$this->doctorProfileHasPrimaryPracticeLocation(
+                (int) $legacyClinic->doctor_profile_id,
+                $practiceLocation?->id
+            );
+        } else {
+            $isPrimary = $requestedIsPrimary
+                ?? ($practiceLocation?->exists
+                    ? (bool) $practiceLocation->is_primary
+                    : !$this->doctorProfileHasPrimaryPracticeLocation((int) $legacyClinic->doctor_profile_id));
+        }
+
+        $practiceLocation = $practiceLocation ?: new DoctorPracticeLocation();
+        $practiceLocation->fill([
+            'doctor_profile_id' => $legacyClinic->doctor_profile_id,
+            'clinic_id' => $clinicEntity->id,
+            'address_id' => $address->id,
+            'display_name' => trim($payload['hospital_clinic_name'] ?? $legacyClinic->hospital_clinic_name),
+            'consultation_fee' => $payload['consultation_fee'] ?? $legacyClinic->consultation_fee,
+            'contact_phone' => $payload['phone'] ?? $legacyClinic->phone ?? $legacyClinic->doctorProfile?->user?->phone,
+            'contact_email' => $payload['email'] ?? $legacyClinic->email ?? $legacyClinic->doctorProfile?->user?->email,
+            'is_primary' => (bool) $isPrimary,
+            'is_active' => (bool) ($payload['is_active'] ?? $legacyClinic->is_active),
+        ]);
+        $practiceLocation->save();
+
+        return $practiceLocation->fresh(['address.cityRecord', 'clinic', 'schedules']);
+    }
+
+    private function deleteLegacyClinicAndUnifiedData(DoctorHospitalClinic $clinic): void
+    {
+        $practiceLocation = $this->resolvePracticeLocationFromLegacyClinic($clinic);
+        $clinic->delete();
+
+        if ($practiceLocation) {
+            $this->deleteUnifiedPracticeLocation($practiceLocation);
+        }
+    }
+
+    private function deleteUnifiedPracticeLocation(DoctorPracticeLocation $practiceLocation): void
+    {
+        $address = $practiceLocation->address;
+        $clinicEntity = $practiceLocation->clinic;
+
+        $practiceLocation->delete();
+
+        if ($address && !$address->practiceLocations()->exists()) {
+            $address->delete();
+        }
+
+        if ($clinicEntity && !$clinicEntity->practiceLocations()->exists()) {
+            $clinicEntity->addresses()->delete();
+            $clinicEntity->delete();
+        }
+    }
+
+    private function doctorProfileHasPrimaryPracticeLocation(int $doctorProfileId, ?int $ignoreLocationId = null): bool
+    {
+        return DoctorPracticeLocation::query()
+            ->where('doctor_profile_id', $doctorProfileId)
+            ->when($ignoreLocationId, fn($query) => $query->whereKeyNot($ignoreLocationId))
+            ->where('is_primary', true)
+            ->exists();
+    }
+
+    /**
+     * @return array{line1: string, line2: ?string, full_address: string, was_truncated: bool}
+     */
+    private function normalizeAddressLines(?string $line1, ?string $line2 = null): array
+    {
+        $rawLine1 = trim((string) $line1);
+        $rawLine2 = $line2 !== null ? trim((string) $line2) : null;
+        $fullAddress = trim(implode(', ', array_filter([$rawLine1, $rawLine2])));
+
+        $normalizedLine1 = mb_substr($rawLine1, 0, 255);
+        $overflow = trim(mb_substr($rawLine1, 255));
+        $normalizedLine2 = trim(implode(' ', array_filter([$overflow, $rawLine2])));
+
+        if ($normalizedLine2 === '') {
+            $normalizedLine2 = null;
+        }
+
+        return [
+            'line1' => $normalizedLine1 !== '' ? $normalizedLine1 : 'Address not provided',
+            'line2' => $normalizedLine2,
+            'full_address' => $fullAddress,
+            'was_truncated' => mb_strlen($rawLine1) > 255,
+        ];
     }
 
     private function normalizeTimeValue($value): ?string

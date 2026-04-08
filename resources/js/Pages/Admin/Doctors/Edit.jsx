@@ -17,6 +17,13 @@ const WEEK_DAYS = [
     { value: 0, label: 'Sunday' },
 ];
 
+const LOCATION_TYPE_OPTIONS = [
+    { value: 'clinic', label: 'Clinic' },
+    { value: 'hospital', label: 'Hospital' },
+    { value: 'chamber', label: 'Chamber' },
+    { value: 'diagnostic_center', label: 'Diagnostic Center' },
+];
+
 const createDefaultSchedule = (dayOfWeek) => ({
     day_of_week: dayOfWeek,
     opening_time: '09:00',
@@ -78,17 +85,26 @@ const normalizeClinicSchedules = (clinic) => {
 };
 
 export default function DoctorEdit({ doctor, cities, specialties, flash }) {
-    const initialClinics = (doctor.hospital_clinics || []).map((clinic) => ({
-        id: clinic.id,
-        hospital_clinic_name: clinic.hospital_clinic_name || '',
+    const practiceLocations = doctor.practice_locations?.length > 0
+        ? doctor.practice_locations
+        : (doctor.hospital_clinics || []);
+
+    const initialClinics = practiceLocations.map((clinic, index) => ({
+        id: clinic.id || null,
+        doctor_practice_location_id: clinic.doctor_practice_location_id || null,
+        clinic_entity_id: clinic.clinic_entity_id || null,
+        unified_address_id: clinic.unified_address_id || null,
+        clinic_type: clinic.clinic_type || 'clinic',
+        hospital_clinic_name: clinic.hospital_clinic_name || clinic.display_name || `Practice Location ${index + 1}`,
         address: clinic.address || '',
         latitude: clinic.latitude || '',
         longitude: clinic.longitude || '',
         landmarks: clinic.landmarks || '',
-        city_id: clinic.city_id || null,
+        city_id: clinic.city_id || clinic.city?.id || null,
         phone: clinic.phone || '',
         email: clinic.email || '',
         consultation_fee: clinic.consultation_fee || '',
+        is_primary: clinic.is_primary ?? index === 0,
         is_active: clinic.is_active ?? true,
         schedules: normalizeClinicSchedules(clinic),
     }));
@@ -125,6 +141,10 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
             ...(data.clinics || []),
             {
                 id: null,
+                doctor_practice_location_id: null,
+                clinic_entity_id: null,
+                unified_address_id: null,
+                clinic_type: 'clinic',
                 hospital_clinic_name: '',
                 address: '',
                 latitude: '',
@@ -134,6 +154,7 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                 phone: '',
                 email: '',
                 consultation_fee: '',
+                is_primary: (data.clinics || []).length === 0,
                 is_active: true,
                 schedules: WEEK_DAYS.map((day) => createDefaultSchedule(day.value)),
             },
@@ -141,11 +162,29 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
     };
 
     const removeClinic = (index) => {
-        setData('clinics', (data.clinics || []).filter((_, i) => i !== index));
+        const remainingClinics = (data.clinics || []).filter((_, i) => i !== index);
+        const hasPrimary = remainingClinics.some((clinic) => clinic.is_primary);
+
+        setData(
+            'clinics',
+            hasPrimary
+                ? remainingClinics
+                : remainingClinics.map((clinic, clinicIndex) => ({
+                    ...clinic,
+                    is_primary: clinicIndex === 0,
+                }))
+        );
     };
 
     const updateClinicField = (index, field, value) => {
         setData('clinics', (data.clinics || []).map((clinic, i) => {
+            if (field === 'is_primary' && value) {
+                return {
+                    ...clinic,
+                    is_primary: i === index,
+                };
+            }
+
             if (i !== index) return clinic;
             return {
                 ...clinic,
@@ -243,8 +282,8 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                                 onChange={setActiveTab}
                                 items={[
                                     { key: 'profile', label: 'Profile' },
-                                    { key: 'clinics', label: 'Clinics / Hospitals' },
-                                    { key: 'schedules', label: 'Schedules' },
+                                    { key: 'clinics', label: 'Practice Locations' },
+                                    { key: 'schedules', label: 'Weekly Schedules' },
                                     { key: 'media', label: 'Media' },
                                     { key: 'status', label: 'Status' },
                                     { key: 'seo', label: 'SEO' },
@@ -469,13 +508,14 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                                 <>
                             <Divider />
                             <div className="flex items-center justify-between mb-3">
-                                <Title level={4} className="!mb-0">Clinic / Hospital Addresses</Title>
+                                <Title level={4} className="!mb-0">Practice Locations</Title>
                                 <Button type="dashed" icon={<PlusOutlined />} onClick={addClinic}>
-                                    Add Clinic
+                                    Add Location
                                 </Button>
                             </div>
                             <Alert
-                                message="Add all clinic/hospital locations where this doctor is available."
+                                message="Manage the doctor's bookable practice locations."
+                                description="Each location now represents the clinic or hospital details, the underlying unified address, and the schedule that patients can book against."
                                 type="info"
                                 showIcon
                                 className="mb-4"
@@ -483,8 +523,8 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
 
                             {(data.clinics || []).length === 0 && (
                                 <Alert
-                                    message="No clinic addresses added yet"
-                                    description="Click Add Clinic to create the first clinic/hospital address."
+                                    message="No practice locations added yet"
+                                    description="Click Add Location to create the first clinic or hospital location for this doctor."
                                     type="warning"
                                     showIcon
                                     className="mb-4"
@@ -496,7 +536,7 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                                     key={clinic.id || `new-${index}`}
                                     size="small"
                                     className="mb-4"
-                                    title={`Clinic ${index + 1}`}
+                                    title={`Location ${index + 1}`}
                                     extra={
                                         <Button danger icon={<DeleteOutlined />} onClick={() => removeClinic(index)}>
                                             Remove
@@ -506,19 +546,32 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                                     <Row gutter={16}>
                                         <Col xs={24} md={12}>
                                             <Form.Item
-                                                label="Clinic / Hospital Name"
+                                                label="Location / Clinic Name"
                                                 validateStatus={errors[`clinics.${index}.hospital_clinic_name`] ? 'error' : ''}
                                                 help={errors[`clinics.${index}.hospital_clinic_name`]}
                                                 required
                                             >
                                                 <Input
                                                     size="large"
-                                                    placeholder="Apollo Clinic"
+                                                    placeholder="Apollo Clinic, City Hospital, Private Chamber"
                                                     value={clinic.hospital_clinic_name}
                                                     onChange={(e) => updateClinicField(index, 'hospital_clinic_name', e.target.value)}
                                                 />
                                             </Form.Item>
                                         </Col>
+                                        <Col xs={24} md={12}>
+                                            <Form.Item label="Location Type" help="Used for the normalized clinic/hospital record.">
+                                                <Select
+                                                    size="large"
+                                                    value={clinic.clinic_type || 'clinic'}
+                                                    onChange={(value) => updateClinicField(index, 'clinic_type', value)}
+                                                    options={LOCATION_TYPE_OPTIONS}
+                                                />
+                                            </Form.Item>
+                                        </Col>
+                                    </Row>
+
+                                    <Row gutter={16}>
                                         <Col xs={24} md={12}>
                                             <Form.Item
                                                 label="City"
@@ -540,10 +593,26 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                                                 </Select>
                                             </Form.Item>
                                         </Col>
+                                        <Col xs={24} md={12}>
+                                            <div className="flex h-full items-center gap-4 pt-7">
+                                                <Checkbox
+                                                    checked={clinic.is_primary}
+                                                    onChange={(e) => updateClinicField(index, 'is_primary', e.target.checked)}
+                                                >
+                                                    Primary booking location
+                                                </Checkbox>
+                                                <Checkbox
+                                                    checked={clinic.is_active}
+                                                    onChange={(e) => updateClinicField(index, 'is_active', e.target.checked)}
+                                                >
+                                                    Active location
+                                                </Checkbox>
+                                            </div>
+                                        </Col>
                                     </Row>
 
                                     <Form.Item
-                                        label="Address"
+                                        label="Practice Address"
                                         validateStatus={errors[`clinics.${index}.address`] ? 'error' : ''}
                                         help={errors[`clinics.${index}.address`]}
                                         required
@@ -590,7 +659,7 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                                     <Row gutter={16}>
                                         <Col xs={24} md={12}>
                                             <Form.Item
-                                                label="Landmarks"
+                                                label="Landmark / Area Hint"
                                                 validateStatus={errors[`clinics.${index}.landmarks`] ? 'error' : ''}
                                                 help={errors[`clinics.${index}.landmarks`]}
                                             >
@@ -604,7 +673,7 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                                         </Col>
                                         <Col xs={24} md={12}>
                                             <Form.Item
-                                                label="Consultation Fee (Clinic specific)"
+                                                label="Consultation Fee (Location specific)"
                                                 validateStatus={errors[`clinics.${index}.consultation_fee`] ? 'error' : ''}
                                                 help={errors[`clinics.${index}.consultation_fee`]}
                                             >
@@ -622,7 +691,7 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                                     <Row gutter={16}>
                                         <Col xs={24} md={12}>
                                             <Form.Item
-                                                label="Clinic Phone"
+                                                label="Location Phone"
                                                 validateStatus={errors[`clinics.${index}.phone`] ? 'error' : ''}
                                                 help={errors[`clinics.${index}.phone`]}
                                             >
@@ -636,7 +705,7 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                                         </Col>
                                         <Col xs={24} md={12}>
                                             <Form.Item
-                                                label="Clinic Email"
+                                                label="Location Email"
                                                 validateStatus={errors[`clinics.${index}.email`] ? 'error' : ''}
                                                 help={errors[`clinics.${index}.email`]}
                                             >
@@ -651,13 +720,9 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                                         </Col>
                                     </Row>
 
-                                    <Space>
-                                        <Checkbox
-                                            checked={clinic.is_active}
-                                            onChange={(e) => updateClinicField(index, 'is_active', e.target.checked)}
-                                        >
-                                            Active clinic
-                                        </Checkbox>
+                                    <Space className="text-xs text-gray-500">
+                                        {clinic.doctor_practice_location_id && <span>Practice Location ID: #{clinic.doctor_practice_location_id}</span>}
+                                        {clinic.unified_address_id && <span>Unified Address ID: #{clinic.unified_address_id}</span>}
                                     </Space>
                                 </Card>
                             ))}
@@ -666,10 +731,10 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
 
                             {activeTab === 'schedules' && (
                                 <>
-                            <Title level={4}>Day-wise Appointment Schedule</Title>
+                            <Title level={4}>Practice Location Schedules</Title>
                             <Alert
-                                message="Configure weekly availability, timings, and slot settings for each clinic."
-                                description="Turn a day ON to make it bookable. You can control opening/closing hours, break window, slot duration, and maximum appointments per slot."
+                                message="Configure weekly availability for each practice location."
+                                description="Turn a day ON to make it bookable. These timings sync with the doctor's normalized practice-location schedules used by appointment booking."
                                 type="info"
                                 showIcon
                                 className="mb-4"
@@ -677,8 +742,8 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
 
                             {(data.clinics || []).length === 0 && (
                                 <Alert
-                                    message="Add at least one clinic first"
-                                    description="Schedules are managed per clinic/hospital. Go to Clinics / Hospitals tab to create one."
+                                    message="Add at least one practice location first"
+                                    description="Schedules are managed per practice location. Go to the Practice Locations tab to create one."
                                     type="warning"
                                     showIcon
                                 />
@@ -688,8 +753,8 @@ export default function DoctorEdit({ doctor, cities, specialties, flash }) {
                                 <Card
                                     key={`schedule-${clinic.id || clinicIndex}`}
                                     className="mb-5"
-                                    title={clinic.hospital_clinic_name || `Clinic ${clinicIndex + 1}`}
-                                    extra={<span className="text-gray-500">{cities.find((c) => c.id === clinic.city_id)?.name || 'City not selected'}</span>}
+                                    title={clinic.hospital_clinic_name || `Location ${clinicIndex + 1}`}
+                                    extra={<span className="text-gray-500">{[clinic.is_primary ? 'Primary' : null, cities.find((c) => String(c.id) === String(clinic.city_id))?.name || 'City not selected'].filter(Boolean).join(' • ')}</span>}
                                 >
                                     <Row gutter={[16, 16]}>
                                         {WEEK_DAYS.map((day) => {
