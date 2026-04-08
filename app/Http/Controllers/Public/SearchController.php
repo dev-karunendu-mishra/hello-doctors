@@ -105,6 +105,29 @@ class SearchController extends Controller
                 'is_available_today' => $this->isDoctorAvailableToday($doctor),
                 'availability_preview' => $this->buildAvailabilityPreview($doctor),
                 'website' => $doctor->website,
+                'clinic_schedules' => $doctor->hospitalClinics
+                    ->where('is_active', true)
+                    ->values()
+                    ->map(fn($clinic) => [
+                        'id' => $clinic->id,
+                        'hospital_clinic_name' => $clinic->hospital_clinic_name,
+                        'city' => $clinic->city?->name,
+                        'address' => $clinic->address,
+                        'latitude' => $clinic->latitude,
+                        'longitude' => $clinic->longitude,
+                        'consultation_fee' => $clinic->consultation_fee,
+                        'schedules' => $clinic->scheduleSlots
+                            ->where('is_available', true)
+                            ->sortBy('day_of_week')
+                            ->values()
+                            ->map(fn($slot) => [
+                                'day_of_week' => \App\Models\DoctorScheduleSlot::DAYS_OF_WEEK[$slot->day_of_week] ?? 'Unknown',
+                                'opening_time' => $slot->opening_time ? substr($slot->opening_time, 0, 5) : null,
+                                'closing_time' => $slot->closing_time ? substr($slot->closing_time, 0, 5) : null,
+                                'break_start_time' => $slot->break_start_time ? substr($slot->break_start_time, 0, 5) : null,
+                                'break_end_time' => $slot->break_end_time ? substr($slot->break_end_time, 0, 5) : null,
+                            ]),
+                    ]),
             ]);
 
         // Get filter options

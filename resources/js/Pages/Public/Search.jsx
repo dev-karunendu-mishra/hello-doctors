@@ -1,6 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 import PublicLayout from '@/Layouts/PublicLayout';
+import DoctorBookingModal from '@/Components/DoctorBookingModal';
 
 export default function Search({ auth, doctors, specialties, filters }) {
     const [searchForm, setSearchForm] = useState({
@@ -8,8 +9,11 @@ export default function Search({ auth, doctors, specialties, filters }) {
         specialty: filters.specialty || '',
         city_name: filters.city_name || '',
     });
-    const [expandedDoctorId, setExpandedDoctorId] = useState(null);
-    const [activeScheduleTabs, setActiveScheduleTabs] = useState({});
+    const [bookingDoctor, setBookingDoctor] = useState(null);
+    const [bookingOpen, setBookingOpen] = useState(false);
+
+    const isPatient = auth?.user?.role === 'patient';
+    const isLoggedIn = Boolean(auth?.user);
 
     const activeFilters = useMemo(() => ([
         searchForm.search ? `Keyword: ${searchForm.search}` : null,
@@ -36,6 +40,11 @@ export default function Search({ auth, doctors, specialties, filters }) {
             city_name: '',
         });
         router.get('/doctors');
+    };
+
+    const openBookingModal = (doctor) => {
+        setBookingDoctor(doctor);
+        setBookingOpen(true);
     };
 
     const scrollToDoctorResults = () => {
@@ -75,24 +84,6 @@ export default function Search({ auth, doctors, specialties, filters }) {
             preserveState: true,
             onSuccess: () => scrollToDoctorResults(),
         });
-    };
-
-    const toggleDoctorSchedule = (doctorId, defaultDate = null) => {
-        setExpandedDoctorId((current) => current === doctorId ? null : doctorId);
-
-        if (defaultDate) {
-            setActiveScheduleTabs((current) => ({
-                ...current,
-                [doctorId]: current[doctorId] || defaultDate,
-            }));
-        }
-    };
-
-    const changeScheduleTab = (doctorId, date) => {
-        setActiveScheduleTabs((current) => ({
-            ...current,
-            [doctorId]: date,
-        }));
     };
 
     const paginationItems = useMemo(() => {
@@ -253,11 +244,9 @@ export default function Search({ auth, doctors, specialties, filters }) {
                                     const clinicName = doctor.availability_preview?.clinic_name;
                                     const consultationFee = doctor.consultation_fee ? `₹${doctor.consultation_fee}` : 'Fee on request';
                                     const experienceText = doctor.experience_years ? `${doctor.experience_years} years experience overall` : 'Experienced specialist';
-                                    const hasSchedulePreview = Array.isArray(doctor.availability_preview?.days) && doctor.availability_preview.days.length > 0;
-                                    const hasUpcomingSlots = hasSchedulePreview && doctor.availability_preview.days.some((day) => day.slots_count > 0);
-                                    const isExpanded = expandedDoctorId === doctor.id;
-                                    const activeTabDate = activeScheduleTabs[doctor.id] || doctor.availability_preview?.days?.[0]?.date || null;
-                                    const activeDay = doctor.availability_preview?.days?.find((day) => day.date === activeTabDate) || doctor.availability_preview?.days?.[0] || null;
+                                    const bookingUnavailable = !(doctor.clinic_schedules || []).some(
+                                        (clinic) => Array.isArray(clinic.schedules) && clinic.schedules.length > 0,
+                                    );
 
                                     return (
                                         <div className="doctor-listing-entry" key={doctor.id}>
@@ -306,15 +295,31 @@ export default function Search({ auth, doctors, specialties, filters }) {
                                                         {doctor.is_available_today ? 'Available Today' : 'Check Schedule'}
                                                     </span>
 
-                                                    <button
-                                                        type="button"
-                                                        className={`doctor-listing-primary-btn ${!hasSchedulePreview ? 'is-disabled' : ''}`}
-                                                        onClick={() => toggleDoctorSchedule(doctor.id, doctor.availability_preview?.days?.[0]?.date || null)}
-                                                        disabled={!hasSchedulePreview}
-                                                    >
-                                                        {isExpanded ? 'Hide Clinic Slots' : 'Book Clinic Visit'}
-                                                        <small>{hasUpcomingSlots ? 'No Booking Fee' : 'View schedule'}</small>
-                                                    </button>
+                                                    {bookingUnavailable ? (
+                                                        <button type="button" className="doctor-listing-primary-btn is-disabled" disabled>
+                                                            <span>Appointment Unavailable</span>
+                                                            <small>Schedule will open soon</small>
+                                                        </button>
+                                                    ) : isPatient ? (
+                                                        <button
+                                                            type="button"
+                                                            className="doctor-listing-primary-btn"
+                                                            onClick={() => openBookingModal(doctor)}
+                                                        >
+                                                            <span>Book Clinic Visit</span>
+                                                            <small>No Booking Fee</small>
+                                                        </button>
+                                                    ) : !isLoggedIn ? (
+                                                        <Link href="/login" className="doctor-listing-primary-btn">
+                                                            <span>Login to Book</span>
+                                                            <small>Secure appointment access</small>
+                                                        </Link>
+                                                    ) : (
+                                                        <Link href="/patient/find-doctors" className="doctor-listing-primary-btn">
+                                                            <span>Book from Dashboard</span>
+                                                            <small>Continue as patient</small>
+                                                        </Link>
+                                                    )}
 
                                                     {doctor.phone ? (
                                                         <a href={`tel:${doctor.phone}`} className="doctor-listing-secondary-btn">
@@ -330,57 +335,6 @@ export default function Search({ auth, doctors, specialties, filters }) {
                                                 </div>
                                             </div>
 
-                                            {isExpanded && (
-                                                <div className="doctor-schedule-preview" data-aos="fade-up" data-aos-delay="80">
-                                                    <div className="doctor-schedule-preview-head">
-                                                        <p>
-                                                            Book an appointment for <strong>Consultation</strong>
-                                                            {clinicName ? <> at <strong>{clinicName}</strong></> : null}
-                                                        </p>
-                                                    </div>
-
-                                                    {hasUpcomingSlots && activeDay ? (
-                                                        <div className="doctor-schedule-tabs-wrap">
-                                                            <div className="doctor-schedule-tabs-nav" role="tablist" aria-label={`Schedule for ${doctor.name}`}>
-                                                                {doctor.availability_preview.days.map((day) => (
-                                                                    <button
-                                                                        key={`${doctor.id}-${day.date}`}
-                                                                        type="button"
-                                                                        role="tab"
-                                                                        className={`doctor-schedule-tab ${activeDay.date === day.date ? 'is-active' : ''}`}
-                                                                        aria-selected={activeDay.date === day.date}
-                                                                        onClick={() => changeScheduleTab(doctor.id, day.date)}
-                                                                    >
-                                                                        <strong>{day.label}</strong>
-                                                                        <span>{day.slots_count} Slots Available</span>
-                                                                    </button>
-                                                                ))}
-                                                            </div>
-
-                                                            <div className="doctor-schedule-tab-panel" role="tabpanel">
-                                                                {['Morning', 'Afternoon', 'Evening'].map((period) => (
-                                                                    activeDay.groups?.[period]?.length ? (
-                                                                        <div key={`${activeDay.date}-${period}`} className="doctor-schedule-period">
-                                                                            <div className="doctor-schedule-period-label">{period}</div>
-                                                                            <div className="doctor-schedule-time-list">
-                                                                                {activeDay.groups[period].map((time) => (
-                                                                                    <Link key={`${activeDay.date}-${time}`} href={profileHref} className="doctor-schedule-time-btn">
-                                                                                        {time}
-                                                                                    </Link>
-                                                                                ))}
-                                                                            </div>
-                                                                        </div>
-                                                                    ) : null
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="doctor-schedule-empty">
-                                                            No bookable slots are available for the next three days. You can still open the full profile for more details.
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
                                         </div>
                                     );
                                 })
@@ -441,6 +395,12 @@ export default function Search({ auth, doctors, specialties, filters }) {
                         )}
                     </div>
                 </section>
+
+                <DoctorBookingModal
+                    doctor={bookingDoctor}
+                    open={bookingOpen}
+                    onClose={() => setBookingOpen(false)}
+                />
             </PublicLayout>
         </>
     );
