@@ -4,6 +4,7 @@ import {
     Alert,
     Button,
     Card,
+    Checkbox,
     DatePicker,
     Drawer,
     Form,
@@ -64,8 +65,8 @@ const paymentMethodOptions = [
 ];
 
 const allowedTransitions = {
-    assigned: ['confirmed', 'cancelled'],
-    confirmed: ['in_progress', 'cancelled', 'no_show'],
+    assigned: ['confirmed', 'in_progress', 'completed', 'cancelled'],
+    confirmed: ['in_progress', 'completed', 'cancelled', 'no_show'],
     in_progress: ['completed', 'cancelled'],
     pending: [],
     completed: [],
@@ -85,12 +86,17 @@ export default function ProviderHomeServiceBookings() {
     const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
     const [detailBooking, setDetailBooking] = useState(null);
     const [statusForm] = Form.useForm();
+    const watchedStatus = Form.useWatch('status', statusForm);
+    const watchedPaymentMethod = Form.useWatch('payment_method', statusForm);
+    const watchedCashCollected = Form.useWatch('cash_collected', statusForm);
 
     const getAllowedStatusOptions = (status) => {
         const allowed = new Set([status, ...(allowedTransitions[status] || [])]);
 
         return statusOptions.filter((item) => allowed.has(item.value));
     };
+
+    const canMarkCompleted = (status) => ['assigned', 'confirmed', 'in_progress'].includes(status);
 
     const getMapLink = (booking) => {
         const address = booking?.address;
@@ -142,18 +148,40 @@ export default function ProviderHomeServiceBookings() {
         loadBookings();
     }, []);
 
+    useEffect(() => {
+        if (!statusModalOpen) {
+            return;
+        }
+
+        const canConfirmCashCollection = watchedPaymentMethod === 'cod'
+            && ['confirmed', 'in_progress', 'completed'].includes(watchedStatus);
+
+        if (watchedCashCollected && canConfirmCashCollection && statusForm.getFieldValue('payment_status') !== 'paid') {
+            statusForm.setFieldValue('payment_status', 'paid');
+        }
+
+        if (watchedCashCollected && !canConfirmCashCollection) {
+            statusForm.setFieldValue('cash_collected', false);
+        }
+    }, [statusForm, statusModalOpen, watchedCashCollected, watchedPaymentMethod, watchedStatus]);
+
     const applyFilters = async (nextFilters) => {
         setFilters(nextFilters);
         await loadBookings(nextFilters, 1);
     };
 
-    const openStatusModal = (booking) => {
+    const openStatusModal = (booking, defaults = {}) => {
+        const paymentMethod = defaults.payment_method || booking.payment_method || 'cod';
+        const paymentStatus = defaults.payment_status || booking.payment_status || 'pending';
+        const cashCollected = defaults.cash_collected ?? (paymentMethod === 'cod' && paymentStatus === 'paid');
+
         setSelectedBooking(booking);
         statusForm.setFieldsValue({
-            status: booking.status,
-            payment_status: booking.payment_status || 'pending',
-            payment_method: booking.payment_method || 'cod',
-            notes: '',
+            status: defaults.status || booking.status,
+            payment_status: paymentStatus,
+            payment_method: paymentMethod,
+            cash_collected: cashCollected,
+            notes: defaults.notes || '',
         });
         setStatusModalOpen(true);
     };
@@ -168,8 +196,18 @@ export default function ProviderHomeServiceBookings() {
 
         try {
             const values = await statusForm.validateFields();
+            const payload = { ...values };
+
+            if (
+                payload.payment_method === 'cod'
+                && payload.cash_collected
+                && ['confirmed', 'in_progress', 'completed'].includes(payload.status)
+            ) {
+                payload.payment_status = 'paid';
+            }
+
             setSaving(true);
-            await window.axios.post(`/provider/data/home-service/bookings/${selectedBooking.id}/status`, values);
+            await window.axios.post(`/provider/data/home-service/bookings/${selectedBooking.id}/status`, payload);
             message.success('Booking and payment details updated.');
             setStatusModalOpen(false);
             await loadBookings(filters, pagination.current);
@@ -306,7 +344,7 @@ export default function ProviderHomeServiceBookings() {
                                 title: 'Action',
                                 key: 'action',
                                 render: (_, record) => (
-                                    <Space>
+                                    <Space wrap>
                                         <Button size="small" onClick={() => openDetailDrawer(record)}>
                                             View
                                         </Button>
@@ -316,6 +354,18 @@ export default function ProviderHomeServiceBookings() {
                                         >
                                             Update Status / Payment
                                         </Button>
+                                        {canMarkCompleted(record.status) ? (
+                                            <Button
+                                                size="small"
+                                                type="primary"
+                                                onClick={() => openStatusModal(record, {
+                                                    status: 'completed',
+                                                    cash_collected: (record.payment_method || 'cod') === 'cod',
+                                                })}
+                                            >
+                                                Mark Completed
+                                            </Button>
+                                        ) : null}
                                     </Space>
                                 ),
                             },
@@ -409,7 +459,7 @@ export default function ProviderHomeServiceBookings() {
                         type="info"
                         showIcon
                         style={{ marginBottom: 16 }}
-                        message="If you collected cash or UPI during the visit, mark the payment as Paid here."
+                        message="If the visit is completed and cash was collected, tick the confirmation below and payment will be marked as Paid automatically."
                     />
 
                     <Form.Item name="status" label="Service Status" rules={[{ required: true, message: 'Select status.' }]}>
@@ -420,8 +470,21 @@ export default function ProviderHomeServiceBookings() {
                         <Select options={paymentMethodOptions} />
                     </Form.Item>
 
+                    {watchedPaymentMethod === 'cod' && ['confirmed', 'in_progress', 'completed'].includes(watchedStatus) ? (
+                        <Form.Item
+                            name="cash_collected"
+                            valuePropName="checked"
+                            extra="When checked, this cash-on-visit booking will automatically be marked as paid."
+                        >
+                            <Checkbox>Cash collected from patient</Checkbox>
+                        </Form.Item>
+                    ) : null}
+
                     <Form.Item name="payment_status" label="Payment Status">
-                        <Select options={paymentStatusOptions} />
+                        <Select
+                            options={paymentStatusOptions}
+                            disabled={watchedPaymentMethod === 'cod' && watchedCashCollected}
+                        />
                     </Form.Item>
 
                     <Form.Item name="notes" label="Notes">

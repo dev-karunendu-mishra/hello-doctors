@@ -15,10 +15,13 @@ class HomeServiceController extends Controller
     private const ALLOWED_PROVIDER_TRANSITIONS = [
         HomeServiceBooking::STATUS_ASSIGNED => [
             HomeServiceBooking::STATUS_CONFIRMED,
+            HomeServiceBooking::STATUS_IN_PROGRESS,
+            HomeServiceBooking::STATUS_COMPLETED,
             HomeServiceBooking::STATUS_CANCELLED,
         ],
         HomeServiceBooking::STATUS_CONFIRMED => [
             HomeServiceBooking::STATUS_IN_PROGRESS,
+            HomeServiceBooking::STATUS_COMPLETED,
             HomeServiceBooking::STATUS_CANCELLED,
             HomeServiceBooking::STATUS_NO_SHOW,
         ],
@@ -206,6 +209,7 @@ class HomeServiceController extends Controller
             'status' => ['required', 'in:assigned,confirmed,in_progress,completed,cancelled,no_show'],
             'payment_status' => ['nullable', 'in:pending,paid,failed'],
             'payment_method' => ['nullable', 'in:online,cod'],
+            'cash_collected' => ['nullable', 'boolean'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -233,6 +237,18 @@ class HomeServiceController extends Controller
         $currentPaymentMethod = $booking->payment_method ?? HomeServiceBooking::PAYMENT_METHOD_COD;
         $nextPaymentStatus = $validated['payment_status'] ?? $currentPaymentStatus;
         $nextPaymentMethod = $validated['payment_method'] ?? $currentPaymentMethod;
+        $cashCollected = (bool) ($validated['cash_collected'] ?? false);
+
+        if ($cashCollected
+            && $nextPaymentMethod === HomeServiceBooking::PAYMENT_METHOD_COD
+            && in_array($nextStatus, [
+                HomeServiceBooking::STATUS_CONFIRMED,
+                HomeServiceBooking::STATUS_IN_PROGRESS,
+                HomeServiceBooking::STATUS_COMPLETED,
+            ], true)) {
+            $nextPaymentStatus = HomeServiceBooking::PAYMENT_PAID;
+        }
+
         $isPaymentUpdateRequested = $nextPaymentStatus !== $currentPaymentStatus || $nextPaymentMethod !== $currentPaymentMethod;
 
         $allowedPaymentTransitions = match ($currentPaymentStatus) {
@@ -297,6 +313,7 @@ class HomeServiceController extends Controller
         if ($nextStatus !== $oldStatus || $isPaymentUpdateRequested) {
             $logNotes = array_filter([
                 $validated['notes'] ?? null,
+                $cashCollected && $nextPaymentMethod === HomeServiceBooking::PAYMENT_METHOD_COD ? 'Cash collected on visit' : null,
                 $isPaymentUpdateRequested ? sprintf('Payment updated to %s via %s', $nextPaymentStatus, strtoupper($nextPaymentMethod)) : null,
             ]);
 
