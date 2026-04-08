@@ -446,6 +446,7 @@
 
 .doctor-listing-avatar-wrap {
     flex-shrink: 0;
+    text-decoration: none;
 }
 
 .doctor-listing-avatar {
@@ -464,6 +465,15 @@
     margin: 0 0 4px;
     font-size: 1.55rem;
     color: #1695db;
+}
+
+.doctor-listing-name-link {
+    color: #1695db;
+    text-decoration: none;
+}
+
+.doctor-listing-name-link:hover {
+    text-decoration: underline;
 }
 
 .doctor-listing-specialty,
@@ -510,6 +520,16 @@
 .doctor-listing-stories {
     color: #3a556f;
     font-weight: 600;
+    text-decoration: underline;
+}
+
+.doctor-listing-profile-link {
+    color: #1695db;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.doctor-listing-profile-link:hover {
     text-decoration: underline;
 }
 

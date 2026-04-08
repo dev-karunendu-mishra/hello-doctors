@@ -235,16 +235,20 @@ export default function Search({ auth, doctors, specialties, filters }) {
                                     return (
                                         <div className="doctor-listing-card" data-aos="fade-up" data-aos-delay={100 + ((index % 4) * 80)} key={doctor.id}>
                                             <div className="doctor-listing-main">
-                                                <div className="doctor-listing-avatar-wrap">
+                                                <Link href={`/doctors/${doctor.slug || doctor.id}`} className="doctor-listing-avatar-wrap">
                                                     <img
                                                         src={doctor.image || `/clinic-assets/health/staff-${(index % 4) + 1}.webp`}
                                                         alt={doctor.name}
                                                         className="doctor-listing-avatar"
                                                     />
-                                                </div>
+                                                </Link>
 
                                                 <div className="doctor-listing-body">
-                                                    <h3>{doctor.name}</h3>
+                                                    <h3>
+                                                        <Link href={`/doctors/${doctor.slug || doctor.id}`} className="doctor-listing-name-link">
+                                                            {doctor.name}
+                                                        </Link>
+                                                    </h3>
                                                     <p className="doctor-listing-specialty">{doctor.specialty || 'General Specialist'}</p>
                                                     <p className="doctor-listing-experience">{experienceText}</p>
                                                     <p className="doctor-listing-location">
@@ -262,6 +266,9 @@ export default function Search({ auth, doctors, specialties, filters }) {
                                                         <span className="doctor-listing-stories">
                                                             {Math.max(4, Math.round((doctor.experience_years || 5) * 1.5))} Patient Stories
                                                         </span>
+                                                        <Link href={`/doctors/${doctor.slug || doctor.id}`} className="doctor-listing-profile-link">
+                                                            View Profile
+                                                        </Link>
                                                     </div>
                                                 </div>
                                             </div>
