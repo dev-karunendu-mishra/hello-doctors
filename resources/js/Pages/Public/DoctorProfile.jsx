@@ -261,7 +261,10 @@ export default function DoctorProfile({ auth, doctor }) {
         }
     };
 
-    const availabilityLabel = bookingUnavailable ? 'Schedule Updating' : 'Available Today';
+    const availabilityLabel = bookingUnavailable
+        ? 'Schedule Updating'
+        : (doctor.is_available_today ? 'Available Today' : 'Check Schedule');
+    const availabilityClassName = `doctor-listing-availability ${doctor.is_available_today ? '' : 'is-muted'}`;
 
     const renderBookingActionButton = () => {
         if (bookingUnavailable) {
@@ -448,8 +451,8 @@ export default function DoctorProfile({ auth, doctor }) {
                                 </Descriptions>
 
                                 <div className="doctor-detail-action-panel">
-                                    <span className="doctor-listing-availability">
-                                        <i className="bi bi-calendar-check" />
+                                    <span className={availabilityClassName}>
+                                        <i className={`bi ${doctor.is_available_today ? 'bi-calendar-check' : 'bi-calendar-x'}`} />
                                         {availabilityLabel}
                                     </span>
                                     {renderBookingActionButton()}
@@ -605,8 +608,8 @@ export default function DoctorProfile({ auth, doctor }) {
                             {bookingAvailabilityNote}
                         </Paragraph>
                         <div className="doctor-detail-contact-panel">
-                            <span className="doctor-listing-availability">
-                                <i className="bi bi-calendar-check" />
+                            <span className={availabilityClassName}>
+                                <i className={`bi ${doctor.is_available_today ? 'bi-calendar-check' : 'bi-calendar-x'}`} />
                                 {availabilityLabel}
                             </span>
                             {renderBookingActionButton()}

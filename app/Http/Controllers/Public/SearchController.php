@@ -19,7 +19,7 @@ class SearchController extends Controller
     public function index(Request $request): Response
     {
         $query = DoctorProfile::query()
-            ->with(['user', 'specialty', 'cities', 'searchTag'])
+            ->with(['user', 'specialty', 'cities', 'searchTag', 'workingHours', 'hospitalClinics.scheduleSlots'])
             ->verified()
             ->active();
 
@@ -102,6 +102,7 @@ class SearchController extends Controller
                 'experience_years' => $doctor->experience_years,
                 'consultation_fee' => $doctor->consultation_fee,
                 'is_available_online' => $doctor->is_available_online,
+                'is_available_today' => $this->isDoctorAvailableToday($doctor),
                 'website' => $doctor->website,
             ]);
 
@@ -159,6 +160,7 @@ class SearchController extends Controller
                 'consultation_fee' => $doctor->consultation_fee,
                 'website' => $doctor->website,
                 'is_available_online' => $doctor->is_available_online,
+                'is_available_today' => $this->isDoctorAvailableToday($doctor),
                 'meta_title' => $doctor->meta_title,
                 'meta_description' => $doctor->meta_description,
                 'meta_keywords' => $doctor->meta_keywords,
@@ -201,5 +203,31 @@ class SearchController extends Controller
                     ]),
             ],
         ]);
+    }
+
+    private function isDoctorAvailableToday(DoctorProfile $doctor): bool
+    {
+        $todayNumber = now()->dayOfWeek;
+        $todayName = strtolower(now()->format('l'));
+        $todayShortName = substr($todayName, 0, 3);
+
+        $hasClinicAvailability = $doctor->hospitalClinics
+            ->where('is_active', true)
+            ->contains(function ($clinic) use ($todayNumber) {
+                return $clinic->scheduleSlots->contains(function ($slot) use ($todayNumber) {
+                    return (bool) $slot->is_available && (int) $slot->day_of_week === $todayNumber;
+                });
+            });
+
+        if ($hasClinicAvailability) {
+            return true;
+        }
+
+        return $doctor->workingHours->contains(function ($workingHour) use ($todayName, $todayShortName) {
+            $dayValue = strtolower((string) $workingHour->day_of_week);
+
+            return (bool) $workingHour->is_available
+                && ($dayValue === $todayName || $dayValue === $todayShortName);
+        });
     }
 }

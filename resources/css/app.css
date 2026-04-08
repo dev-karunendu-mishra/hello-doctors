@@ -533,6 +533,10 @@
     font-size: 0.95rem;
 }
 
+.doctor-listing-availability.is-muted {
+    color: #6b7d93;
+}
+
 .doctor-listing-primary-btn,
 .doctor-listing-secondary-btn {
     display: flex;

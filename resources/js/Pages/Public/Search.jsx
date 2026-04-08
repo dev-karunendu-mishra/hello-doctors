@@ -267,9 +267,9 @@ export default function Search({ auth, doctors, specialties, filters }) {
                                             </div>
 
                                             <div className="doctor-listing-actions">
-                                                <span className="doctor-listing-availability">
-                                                    <i className="bi bi-calendar-check" />
-                                                    Available Today
+                                                <span className={`doctor-listing-availability ${doctor.is_available_today ? '' : 'is-muted'}`}>
+                                                    <i className={`bi ${doctor.is_available_today ? 'bi-calendar-check' : 'bi-calendar-x'}`} />
+                                                    {doctor.is_available_today ? 'Available Today' : 'Check Schedule'}
                                                 </span>
 
                                                 <Link href={`/doctors/${doctor.slug || doctor.id}`} className="doctor-listing-primary-btn">
