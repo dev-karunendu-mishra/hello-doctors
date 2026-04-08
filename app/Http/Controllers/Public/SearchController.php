@@ -19,7 +19,7 @@ class SearchController extends Controller
     public function index(Request $request): Response
     {
         $query = DoctorProfile::query()
-            ->with(['user', 'specialty', 'cities', 'searchTag', 'workingHours', 'hospitalClinics.scheduleSlots'])
+            ->with(['user', 'specialty', 'cities', 'searchTag', 'workingHours', 'hospitalClinics.city', 'hospitalClinics.scheduleSlots'])
             ->verified()
             ->active();
 
@@ -103,6 +103,7 @@ class SearchController extends Controller
                 'consultation_fee' => $doctor->consultation_fee,
                 'is_available_online' => $doctor->is_available_online,
                 'is_available_today' => $this->isDoctorAvailableToday($doctor),
+                'availability_preview' => $this->buildAvailabilityPreview($doctor),
                 'website' => $doctor->website,
             ]);
 
@@ -229,5 +230,87 @@ class SearchController extends Controller
             return (bool) $workingHour->is_available
                 && ($dayValue === $todayName || $dayValue === $todayShortName);
         });
+    }
+
+    private function buildAvailabilityPreview(DoctorProfile $doctor): array
+    {
+        $primaryClinic = $doctor->hospitalClinics
+            ->where('is_active', true)
+            ->first(function ($clinic) {
+                return $clinic->scheduleSlots->contains(fn($slot) => (bool) $slot->is_available);
+            });
+
+        if (!$primaryClinic) {
+            return [
+                'clinic_name' => null,
+                'clinic_city' => null,
+                'days' => [],
+            ];
+        }
+
+        $days = collect(range(0, 2))->map(function ($offset) use ($primaryClinic) {
+            $date = now()->copy()->startOfDay()->addDays($offset);
+            $slot = $primaryClinic->scheduleSlots
+                ->where('is_available', true)
+                ->firstWhere('day_of_week', $date->dayOfWeek);
+
+            $times = $slot ? $this->generatePreviewTimesFromSlot($slot) : [];
+            $groupedTimes = collect($times)
+                ->groupBy(function ($time) {
+                    $hour = (int) date('G', strtotime($time));
+
+                    return $hour < 12 ? 'Morning' : ($hour < 17 ? 'Afternoon' : 'Evening');
+                })
+                ->map(fn($items) => $items->values())
+                ->toArray();
+
+            return [
+                'date' => $date->toDateString(),
+                'label' => $offset === 0 ? 'Today' : ($offset === 1 ? 'Tomorrow' : $date->format('D, j M')),
+                'slots_count' => count($times),
+                'groups' => $groupedTimes,
+            ];
+        })->values()->all();
+
+        return [
+            'clinic_name' => $primaryClinic->hospital_clinic_name,
+            'clinic_city' => $primaryClinic->city?->name,
+            'days' => $days,
+        ];
+    }
+
+    private function generatePreviewTimesFromSlot($slot): array
+    {
+        if (!$slot->opening_time || !$slot->closing_time) {
+            return [];
+        }
+
+        $opening = now()->copy()->setTimeFromTimeString(substr((string) $slot->opening_time, 0, 5));
+        $closing = now()->copy()->setTimeFromTimeString(substr((string) $slot->closing_time, 0, 5));
+        $breakStart = $slot->break_start_time
+            ? now()->copy()->setTimeFromTimeString(substr((string) $slot->break_start_time, 0, 5))
+            : null;
+        $breakEnd = $slot->break_end_time
+            ? now()->copy()->setTimeFromTimeString(substr((string) $slot->break_end_time, 0, 5))
+            : null;
+        $duration = max((int) ($slot->slot_duration_minutes ?? 15), 15);
+        $times = [];
+
+        while ($opening < $closing && count($times) < 12) {
+            if ($breakStart && $breakEnd && $opening >= $breakStart && $opening < $breakEnd) {
+                $opening->addMinutes($duration);
+                continue;
+            }
+
+            $slotEnd = $opening->copy()->addMinutes($duration);
+            if ($slotEnd > $closing) {
+                break;
+            }
+
+            $times[] = $opening->format('h:i A');
+            $opening->addMinutes($duration);
+        }
+
+        return $times;
     }
 }

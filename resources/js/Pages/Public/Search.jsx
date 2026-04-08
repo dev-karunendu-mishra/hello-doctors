@@ -8,6 +8,8 @@ export default function Search({ auth, doctors, specialties, filters }) {
         specialty: filters.specialty || '',
         city_name: filters.city_name || '',
     });
+    const [expandedDoctorId, setExpandedDoctorId] = useState(null);
+    const [activeScheduleTabs, setActiveScheduleTabs] = useState({});
 
     const activeFilters = useMemo(() => ([
         searchForm.search ? `Keyword: ${searchForm.search}` : null,
@@ -73,6 +75,24 @@ export default function Search({ auth, doctors, specialties, filters }) {
             preserveState: true,
             onSuccess: () => scrollToDoctorResults(),
         });
+    };
+
+    const toggleDoctorSchedule = (doctorId, defaultDate = null) => {
+        setExpandedDoctorId((current) => current === doctorId ? null : doctorId);
+
+        if (defaultDate) {
+            setActiveScheduleTabs((current) => ({
+                ...current,
+                [doctorId]: current[doctorId] || defaultDate,
+            }));
+        }
+    };
+
+    const changeScheduleTab = (doctorId, date) => {
+        setActiveScheduleTabs((current) => ({
+            ...current,
+            [doctorId]: date,
+        }));
     };
 
     const paginationItems = useMemo(() => {
@@ -228,74 +248,139 @@ export default function Search({ auth, doctors, specialties, filters }) {
                                 </div>
                             ) : (
                                 doctors.data.map((doctor, index) => {
-                                    const primaryCity = doctor.cities?.[0]?.name || filters.city_name || 'Lucknow';
+                                    const profileHref = `/doctors/${doctor.slug || doctor.id}`;
+                                    const primaryCity = doctor.cities?.[0]?.name || doctor.availability_preview?.clinic_city || filters.city_name || 'Lucknow';
+                                    const clinicName = doctor.availability_preview?.clinic_name;
                                     const consultationFee = doctor.consultation_fee ? `₹${doctor.consultation_fee}` : 'Fee on request';
                                     const experienceText = doctor.experience_years ? `${doctor.experience_years} years experience overall` : 'Experienced specialist';
+                                    const hasSchedulePreview = Array.isArray(doctor.availability_preview?.days) && doctor.availability_preview.days.length > 0;
+                                    const hasUpcomingSlots = hasSchedulePreview && doctor.availability_preview.days.some((day) => day.slots_count > 0);
+                                    const isExpanded = expandedDoctorId === doctor.id;
+                                    const activeTabDate = activeScheduleTabs[doctor.id] || doctor.availability_preview?.days?.[0]?.date || null;
+                                    const activeDay = doctor.availability_preview?.days?.find((day) => day.date === activeTabDate) || doctor.availability_preview?.days?.[0] || null;
 
                                     return (
-                                        <div className="doctor-listing-card" data-aos="fade-up" data-aos-delay={100 + ((index % 4) * 80)} key={doctor.id}>
-                                            <div className="doctor-listing-main">
-                                                <Link href={`/doctors/${doctor.slug || doctor.id}`} className="doctor-listing-avatar-wrap">
-                                                    <img
-                                                        src={doctor.image || `/clinic-assets/health/staff-${(index % 4) + 1}.webp`}
-                                                        alt={doctor.name}
-                                                        className="doctor-listing-avatar"
-                                                    />
-                                                </Link>
+                                        <div className="doctor-listing-entry" key={doctor.id}>
+                                            <div className="doctor-listing-card" data-aos="fade-up" data-aos-delay={100 + ((index % 4) * 80)}>
+                                                <div className="doctor-listing-main">
+                                                    <Link href={profileHref} className="doctor-listing-avatar-wrap">
+                                                        <img
+                                                            src={doctor.image || `/clinic-assets/health/staff-${(index % 4) + 1}.webp`}
+                                                            alt={doctor.name}
+                                                            className="doctor-listing-avatar"
+                                                        />
+                                                    </Link>
 
-                                                <div className="doctor-listing-body">
-                                                    <h3>
-                                                        <Link href={`/doctors/${doctor.slug || doctor.id}`} className="doctor-listing-name-link">
-                                                            {doctor.name}
-                                                        </Link>
-                                                    </h3>
-                                                    <p className="doctor-listing-specialty">{doctor.specialty || 'General Specialist'}</p>
-                                                    <p className="doctor-listing-experience">{experienceText}</p>
-                                                    <p className="doctor-listing-location">
-                                                        <strong>{primaryCity}</strong>
-                                                        <span> • </span>
-                                                        <span>{doctor.bio || 'Verified consultation details and patient-focused care.'}</span>
-                                                    </p>
-                                                    <p className="doctor-listing-fee">{consultationFee} Consultation Fees</p>
+                                                    <div className="doctor-listing-body">
+                                                        <h3>
+                                                            <Link href={profileHref} className="doctor-listing-name-link">
+                                                                {doctor.name}
+                                                            </Link>
+                                                        </h3>
+                                                        <p className="doctor-listing-specialty">{doctor.specialty || 'General Specialist'}</p>
+                                                        <p className="doctor-listing-experience">{experienceText}</p>
+                                                        <p className="doctor-listing-location">
+                                                            <strong>{primaryCity}</strong>
+                                                            {clinicName ? <><span> • </span><span>{clinicName}</span></> : null}
+                                                        </p>
+                                                        <p className="doctor-listing-fee">{consultationFee} Consultation fee at clinic</p>
 
-                                                    <div className="doctor-listing-trust">
-                                                        <span className="doctor-listing-score">
-                                                            <i className="bi bi-hand-thumbs-up-fill" />
-                                                            {doctor.experience_years ? `${Math.min(99, 70 + Number(doctor.experience_years))}%` : '90%'}
-                                                        </span>
-                                                        <span className="doctor-listing-stories">
-                                                            {Math.max(4, Math.round((doctor.experience_years || 5) * 1.5))} Patient Stories
-                                                        </span>
-                                                        <Link href={`/doctors/${doctor.slug || doctor.id}`} className="doctor-listing-profile-link">
-                                                            View Profile
-                                                        </Link>
+                                                        <div className="doctor-listing-trust">
+                                                            <span className="doctor-listing-score">
+                                                                <i className="bi bi-hand-thumbs-up-fill" />
+                                                                {doctor.experience_years ? `${Math.min(99, 70 + Number(doctor.experience_years))}%` : '90%'}
+                                                            </span>
+                                                            <span className="doctor-listing-stories">
+                                                                {Math.max(4, Math.round((doctor.experience_years || 5) * 1.5))} Patient Stories
+                                                            </span>
+                                                            <Link href={profileHref} className="doctor-listing-profile-link">
+                                                                View Profile
+                                                            </Link>
+                                                        </div>
                                                     </div>
+                                                </div>
+
+                                                <div className="doctor-listing-actions">
+                                                    <span className={`doctor-listing-availability ${doctor.is_available_today ? '' : 'is-muted'}`}>
+                                                        <i className={`bi ${doctor.is_available_today ? 'bi-calendar-check' : 'bi-calendar-x'}`} />
+                                                        {doctor.is_available_today ? 'Available Today' : 'Check Schedule'}
+                                                    </span>
+
+                                                    <button
+                                                        type="button"
+                                                        className={`doctor-listing-primary-btn ${!hasSchedulePreview ? 'is-disabled' : ''}`}
+                                                        onClick={() => toggleDoctorSchedule(doctor.id, doctor.availability_preview?.days?.[0]?.date || null)}
+                                                        disabled={!hasSchedulePreview}
+                                                    >
+                                                        {isExpanded ? 'Hide Clinic Slots' : 'Book Clinic Visit'}
+                                                        <small>{hasUpcomingSlots ? 'No Booking Fee' : 'View schedule'}</small>
+                                                    </button>
+
+                                                    {doctor.phone ? (
+                                                        <a href={`tel:${doctor.phone}`} className="doctor-listing-secondary-btn">
+                                                            <i className="bi bi-telephone" />
+                                                            Contact Clinic
+                                                        </a>
+                                                    ) : (
+                                                        <Link href={profileHref} className="doctor-listing-secondary-btn">
+                                                            <i className="bi bi-telephone" />
+                                                            Contact Clinic
+                                                        </Link>
+                                                    )}
                                                 </div>
                                             </div>
 
-                                            <div className="doctor-listing-actions">
-                                                <span className={`doctor-listing-availability ${doctor.is_available_today ? '' : 'is-muted'}`}>
-                                                    <i className={`bi ${doctor.is_available_today ? 'bi-calendar-check' : 'bi-calendar-x'}`} />
-                                                    {doctor.is_available_today ? 'Available Today' : 'Check Schedule'}
-                                                </span>
+                                            {isExpanded && (
+                                                <div className="doctor-schedule-preview" data-aos="fade-up" data-aos-delay="80">
+                                                    <div className="doctor-schedule-preview-head">
+                                                        <p>
+                                                            Book an appointment for <strong>Consultation</strong>
+                                                            {clinicName ? <> at <strong>{clinicName}</strong></> : null}
+                                                        </p>
+                                                    </div>
 
-                                                <Link href={`/doctors/${doctor.slug || doctor.id}`} className="doctor-listing-primary-btn">
-                                                    Book Clinic Visit
-                                                    <small>No Booking Fee</small>
-                                                </Link>
+                                                    {hasUpcomingSlots && activeDay ? (
+                                                        <div className="doctor-schedule-tabs-wrap">
+                                                            <div className="doctor-schedule-tabs-nav" role="tablist" aria-label={`Schedule for ${doctor.name}`}>
+                                                                {doctor.availability_preview.days.map((day) => (
+                                                                    <button
+                                                                        key={`${doctor.id}-${day.date}`}
+                                                                        type="button"
+                                                                        role="tab"
+                                                                        className={`doctor-schedule-tab ${activeDay.date === day.date ? 'is-active' : ''}`}
+                                                                        aria-selected={activeDay.date === day.date}
+                                                                        onClick={() => changeScheduleTab(doctor.id, day.date)}
+                                                                    >
+                                                                        <strong>{day.label}</strong>
+                                                                        <span>{day.slots_count} Slots Available</span>
+                                                                    </button>
+                                                                ))}
+                                                            </div>
 
-                                                {doctor.phone ? (
-                                                    <a href={`tel:${doctor.phone}`} className="doctor-listing-secondary-btn">
-                                                        <i className="bi bi-telephone" />
-                                                        Contact Clinic
-                                                    </a>
-                                                ) : (
-                                                    <Link href={`/doctors/${doctor.slug || doctor.id}`} className="doctor-listing-secondary-btn">
-                                                        <i className="bi bi-telephone" />
-                                                        Contact Clinic
-                                                    </Link>
-                                                )}
-                                            </div>
+                                                            <div className="doctor-schedule-tab-panel" role="tabpanel">
+                                                                {['Morning', 'Afternoon', 'Evening'].map((period) => (
+                                                                    activeDay.groups?.[period]?.length ? (
+                                                                        <div key={`${activeDay.date}-${period}`} className="doctor-schedule-period">
+                                                                            <div className="doctor-schedule-period-label">{period}</div>
+                                                                            <div className="doctor-schedule-time-list">
+                                                                                {activeDay.groups[period].map((time) => (
+                                                                                    <Link key={`${activeDay.date}-${time}`} href={profileHref} className="doctor-schedule-time-btn">
+                                                                                        {time}
+                                                                                    </Link>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : null
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="doctor-schedule-empty">
+                                                            No bookable slots are available for the next three days. You can still open the full profile for more details.
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })

@@ -425,6 +425,11 @@
     gap: 18px;
 }
 
+.doctor-listing-entry {
+    display: grid;
+    gap: 12px;
+}
+
 .doctor-listing-card {
     display: flex;
     align-items: stretch;
@@ -587,6 +592,109 @@
     pointer-events: none;
 }
 
+.doctor-schedule-preview {
+    padding: 18px 20px;
+    border: 1px solid #e5ebf3;
+    border-radius: 18px;
+    background: #fbfdff;
+}
+
+.doctor-schedule-preview-head p {
+    margin: 0 0 14px;
+    text-align: center;
+    color: #334155;
+    font-size: 0.98rem;
+}
+
+.doctor-schedule-tabs-wrap {
+    display: grid;
+    gap: 14px;
+}
+
+.doctor-schedule-tabs-nav {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.doctor-schedule-tab {
+    border: 0;
+    border-bottom: 3px solid transparent;
+    border-radius: 12px 12px 0 0;
+    padding: 0.6rem 0.75rem 0.7rem;
+    background: transparent;
+    color: #4b5f74;
+    text-align: center;
+}
+
+.doctor-schedule-tab strong {
+    display: block;
+    font-size: 1.05rem;
+    color: #1f3347;
+}
+
+.doctor-schedule-tab span {
+    display: block;
+    margin-top: 2px;
+    color: #16a34a;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.doctor-schedule-tab.is-active {
+    border-bottom-color: #16a5e8;
+    background: linear-gradient(180deg, rgba(22, 165, 232, 0.06), rgba(22, 165, 232, 0));
+}
+
+.doctor-schedule-tab-panel {
+    padding-top: 4px;
+}
+
+.doctor-schedule-period + .doctor-schedule-period {
+    margin-top: 10px;
+}
+
+.doctor-schedule-period-label {
+    margin-bottom: 6px;
+    color: #4b5f74;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.doctor-schedule-time-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.doctor-schedule-time-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 88px;
+    min-height: 38px;
+    padding: 0.4rem 0.7rem;
+    border: 1px solid #40a9ff;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #1695db;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.doctor-schedule-time-btn:hover {
+    background: #eaf6ff;
+}
+
+.doctor-schedule-empty {
+    padding: 14px;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #64748b;
+    text-align: center;
+}
+
 .doctor-listing-secondary-btn {
     border: 1px solid #d7e0eb;
     background: #ffffff;
@@ -653,6 +761,10 @@
 
     .doctor-listing-availability {
         justify-content: center;
+    }
+
+    .doctor-schedule-tabs-nav {
+        grid-template-columns: 1fr;
     }
 }
 
