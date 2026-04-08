@@ -39,7 +39,7 @@ export default function ProviderHomeServiceAvailability() {
     const loadAvailability = async () => {
         setLoading(true);
         try {
-            const response = await window.axios.get('/api/provider/home-service/availability');
+            const response = await window.axios.get('/provider/data/home-service/availability');
             const rows = response.data?.data || [];
             const byDay = new Map(rows.map((item) => [item.day_of_week, item]));
 
@@ -82,7 +82,7 @@ export default function ProviderHomeServiceAvailability() {
             }
 
             setSaving(true);
-            await window.axios.post('/api/provider/home-service/availability', { schedules });
+            await window.axios.post('/provider/data/home-service/availability', { schedules });
             message.success('Weekly availability updated successfully.');
             await loadAvailability();
         } catch (error) {

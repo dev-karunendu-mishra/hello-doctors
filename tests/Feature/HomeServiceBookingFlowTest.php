@@ -156,3 +156,84 @@ test('online home service booking sends confirmation notifications', function ()
     Notification::assertSentTo($patient, HomeServiceBookedNotification::class);
     Notification::assertSentTo($providerUser, HomeServiceBookedNotification::class);
 });
+
+test('provider can mark a confirmed home service booking as completed directly', function () {
+    $date = now()->addDays(2)->toDateString();
+    [$patient, $providerUser, $provider, $service, $address] = createHomeServiceSetup($date);
+
+    $booking = HomeServiceBooking::create([
+        'user_id' => $patient->id,
+        'home_service_id' => $service->id,
+        'provider_id' => $provider->id,
+        'address_id' => $address->id,
+        'service_date' => $date,
+        'service_time' => '09:00:00',
+        'duration_minutes' => 60,
+        'price' => 1500,
+        'travel_fee' => 0,
+        'discount_amount' => 0,
+        'total_amount' => 1500,
+        'payment_status' => HomeServiceBooking::PAYMENT_PENDING,
+        'payment_method' => HomeServiceBooking::PAYMENT_METHOD_COD,
+        'status' => HomeServiceBooking::STATUS_CONFIRMED,
+    ]);
+
+    $response = $this->actingAs($providerUser)->postJson("/provider/data/home-service/bookings/{$booking->id}/status", [
+        'status' => HomeServiceBooking::STATUS_COMPLETED,
+        'payment_status' => HomeServiceBooking::PAYMENT_PAID,
+        'payment_method' => HomeServiceBooking::PAYMENT_METHOD_COD,
+        'notes' => 'Visit completed successfully.',
+    ]);
+
+    $response
+        ->assertOk()
+        ->assertJsonPath('data.status', HomeServiceBooking::STATUS_COMPLETED)
+        ->assertJsonPath('data.payment_status', HomeServiceBooking::PAYMENT_PAID);
+
+    $this->assertDatabaseHas('home_service_bookings', [
+        'id' => $booking->id,
+        'status' => HomeServiceBooking::STATUS_COMPLETED,
+        'payment_status' => HomeServiceBooking::PAYMENT_PAID,
+    ]);
+});
+
+test('provider completion auto-marks cod payment as paid when cash is confirmed collected', function () {
+    $date = now()->addDays(2)->toDateString();
+    [$patient, $providerUser, $provider, $service, $address] = createHomeServiceSetup($date);
+
+    $booking = HomeServiceBooking::create([
+        'user_id' => $patient->id,
+        'home_service_id' => $service->id,
+        'provider_id' => $provider->id,
+        'address_id' => $address->id,
+        'service_date' => $date,
+        'service_time' => '10:00:00',
+        'duration_minutes' => 60,
+        'price' => 1500,
+        'travel_fee' => 0,
+        'discount_amount' => 0,
+        'total_amount' => 1500,
+        'payment_status' => HomeServiceBooking::PAYMENT_PENDING,
+        'payment_method' => HomeServiceBooking::PAYMENT_METHOD_COD,
+        'status' => HomeServiceBooking::STATUS_IN_PROGRESS,
+    ]);
+
+    $response = $this->actingAs($providerUser)->postJson("/provider/data/home-service/bookings/{$booking->id}/status", [
+        'status' => HomeServiceBooking::STATUS_COMPLETED,
+        'payment_method' => HomeServiceBooking::PAYMENT_METHOD_COD,
+        'cash_collected' => true,
+        'notes' => 'Cash received from patient.',
+    ]);
+
+    $response
+        ->assertOk()
+        ->assertJsonPath('data.status', HomeServiceBooking::STATUS_COMPLETED)
+        ->assertJsonPath('data.payment_status', HomeServiceBooking::PAYMENT_PAID);
+
+    $this->assertDatabaseHas('home_service_bookings', [
+        'id' => $booking->id,
+        'status' => HomeServiceBooking::STATUS_COMPLETED,
+        'payment_status' => HomeServiceBooking::PAYMENT_PAID,
+        'payment_method' => HomeServiceBooking::PAYMENT_METHOD_COD,
+    ]);
+});

@@ -31,6 +31,7 @@ use App\Http\Controllers\Api\Patient\HomeServiceController as PatientHomeService
 use App\Http\Controllers\Api\Patient\HomeServiceAddressController as PatientHomeServiceAddressController;
 use App\Http\Controllers\Api\Patient\HomeServiceBookingController as PatientHomeServiceBookingController;
 use App\Http\Controllers\Api\Patient\PaymentController as PatientPaymentController;
+use App\Http\Controllers\Api\Provider\HomeServiceController as ProviderHomeServiceController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -327,6 +328,19 @@ Route::middleware(['auth', 'role:home_service_provider'])->prefix('provider')->n
     Route::get('/home-services/bookings', function () {
         return Inertia::render('Provider/HomeServices/Bookings');
     })->name('home-services.bookings');
+
+    // Provider data session-authenticated endpoints
+    Route::get('/data/meta/cities', [ApiMetaController::class, 'cities'])->name('data.meta.cities');
+    Route::get('/data/meta/home-services', [ApiMetaController::class, 'homeServices'])->name('data.meta.home-services');
+
+    Route::get('/data/home-service/profile', [ProviderHomeServiceController::class, 'profile'])->name('data.home-service.profile');
+    Route::put('/data/home-service/profile', [ProviderHomeServiceController::class, 'updateProfile'])->name('data.home-service.profile.update');
+
+    Route::get('/data/home-service/availability', [ProviderHomeServiceController::class, 'availability'])->name('data.home-service.availability');
+    Route::post('/data/home-service/availability', [ProviderHomeServiceController::class, 'saveAvailability'])->name('data.home-service.availability.save');
+
+    Route::get('/data/home-service/bookings', [ProviderHomeServiceController::class, 'bookings'])->name('data.home-service.bookings');
+    Route::post('/data/home-service/bookings/{booking}/status', [ProviderHomeServiceController::class, 'updateBookingStatus'])->name('data.home-service.bookings.status');
 });
 
 require __DIR__.'/auth.php';

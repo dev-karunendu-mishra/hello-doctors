@@ -1,9 +1,15 @@
 import AdminLayout from '@/Layouts/AdminLayout';
 import { Head, Link } from '@inertiajs/react';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import multiMonthPlugin from '@fullcalendar/multimonth';
+import timeGridPlugin from '@fullcalendar/timegrid';
 import {
     Alert,
     Button,
     Card,
+    Checkbox,
     DatePicker,
     Drawer,
     Form,
@@ -11,13 +17,14 @@ import {
     Modal,
     Select,
     Space,
+    Spin,
     Table,
     Tag,
     Typography,
     message,
 } from 'antd';
 import dayjs from 'dayjs';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const { Title, Text } = Typography;
 
@@ -31,7 +38,30 @@ const statusColor = {
     no_show: 'default',
 };
 
+const paymentStatusColor = {
+    pending: 'orange',
+    paid: 'green',
+    failed: 'red',
+    refunded: 'purple',
+};
+
+const paymentMethodLabel = {
+    online: 'Online / UPI',
+    cod: 'Cash on Visit',
+};
+
+const statusEventColor = {
+    pending: '#f59e0b',
+    assigned: '#1677ff',
+    confirmed: '#2563eb',
+    in_progress: '#06b6d4',
+    completed: '#16a34a',
+    cancelled: '#dc2626',
+    no_show: '#6b7280',
+};
+
 const statusOptions = [
+    { value: 'assigned', label: 'Assigned' },
     { value: 'confirmed', label: 'Confirmed' },
     { value: 'in_progress', label: 'In Progress' },
     { value: 'completed', label: 'Completed' },
@@ -39,9 +69,20 @@ const statusOptions = [
     { value: 'no_show', label: 'No Show' },
 ];
 
+const paymentStatusOptions = [
+    { value: 'pending', label: 'Pending' },
+    { value: 'paid', label: 'Paid' },
+    { value: 'failed', label: 'Failed' },
+];
+
+const paymentMethodOptions = [
+    { value: 'cod', label: 'Cash / Pay on Visit' },
+    { value: 'online', label: 'Online / UPI Transfer' },
+];
+
 const allowedTransitions = {
-    assigned: ['confirmed', 'cancelled'],
-    confirmed: ['in_progress', 'cancelled', 'no_show'],
+    assigned: ['confirmed', 'in_progress', 'completed', 'cancelled'],
+    confirmed: ['in_progress', 'completed', 'cancelled', 'no_show'],
     in_progress: ['completed', 'cancelled'],
     pending: [],
     completed: [],
@@ -52,7 +93,9 @@ const allowedTransitions = {
 export default function ProviderHomeServiceBookings() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [calendarLoading, setCalendarLoading] = useState(true);
     const [bookings, setBookings] = useState([]);
+    const [calendarBookings, setCalendarBookings] = useState([]);
     const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
     const [filters, setFilters] = useState({ status: null, date: null });
 
@@ -60,12 +103,31 @@ export default function ProviderHomeServiceBookings() {
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
     const [detailBooking, setDetailBooking] = useState(null);
+    const [isClient, setIsClient] = useState(false);
     const [statusForm] = Form.useForm();
+    const watchedStatus = Form.useWatch('status', statusForm);
+    const watchedPaymentMethod = Form.useWatch('payment_method', statusForm);
+    const watchedCashCollected = Form.useWatch('cash_collected', statusForm);
 
     const getAllowedStatusOptions = (status) => {
-        const allowed = allowedTransitions[status] || [];
+        const allowed = new Set([status, ...(allowedTransitions[status] || [])]);
 
-        return statusOptions.filter((item) => allowed.includes(item.value));
+        return statusOptions.filter((item) => allowed.has(item.value));
+    };
+
+    const canMarkCompleted = (status) => ['assigned', 'confirmed', 'in_progress'].includes(status);
+
+    const getAddressQuery = (booking) => {
+        const address = booking?.address;
+        if (!address) return '';
+
+        return [
+            address.line1,
+            address.line2,
+            address.landmark,
+            address.city?.name,
+            address.pincode,
+        ].filter(Boolean).join(', ');
     };
 
     const getMapLink = (booking) => {
@@ -76,23 +138,32 @@ export default function ProviderHomeServiceBookings() {
             return `https://www.google.com/maps?q=${address.latitude},${address.longitude}`;
         }
 
-        const query = [
-            address.line1,
-            address.line2,
-            address.landmark,
-            address.city?.name,
-            address.pincode,
-        ].filter(Boolean).join(', ');
+        const query = getAddressQuery(booking);
 
         if (!query) return null;
 
         return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
     };
 
+    const getMapEmbedUrl = (booking) => {
+        const address = booking?.address;
+        if (!address) return null;
+
+        if (address.latitude !== null && address.latitude !== undefined && address.longitude !== null && address.longitude !== undefined) {
+            return `https://www.google.com/maps?q=${address.latitude},${address.longitude}&z=15&output=embed`;
+        }
+
+        const query = getAddressQuery(booking);
+
+        if (!query) return null;
+
+        return `https://www.google.com/maps?q=${encodeURIComponent(query)}&z=15&output=embed`;
+    };
+
     const loadBookings = async (nextFilters = filters, page = 1) => {
         setLoading(true);
         try {
-            const response = await window.axios.get('/api/provider/home-service/bookings', {
+            const response = await window.axios.get('/provider/data/home-service/bookings', {
                 params: {
                     page,
                     status: nextFilters.status || undefined,
@@ -114,21 +185,70 @@ export default function ProviderHomeServiceBookings() {
         }
     };
 
+    const loadCalendarBookings = async (nextFilters = filters) => {
+        setCalendarLoading(true);
+        try {
+            const response = await window.axios.get('/provider/data/home-service/bookings', {
+                params: {
+                    page: 1,
+                    per_page: 250,
+                    status: nextFilters.status || undefined,
+                    date: nextFilters.date || undefined,
+                },
+            });
+
+            const paginated = response.data?.data || {};
+            setCalendarBookings(paginated.data || []);
+        } catch (error) {
+            message.error(error?.response?.data?.message || 'Failed to load calendar bookings.');
+        } finally {
+            setCalendarLoading(false);
+        }
+    };
+
     useEffect(() => {
+        setIsClient(true);
         loadBookings();
+        loadCalendarBookings();
     }, []);
+
+    useEffect(() => {
+        if (!statusModalOpen) {
+            return;
+        }
+
+        const canConfirmCashCollection = watchedPaymentMethod === 'cod'
+            && ['confirmed', 'in_progress', 'completed'].includes(watchedStatus);
+
+        if (watchedCashCollected && canConfirmCashCollection && statusForm.getFieldValue('payment_status') !== 'paid') {
+            statusForm.setFieldValue('payment_status', 'paid');
+        }
+
+        if (watchedCashCollected && !canConfirmCashCollection) {
+            statusForm.setFieldValue('cash_collected', false);
+        }
+    }, [statusForm, statusModalOpen, watchedCashCollected, watchedPaymentMethod, watchedStatus]);
 
     const applyFilters = async (nextFilters) => {
         setFilters(nextFilters);
-        await loadBookings(nextFilters, 1);
+        await Promise.all([
+            loadBookings(nextFilters, 1),
+            loadCalendarBookings(nextFilters),
+        ]);
     };
 
-    const openStatusModal = (booking) => {
-        const options = getAllowedStatusOptions(booking.status);
+    const openStatusModal = (booking, defaults = {}) => {
+        const paymentMethod = defaults.payment_method || booking.payment_method || 'cod';
+        const paymentStatus = defaults.payment_status || booking.payment_status || 'pending';
+        const cashCollected = defaults.cash_collected ?? (paymentMethod === 'cod' && paymentStatus === 'paid');
+
         setSelectedBooking(booking);
         statusForm.setFieldsValue({
-            status: options[0]?.value || undefined,
-            notes: '',
+            status: defaults.status || booking.status,
+            payment_status: paymentStatus,
+            payment_method: paymentMethod,
+            cash_collected: cashCollected,
+            notes: defaults.notes || '',
         });
         setStatusModalOpen(true);
     };
@@ -138,16 +258,52 @@ export default function ProviderHomeServiceBookings() {
         setDetailDrawerOpen(true);
     };
 
+    const calendarEvents = useMemo(() => {
+        return calendarBookings.map((booking) => {
+            const serviceDate = dayjs(booking.service_date).format('YYYY-MM-DD');
+            const serviceTime = String(booking.service_time || '00:00:00').slice(0, 8);
+            const start = `${serviceDate}T${serviceTime}`;
+            const duration = Number(booking.duration_minutes || 60);
+            const color = statusEventColor[booking.status] || '#1677ff';
+
+            return {
+                id: String(booking.id),
+                title: `${booking.service?.name || 'Service'} · ${booking.user?.name || 'Patient'}`,
+                start,
+                end: dayjs(start).add(duration, 'minute').format('YYYY-MM-DDTHH:mm:ss'),
+                backgroundColor: color,
+                borderColor: color,
+                extendedProps: {
+                    status: booking.status,
+                    bookingNumber: booking.booking_number,
+                },
+            };
+        });
+    }, [calendarBookings]);
+
     const saveStatus = async () => {
         if (!selectedBooking) return;
 
         try {
             const values = await statusForm.validateFields();
+            const payload = { ...values };
+
+            if (
+                payload.payment_method === 'cod'
+                && payload.cash_collected
+                && ['confirmed', 'in_progress', 'completed'].includes(payload.status)
+            ) {
+                payload.payment_status = 'paid';
+            }
+
             setSaving(true);
-            await window.axios.post(`/api/provider/home-service/bookings/${selectedBooking.id}/status`, values);
-            message.success('Booking status updated.');
+            await window.axios.post(`/provider/data/home-service/bookings/${selectedBooking.id}/status`, payload);
+            message.success('Booking and payment details updated.');
             setStatusModalOpen(false);
-            await loadBookings(filters, pagination.current);
+            await Promise.all([
+                loadBookings(filters, pagination.current),
+                loadCalendarBookings(filters),
+            ]);
         } catch (error) {
             if (error?.errorFields) return;
             message.error(error?.response?.data?.message || 'Failed to update booking status.');
@@ -176,8 +332,70 @@ export default function ProviderHomeServiceBookings() {
                 <Alert
                     type="info"
                     showIcon
-                    message="Manage status updates for your assigned visits and keep patient progress updated."
+                    message="Manage visit progress and mark cash / online payments once you collect them during the service visit."
                 />
+
+                <Card
+                    title="Bookings Calendar"
+                    extra={<Text type="secondary">Click any booking to view details</Text>}
+                >
+                    {isClient ? (
+                        calendarLoading ? (
+                            <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
+                                <Spin />
+                            </div>
+                        ) : calendarEvents.length > 0 ? (
+                            <FullCalendar
+                                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, multiMonthPlugin]}
+                                initialView="dayGridMonth"
+                                headerToolbar={{
+                                    left: 'prev,next today',
+                                    center: 'title',
+                                    right: 'multiMonthYear,dayGridMonth,timeGridWeek,timeGridDay',
+                                }}
+                                buttonText={{
+                                    multiMonthYear: 'Year',
+                                    dayGridMonth: 'Month',
+                                    timeGridWeek: 'Week',
+                                    timeGridDay: 'Day',
+                                    today: 'Today',
+                                }}
+                                views={{
+                                    multiMonthYear: {
+                                        type: 'multiMonth',
+                                        duration: { years: 1 },
+                                    },
+                                }}
+                                multiMonthMaxColumns={3}
+                                events={calendarEvents}
+                                height="auto"
+                                nowIndicator
+                                dayMaxEvents
+                                eventTimeFormat={{
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: true,
+                                }}
+                                eventClick={(info) => {
+                                    const booking = calendarBookings.find((item) => String(item.id) === String(info.event.id));
+                                    if (booking) {
+                                        openDetailDrawer(booking);
+                                    }
+                                }}
+                            />
+                        ) : (
+                            <Alert
+                                type="info"
+                                showIcon
+                                message="No bookings available for the selected filters to display on the calendar."
+                            />
+                        )
+                    ) : (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
+                            <Spin />
+                        </div>
+                    )}
+                </Card>
 
                 <Card>
                     <Space wrap style={{ marginBottom: 16 }}>
@@ -255,6 +473,20 @@ export default function ProviderHomeServiceBookings() {
                                 render: (_, record) => `${record.service_date} ${(record.service_time || '').slice(0, 5)}`,
                             },
                             {
+                                title: 'Payment',
+                                key: 'payment_status',
+                                render: (_, record) => (
+                                    <Tag color={paymentStatusColor[record.payment_status] || 'default'}>
+                                        {record.payment_status || 'pending'}
+                                    </Tag>
+                                ),
+                            },
+                            {
+                                title: 'Method',
+                                key: 'payment_method',
+                                render: (_, record) => paymentMethodLabel[record.payment_method || 'cod'] || record.payment_method || 'cod',
+                            },
+                            {
                                 title: 'Status',
                                 key: 'status',
                                 render: (_, record) => (
@@ -267,17 +499,28 @@ export default function ProviderHomeServiceBookings() {
                                 title: 'Action',
                                 key: 'action',
                                 render: (_, record) => (
-                                    <Space>
+                                    <Space wrap>
                                         <Button size="small" onClick={() => openDetailDrawer(record)}>
                                             View
                                         </Button>
                                         <Button
                                             size="small"
                                             onClick={() => openStatusModal(record)}
-                                            disabled={getAllowedStatusOptions(record.status).length === 0}
                                         >
-                                            Update Status
+                                            Update Status / Payment
                                         </Button>
+                                        {canMarkCompleted(record.status) ? (
+                                            <Button
+                                                size="small"
+                                                type="primary"
+                                                onClick={() => openStatusModal(record, {
+                                                    status: 'completed',
+                                                    cash_collected: (record.payment_method || 'cod') === 'cod',
+                                                })}
+                                            >
+                                                Mark Completed
+                                            </Button>
+                                        ) : null}
                                     </Space>
                                 ),
                             },
@@ -318,6 +561,16 @@ export default function ProviderHomeServiceBookings() {
                                 <Text>Service: {detailBooking.service?.name || '-'}</Text>
                                 <Text>Date: {detailBooking.service_date || '-'}</Text>
                                 <Text>Time: {(detailBooking.service_time || '').slice(0, 5) || '-'}</Text>
+                                <Text>Total Amount: ₹{Number(detailBooking.total_amount || 0).toFixed(2)}</Text>
+                                <Text>
+                                    Payment:{' '}
+                                    <Tag color={paymentStatusColor[detailBooking.payment_status] || 'default'}>
+                                        {detailBooking.payment_status || 'pending'}
+                                    </Tag>
+                                    <span style={{ marginLeft: 8 }}>
+                                        {paymentMethodLabel[detailBooking.payment_method || 'cod'] || detailBooking.payment_method || 'cod'}
+                                    </span>
+                                </Text>
                                 <Text>
                                     Status:{' '}
                                     <Tag color={statusColor[detailBooking.status] || 'default'}>
@@ -332,16 +585,34 @@ export default function ProviderHomeServiceBookings() {
                         </Card>
 
                         <Card size="small" title="Address">
-                            <Space direction="vertical" size={2}>
-                                <Text>{detailBooking.address?.line1 || '-'}</Text>
-                                {detailBooking.address?.line2 ? <Text>{detailBooking.address.line2}</Text> : null}
-                                {detailBooking.address?.landmark ? (
-                                    <Text type="secondary">Landmark: {detailBooking.address.landmark}</Text>
-                                ) : null}
-                                <Text>
-                                    {detailBooking.address?.city?.name || '-'}
-                                    {detailBooking.address?.pincode ? ` - ${detailBooking.address.pincode}` : ''}
-                                </Text>
+                            <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                                <Space direction="vertical" size={2}>
+                                    <Text>{detailBooking.address?.line1 || '-'}</Text>
+                                    {detailBooking.address?.line2 ? <Text>{detailBooking.address.line2}</Text> : null}
+                                    {detailBooking.address?.landmark ? (
+                                        <Text type="secondary">Landmark: {detailBooking.address.landmark}</Text>
+                                    ) : null}
+                                    <Text>
+                                        {detailBooking.address?.city?.name || '-'}
+                                        {detailBooking.address?.pincode ? ` - ${detailBooking.address.pincode}` : ''}
+                                    </Text>
+                                </Space>
+
+                                {getMapEmbedUrl(detailBooking) ? (
+                                    <iframe
+                                        title={`booking-map-${detailBooking.id}`}
+                                        src={getMapEmbedUrl(detailBooking)}
+                                        style={{ width: '100%', height: 220, border: 0, borderRadius: 12 }}
+                                        loading="lazy"
+                                        referrerPolicy="no-referrer-when-downgrade"
+                                    />
+                                ) : (
+                                    <Alert
+                                        type="info"
+                                        showIcon
+                                        message="Map preview is not available for this address yet."
+                                    />
+                                )}
                             </Space>
                         </Card>
                     </Space>
@@ -349,7 +620,7 @@ export default function ProviderHomeServiceBookings() {
             </Drawer>
 
             <Modal
-                title="Update Booking Status"
+                title="Update Booking & Payment"
                 open={statusModalOpen}
                 onCancel={() => setStatusModalOpen(false)}
                 onOk={saveStatus}
@@ -357,11 +628,40 @@ export default function ProviderHomeServiceBookings() {
                 destroyOnClose
             >
                 <Form form={statusForm} layout="vertical">
-                    <Form.Item name="status" label="Status" rules={[{ required: true, message: 'Select status.' }]}>
+                    <Alert
+                        type="info"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                        message="If the visit is completed and cash was collected, tick the confirmation below and payment will be marked as Paid automatically."
+                    />
+
+                    <Form.Item name="status" label="Service Status" rules={[{ required: true, message: 'Select status.' }]}>
                         <Select options={getAllowedStatusOptions(selectedBooking?.status)} />
                     </Form.Item>
+
+                    <Form.Item name="payment_method" label="Payment Method">
+                        <Select options={paymentMethodOptions} />
+                    </Form.Item>
+
+                    {watchedPaymentMethod === 'cod' && ['confirmed', 'in_progress', 'completed'].includes(watchedStatus) ? (
+                        <Form.Item
+                            name="cash_collected"
+                            valuePropName="checked"
+                            extra="When checked, this cash-on-visit booking will automatically be marked as paid."
+                        >
+                            <Checkbox>Cash collected from patient</Checkbox>
+                        </Form.Item>
+                    ) : null}
+
+                    <Form.Item name="payment_status" label="Payment Status">
+                        <Select
+                            options={paymentStatusOptions}
+                            disabled={watchedPaymentMethod === 'cod' && watchedCashCollected}
+                        />
+                    </Form.Item>
+
                     <Form.Item name="notes" label="Notes">
-                        <Input.TextArea rows={4} maxLength={1000} />
+                        <Input.TextArea rows={4} maxLength={1000} placeholder="Optional service or payment note" />
                     </Form.Item>
                 </Form>
             </Modal>
