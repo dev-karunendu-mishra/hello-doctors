@@ -261,23 +261,65 @@ export default function DoctorProfile({ auth, doctor }) {
         }
     };
 
-    const bookingCta = bookingUnavailable ? (
-        <Button type="primary" size="large" disabled>
-            Appointment Unavailable
-        </Button>
-    ) : isPatient ? (
-        <Button type="primary" size="large" onClick={openBookingModal}>
-            Book Appointment
-        </Button>
-    ) : !isLoggedIn ? (
-        <Link href="/login">
-            <Button type="primary" size="large">Login to Book Appointment</Button>
-        </Link>
-    ) : (
-        <Link href="/patient/find-doctors">
-            <Button type="primary" size="large">Book from Patient Dashboard</Button>
-        </Link>
-    );
+    const availabilityLabel = bookingUnavailable ? 'Schedule Updating' : 'Available Today';
+
+    const renderBookingActionButton = () => {
+        if (bookingUnavailable) {
+            return (
+                <button type="button" className="doctor-listing-primary-btn is-disabled" disabled>
+                    <span>Appointment Unavailable</span>
+                    <small>Schedule will open soon</small>
+                </button>
+            );
+        }
+
+        if (isPatient) {
+            return (
+                <button type="button" className="doctor-listing-primary-btn" onClick={openBookingModal}>
+                    <span>Book Clinic Visit</span>
+                    <small>No Booking Fee</small>
+                </button>
+            );
+        }
+
+        if (!isLoggedIn) {
+            return (
+                <Link href="/login" className="doctor-listing-primary-btn">
+                    <span>Login to Book</span>
+                    <small>Secure appointment access</small>
+                </Link>
+            );
+        }
+
+        return (
+            <Link href="/patient/find-doctors" className="doctor-listing-primary-btn">
+                <span>Book from Dashboard</span>
+                <small>Continue as patient</small>
+            </Link>
+        );
+    };
+
+    const renderSecondaryActionButton = () => {
+        if (doctor.phone) {
+            return (
+                <a href={`tel:${doctor.phone}`} className="doctor-listing-secondary-btn">
+                    <PhoneOutlined />
+                    Contact Clinic
+                </a>
+            );
+        }
+
+        if (doctor.email) {
+            return (
+                <a href={`mailto:${doctor.email}`} className="doctor-listing-secondary-btn">
+                    <MailOutlined />
+                    Send Email
+                </a>
+            );
+        }
+
+        return null;
+    };
 
     const pricing = getPricingSummary(selectedClinic?.consultation_fee || doctor.consultation_fee, selectedPaymentMethod);
 
@@ -405,14 +447,19 @@ export default function DoctorProfile({ auth, doctor }) {
                                     )}
                                 </Descriptions>
 
-                                <Space wrap size="middle" style={{ marginTop: 16 }}>
-                                    {bookingCta}
+                                <div className="doctor-detail-action-panel">
+                                    <span className="doctor-listing-availability">
+                                        <i className="bi bi-calendar-check" />
+                                        {availabilityLabel}
+                                    </span>
+                                    {renderBookingActionButton()}
+                                    {renderSecondaryActionButton()}
                                     {isPatient && (
-                                        <Link href="/patient/appointments">
-                                            <Button size="large">My Appointments</Button>
+                                        <Link href="/patient/appointments" className="doctor-detail-inline-link">
+                                            View My Appointments
                                         </Link>
                                     )}
-                                </Space>
+                                </div>
 
                                 <Paragraph
                                     type="secondary"
@@ -557,19 +604,14 @@ export default function DoctorProfile({ auth, doctor }) {
                         <Paragraph>
                             {bookingAvailabilityNote}
                         </Paragraph>
-                        <Space wrap size="middle" style={{ justifyContent: 'center' }}>
-                            {bookingCta}
-                            {doctor.phone && (
-                                <Button size="large" icon={<PhoneOutlined />} href={`tel:${doctor.phone}`}>
-                                    Call Now
-                                </Button>
-                            )}
-                            {doctor.email && (
-                                <Button size="large" icon={<MailOutlined />} href={`mailto:${doctor.email}`}>
-                                    Send Email
-                                </Button>
-                            )}
-                        </Space>
+                        <div className="doctor-detail-contact-panel">
+                            <span className="doctor-listing-availability">
+                                <i className="bi bi-calendar-check" />
+                                {availabilityLabel}
+                            </span>
+                            {renderBookingActionButton()}
+                            {renderSecondaryActionButton()}
+                        </div>
                     </Card>
 
                     <Modal

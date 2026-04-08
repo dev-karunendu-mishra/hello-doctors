@@ -419,6 +419,219 @@
     }
 } */
 
+/* Public doctor result list */
+.doctor-results-list {
+    display: grid;
+    gap: 18px;
+}
+
+.doctor-listing-card {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 22px 24px;
+    border: 1px solid #e5ebf3;
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 16px 38px -34px rgba(23, 50, 80, 0.35);
+}
+
+.doctor-listing-main {
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+    flex: 1;
+}
+
+.doctor-listing-avatar-wrap {
+    flex-shrink: 0;
+}
+
+.doctor-listing-avatar {
+    width: 104px;
+    height: 104px;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 4px solid #f3f8fd;
+}
+
+.doctor-listing-body {
+    min-width: 0;
+}
+
+.doctor-listing-body h3 {
+    margin: 0 0 4px;
+    font-size: 1.55rem;
+    color: #1695db;
+}
+
+.doctor-listing-specialty,
+.doctor-listing-experience,
+.doctor-listing-location,
+.doctor-listing-fee {
+    margin: 0 0 6px;
+    color: #556779;
+}
+
+.doctor-listing-specialty {
+    font-weight: 500;
+}
+
+.doctor-listing-location strong {
+    color: #26384a;
+}
+
+.doctor-listing-fee {
+    color: #26384a;
+    font-weight: 600;
+}
+
+.doctor-listing-trust {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+.doctor-listing-score {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0.25rem 0.55rem;
+    border-radius: 8px;
+    background: #16a34a;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 0.88rem;
+}
+
+.doctor-listing-stories {
+    color: #3a556f;
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.doctor-listing-actions {
+    width: 220px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.doctor-listing-availability {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    color: #16a34a;
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+.doctor-listing-primary-btn,
+.doctor-listing-secondary-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 46px;
+    border-radius: 10px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.doctor-listing-primary-btn {
+    flex-direction: column;
+    background: linear-gradient(135deg, #17a5e6, #1597dd);
+    color: #ffffff;
+}
+
+.doctor-listing-primary-btn small {
+    font-size: 0.72rem;
+    opacity: 0.92;
+}
+
+.doctor-listing-primary-btn.is-disabled {
+    background: linear-gradient(135deg, #94a3b8, #a8b6c8);
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.doctor-listing-secondary-btn {
+    border: 1px solid #d7e0eb;
+    background: #ffffff;
+    color: #1695db;
+}
+
+.doctor-listing-primary-btn:hover,
+.doctor-listing-secondary-btn:hover {
+    transform: translateY(-1px);
+}
+
+.doctor-detail-action-panel,
+.doctor-detail-contact-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 16px;
+    max-width: 240px;
+}
+
+.doctor-detail-action-panel .doctor-listing-primary-btn,
+.doctor-detail-action-panel .doctor-listing-secondary-btn,
+.doctor-detail-contact-panel .doctor-listing-primary-btn,
+.doctor-detail-contact-panel .doctor-listing-secondary-btn {
+    width: 100%;
+}
+
+.doctor-detail-inline-link {
+    color: #1695db;
+    font-size: 0.88rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.doctor-detail-inline-link:hover {
+    text-decoration: underline;
+}
+
+.doctor-detail-contact-panel {
+    align-items: center;
+    margin: 12px auto 0;
+}
+
+.doctor-detail-contact-panel .doctor-listing-availability {
+    justify-content: center;
+}
+
+@media (max-width: 768px) {
+    .doctor-listing-card {
+        flex-direction: column;
+        padding: 18px;
+    }
+
+    .doctor-listing-main {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .doctor-listing-actions {
+        width: 100%;
+    }
+
+    .doctor-listing-availability {
+        justify-content: center;
+    }
+}
+
 /* Public Doctors Pagination */
 .doctor-pagination-shell {
     margin-top: 2rem;
