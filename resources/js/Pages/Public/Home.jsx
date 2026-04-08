@@ -1,5 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
+import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
 import PublicLayout from '@/Layouts/PublicLayout';
 import { useLocation } from '@/Contexts/LocationContext';
 
@@ -55,13 +57,116 @@ const specialtyShowcase = [
     { title: 'Advanced Technology', image: '/clinic-assets/facilities-6.webp', text: 'State-of-the-art medical equipment' },
 ];
 
+const DEFAULT_MAP_CENTER = [25.4358, 81.8463];
+
+const normalizeSearchCityValue = (value) => {
+    const trimmed = String(value || '').trim();
+
+    if (!trimmed) {
+        return '';
+    }
+
+    return trimmed.toLowerCase() === 'prayagraj' ? 'Allahabad' : trimmed;
+};
+
+if (typeof window !== 'undefined') {
+    delete L.Icon.Default.prototype._getIconUrl;
+    L.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+    });
+}
+
+function HomeMapViewport({ position, isVisible }) {
+    const map = useMap();
+
+    useEffect(() => {
+        if (!isVisible) {
+            return undefined;
+        }
+
+        const timer = window.setTimeout(() => {
+            map.invalidateSize();
+
+            if (position) {
+                map.setView([position.lat, position.lng], Math.max(map.getZoom(), 14), {
+                    animate: true,
+                });
+            }
+        }, 180);
+
+        return () => window.clearTimeout(timer);
+    }, [isVisible, map, position]);
+
+    return null;
+}
+
+function HomeLocationSelectionMarker({ position, onSelect }) {
+    useMapEvents({
+        click(event) {
+            onSelect({
+                lat: event.latlng.lat,
+                lng: event.latlng.lng,
+            });
+        },
+    });
+
+    if (!position) {
+        return null;
+    }
+
+    return (
+        <Marker
+            position={[position.lat, position.lng]}
+            draggable
+            eventHandlers={{
+                dragend: (event) => {
+                    const { lat, lng } = event.target.getLatLng();
+                    onSelect({ lat, lng });
+                },
+            }}
+        />
+    );
+}
+
+function HomeLocationPickerMap({ position, onSelect, isVisible }) {
+    const [isClient, setIsClient] = useState(false);
+
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
+
+    if (!isClient) {
+        return <div className="home-map-picker-placeholder">Loading map…</div>;
+    }
+
+    const center = position ? [position.lat, position.lng] : DEFAULT_MAP_CENTER;
+
+    return (
+        <div className="home-map-picker-canvas">
+            <MapContainer center={center} zoom={position ? 14 : 7} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false}>
+                <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                <HomeMapViewport position={position} isVisible={isVisible} />
+                <HomeLocationSelectionMarker position={position} onSelect={onSelect} />
+            </MapContainer>
+        </div>
+    );
+}
+
 export default function Home({ auth, site, seo, cities = [], specialties = [], featuredDoctors = [], stats = {}, homeServices = [], homeServicesStats = {} }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCity, setSelectedCity] = useState('');
     const [detectedSearchCity, setDetectedSearchCity] = useState('');
+    const [selectedCoords, setSelectedCoords] = useState(null);
+    const [showMapPicker, setShowMapPicker] = useState(false);
     const [isManualLocationOverride, setIsManualLocationOverride] = useState(false);
     const [hasRequestedLocation, setHasRequestedLocation] = useState(false);
-    const { location, isLoadingLocation, detectLocation } = useLocation();
+    const [isResolvingMapLocation, setIsResolvingMapLocation] = useState(false);
+    const { location, coordinates, isLoadingLocation, detectLocation } = useLocation();
 
     const pageTitle = seo?.meta_title || (site?.name && site?.tagline ? `${site.name} - ${site.tagline}` : 'Hello Doctors - Find Best Doctors');
     const pageDescription = seo?.meta_description || 'Find and connect with verified healthcare professionals across Uttar Pradesh. Search by specialty, city, or doctor name.';
@@ -147,9 +252,10 @@ export default function Home({ auth, site, seo, cities = [], specialties = [], f
     const aboutPatientsCount = Math.max((stats.total_doctors || 50) * 300, 15000);
     const contactPhone = site?.contact?.phone || '+91 (555) 123-4567';
     const contactPhoneHref = `tel:${String(contactPhone).replace(/[^+\d]/g, '')}`;
-    const activeLocation = (isManualLocationOverride ? selectedCity : (detectedSearchCity || location || '')).trim();
-    const locationChipLabel = isLoadingLocation
-        ? 'Detecting location...'
+    const isLocationBusy = isLoadingLocation || isResolvingMapLocation;
+    const activeLocation = normalizeSearchCityValue(isManualLocationOverride ? selectedCity : (detectedSearchCity || location || '')).trim();
+    const locationChipLabel = isLocationBusy
+        ? 'Updating location...'
         : isManualLocationOverride
             ? (selectedCity ? `Location: ${selectedCity}` : 'Enter your location')
             : (location ? `Location: ${location}` : 'Use current location');
@@ -164,6 +270,19 @@ export default function Home({ auth, site, seo, cities = [], specialties = [], f
     }, [detectLocation, hasRequestedLocation, isManualLocationOverride]);
 
     useEffect(() => {
+        if (!coordinates) {
+            return;
+        }
+
+        const lat = Number(coordinates.latitude ?? coordinates.lat);
+        const lng = Number(coordinates.longitude ?? coordinates.lng);
+
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            setSelectedCoords({ lat, lng });
+        }
+    }, [coordinates]);
+
+    useEffect(() => {
         if (isManualLocationOverride || !location) {
             return;
         }
@@ -171,10 +290,52 @@ export default function Home({ auth, site, seo, cities = [], specialties = [], f
         const normalizedLocation = location.toLowerCase();
         const matchedCity = cities.find((city) => normalizedLocation.includes(String(city.name || '').toLowerCase()));
         const locationParts = location.split(',').map((part) => part.trim()).filter(Boolean);
-        const derivedCity = matchedCity?.name || locationParts[1] || locationParts[0] || location;
+        const derivedCity = matchedCity?.name || locationParts[0] || location;
 
-        setDetectedSearchCity(derivedCity);
+        setDetectedSearchCity(normalizeSearchCityValue(derivedCity));
     }, [cities, isManualLocationOverride, location]);
+
+    const resolveLocationFromCoordinates = async (latitude, longitude) => {
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`,
+            {
+                headers: {
+                    'User-Agent': 'HelloDoctors/1.0',
+                },
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`Reverse geocoding failed with status ${response.status}`);
+        }
+
+        const data = await response.json();
+        const address = data.address || {};
+
+        return address.city
+            || address.town
+            || address.village
+            || address.county
+            || address.state_district
+            || data.display_name
+            || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+    };
+
+    const handleMapLocationSelection = async (coords) => {
+        setSelectedCoords(coords);
+        setIsManualLocationOverride(true);
+        setIsResolvingMapLocation(true);
+
+        try {
+            const resolvedLocation = await resolveLocationFromCoordinates(coords.lat, coords.lng);
+            setSelectedCity(resolvedLocation);
+        } catch (error) {
+            console.error('Failed to resolve map-selected location:', error);
+            setSelectedCity(`${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`);
+        } finally {
+            setIsResolvingMapLocation(false);
+        }
+    };
 
     const handleDetectCurrentLocation = () => {
         setIsManualLocationOverride(false);
@@ -578,17 +739,30 @@ export default function Home({ auth, site, seo, cities = [], specialties = [], f
                                             </div>
 
                                             <div className="home-search-footer">
-                                                <button
-                                                    type="button"
-                                                    className={`home-location-toggle ${isManualLocationOverride ? 'is-active' : ''}`}
-                                                    onClick={() => setIsManualLocationOverride((value) => !value)}
-                                                >
-                                                    <i className="bi bi-pencil-square" />
-                                                    {isManualLocationOverride ? 'Hide manual override' : 'Change location manually'}
-                                                </button>
+                                                <div className="home-search-actions">
+                                                    <button
+                                                        type="button"
+                                                        className={`home-location-toggle ${isManualLocationOverride ? 'is-active' : ''}`}
+                                                        onClick={() => setIsManualLocationOverride((value) => !value)}
+                                                    >
+                                                        <i className="bi bi-pencil-square" />
+                                                        {isManualLocationOverride ? 'Hide manual override' : 'Change location manually'}
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        className={`home-map-toggle ${showMapPicker ? 'is-active' : ''}`}
+                                                        onClick={() => setShowMapPicker((value) => !value)}
+                                                    >
+                                                        <i className="bi bi-map" />
+                                                        {showMapPicker ? 'Hide map' : 'Pick from map'}
+                                                    </button>
+                                                </div>
 
                                                 <span className="home-search-note">
-                                                    {isManualLocationOverride ? 'Manual location is active.' : 'Using browser-based location detection.'}
+                                                    {showMapPicker
+                                                        ? 'Click anywhere on the map to set your search location.'
+                                                        : (isManualLocationOverride ? 'Manual location is active.' : 'Using browser-based location detection.')}
                                                 </span>
                                             </div>
 
@@ -609,6 +783,28 @@ export default function Home({ auth, site, seo, cities = [], specialties = [], f
                                                             <option key={city.id || city.name} value={city.name} />
                                                         ))}
                                                     </datalist>
+                                                </div>
+                                            )}
+
+                                            {showMapPicker && (
+                                                <div className="home-map-picker-wrap">
+                                                    <div className="home-map-picker-head">
+                                                        <div>
+                                                            <h4>Pick your location from the map</h4>
+                                                            <p>Click or drag the marker to refine your area.</p>
+                                                        </div>
+                                                        {selectedCoords && (
+                                                            <span className="home-map-coords">
+                                                                {selectedCoords.lat.toFixed(4)}, {selectedCoords.lng.toFixed(4)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    <HomeLocationPickerMap
+                                                        position={selectedCoords}
+                                                        onSelect={handleMapLocationSelection}
+                                                        isVisible={showMapPicker}
+                                                    />
                                                 </div>
                                             )}
                                         </div>
