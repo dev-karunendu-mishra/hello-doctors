@@ -78,27 +78,6 @@ export default function Header({ auth }) {
                             <li><Link href="/departments" className={isActive('/departments') ? 'active' : ''} onClick={closeMenus}>Departments</Link></li>
                             <li><Link href="/services" className={isActive('/services') ? 'active' : ''} onClick={closeMenus}>Services</Link></li>
                             <li><Link href="/doctors" className={isActive('/doctors') ? 'active' : ''} onClick={closeMenus}>Doctors</Link></li>
-                            <li className="dropdown">
-                                <a
-                                    href="#!"
-                                    onClick={(event) => {
-                                        event.preventDefault();
-                                        setMorePagesOpen((value) => !value);
-                                    }}
-                                    className={isMorePagesActive ? 'active' : ''}
-                                >
-                                    <span>More Pages</span>
-                                    <i className="bi bi-chevron-down toggle-dropdown" />
-                                </a>
-                                <ul className={morePagesOpen ? 'dropdown-active' : ''}>
-                                    <li><Link href="/testimonials" className={isActive('/testimonials') ? 'active' : ''} onClick={closeMenus}>Testimonials</Link></li>
-                                    <li><Link href="/faq" className={isActive('/faq') ? 'active' : ''} onClick={closeMenus}>Frequently Asked Questions</Link></li>
-                                    <li><Link href="/terms" className={isActive('/terms') ? 'active' : ''} onClick={closeMenus}>Terms of Service</Link></li>
-                                    <li><Link href="/privacy" className={isActive('/privacy') ? 'active' : ''} onClick={closeMenus}>Privacy Policy</Link></li>
-                                    <li><Link href="/register-doctor" onClick={closeMenus}>Doctor Registration</Link></li>
-                                    <li><Link href="/register-provider" onClick={closeMenus}>Provider Registration</Link></li>
-                                </ul>
-                            </li>
                             <li><Link href="/contact" className={isActive('/contact') ? 'active' : ''} onClick={closeMenus}>Contact</Link></li>
 
                             {auth?.user ? (
@@ -126,24 +105,42 @@ export default function Header({ auth }) {
                                 </>
                             ) : (
                                 <>
-                                    <li className="nav-auth-item">
-                                        <Link
-                                            href="/login"
-                                            className={`nav-auth-link nav-auth-link-secondary ${isActive('/login') ? 'active' : ''}`}
-                                            onClick={closeMenus}
-                                        >
-                                            Login
-                                        </Link>
-                                    </li>
-                                    <li className="nav-auth-item">
-                                        <Link
-                                            href="/register"
-                                            className={`nav-auth-link nav-auth-link-primary ${isActive('/register') ? 'active' : ''}`}
-                                            onClick={closeMenus}
-                                        >
-                                            Register
-                                        </Link>
-                                    </li>
+                                        <li className="nav-auth-item">
+                                            <Link
+                                                href="/login"
+                                                className={`nav-auth-link nav-auth-link-secondary ${isActive('/login') ? 'active' : ''}`}
+                                                onClick={closeMenus}
+                                            >
+                                                Login
+                                            </Link>
+                                        </li>
+                                        
+                                        <li className="dropdown">
+                                            <a
+                                                href="#!"
+                                                onClick={(event) => {
+                                                    event.preventDefault();
+                                                    setMorePagesOpen((value) => !value);
+                                                }}
+                                                className={isMorePagesActive ? 'active' : ''}
+                                            >
+                                                <span>Registration</span>
+                                                <i className="bi bi-chevron-down toggle-dropdown" />
+                                            </a>
+                                            <ul className={morePagesOpen ? 'dropdown-active' : ''}>
+                                                <li><Link href="/register-doctor" onClick={closeMenus}>Doctor Registration</Link></li>
+                                                <li><Link href="/register-provider" onClick={closeMenus}>Provider Registration</Link></li>
+                                                <li className="nav-auth-item">
+                                                    <Link
+                                                        href="/register"
+                                                        className={`nav-auth-link nav-auth-link-primary ${isActive('/register') ? 'active' : ''}`}
+                                                        onClick={closeMenus}
+                                                    >
+                                                        Patient Registration
+                                                    </Link>
+                                                </li>
+                                            </ul>
+                                        </li>
                                 </>
                             )}
                         </ul>
