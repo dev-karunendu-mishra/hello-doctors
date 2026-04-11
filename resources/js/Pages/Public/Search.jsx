@@ -275,13 +275,13 @@ export default function Search({ auth, doctors, specialties, filters }) {
                                                         <p className="doctor-listing-fee">{consultationFee} Consultation fee at clinic</p>
 
                                                         <div className="doctor-listing-trust">
-                                                            <span className="doctor-listing-score">
+                                                            {/* <span className="doctor-listing-score">
                                                                 <i className="bi bi-hand-thumbs-up-fill" />
                                                                 {doctor.experience_years ? `${Math.min(99, 70 + Number(doctor.experience_years))}%` : '90%'}
                                                             </span>
                                                             <span className="doctor-listing-stories">
                                                                 {Math.max(4, Math.round((doctor.experience_years || 5) * 1.5))} Patient Stories
-                                                            </span>
+                                                            </span> */}
                                                             <Link href={profileHref} className="doctor-listing-profile-link">
                                                                 View Profile
                                                             </Link>
