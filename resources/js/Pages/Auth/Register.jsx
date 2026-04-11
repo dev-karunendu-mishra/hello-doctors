@@ -9,8 +9,6 @@ export default function Register() {
         name: '',
         email: '',
         phone: '',
-        registration_state: '',
-        registration_number: '',
         agree_terms: false,
         password: '',
         password_confirmation: '',
@@ -103,36 +101,6 @@ export default function Register() {
                             className="auth-input"
                             autoComplete="tel"
                             onChange={(e) => setData('phone', e.target.value)}
-                        />
-                    </div>
-                </div>
-
-                <div className="auth-grid auth-grid-two auth-grid-compact">
-                    <div className="auth-field">
-                        <label htmlFor="registration_state">Registered State</label>
-                        <select
-                            id="registration_state"
-                            name="registration_state"
-                            value={data.registration_state}
-                            className="auth-input"
-                            onChange={(e) => setData('registration_state', e.target.value)}
-                        >
-                            <option value="">Select state</option>
-                            <option value="UP">UP</option>
-                            <option value="Delhi">Delhi</option>
-                            <option value="Maharashtra">Maharashtra</option>
-                        </select>
-                    </div>
-
-                    <div className="auth-field">
-                        <label htmlFor="registration_number">Registration Number</label>
-                        <input
-                            id="registration_number"
-                            type="text"
-                            name="registration_number"
-                            value={data.registration_number}
-                            className="auth-input"
-                            onChange={(e) => setData('registration_number', e.target.value)}
                         />
                     </div>
                 </div>

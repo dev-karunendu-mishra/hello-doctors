@@ -1,5 +1,5 @@
 import ApplicationLogo from '@/Components/ApplicationLogo';
-import { Head, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 
 export default function GuestLayout({ children }) {
     const { site } = usePage().props;
@@ -54,7 +54,14 @@ export default function GuestLayout({ children }) {
                 </aside>
 
                 <main className="auth-panel">
-                    <div className="auth-content">{children}</div>
+                    <div className="auth-content">
+                        <div className="mb-4 flex justify-end">
+                            <Link href="/" className="auth-link auth-top-link">
+                                Go to Home
+                            </Link>
+                        </div>
+                        {children}
+                    </div>
                 </main>
             </div>
         </div>
