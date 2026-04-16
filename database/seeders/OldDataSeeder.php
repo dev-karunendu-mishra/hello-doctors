@@ -87,25 +87,8 @@ class OldDataSeeder extends Seeder
             $this->specialtyMapping[$key] = $specialty->id;
             
             // Add common variations
+            // Keys must match strtolower() of actual DB specialty names.
             $variations = [
-                'dermatologist' => ['skin specialist', 'dermatology'],
-                'ent surgeon' => ['ent', 'ear nose throat', 'otolaryngologist'],
-                'orthopedic' => ['orthopedist', 'orthopaedic', 'bone specialist'],
-                'nephrologist' => ['kidney specialist', 'nephrology'],
-                'pediatric' => ['pediatrician', 'child specialist', 'paediatrician'],
-                'neurologist' => ['neuro', 'brain specialist', 'neurology'],
-                'anesthesiologist' => ['anaesthetist', 'anesthesia'],
-                'dentist' => ['dental surgeon', 'dental', 'orthodontist'],
-                'general physician' => ['physician', 'general doctor', 'md'],
-                'gynecologist' => ['gynaecologist', 'obstetrician', 'obs & gynae'],
-                'ophthalmologist' => ['eye specialist', 'eye doctor', 'ophthalmology'],
-                'cardiologist' => ['heart specialist', 'cardiology'],
-                'psychiatrist' => ['mental health', 'psychiatry'],
-                'gastroenterologist' => ['gastro', 'stomach specialist'],
-                'urologist' => ['uro', 'urology'],
-                'pulmonologist' => ['chest specialist', 'lung specialist'],
-                        // Keys must match strtolower() of actual DB specialty names.
-                        $variations = [
                             'dermatologist'                      => ['skin specialist', 'dermatology'],
                             'ent surgeon'                        => ['ent', 'ear nose throat', 'otolaryngologist'],
                             'orthopedic surgeon'                 => ['orthopedic', 'orthopedist', 'orthopaedic', 'orthopaedic surgeon', 'bone specialist'],
@@ -135,7 +118,6 @@ class OldDataSeeder extends Seeder
                             'dietitian'                          => ['dietician', 'nutritionist', 'nutrition'],
                             'radiologist'                        => ['radiology', 'imaging'],
                         ];
-            ];
 
             if (isset($variations[$key])) {
                 foreach ($variations[$key] as $variation) {

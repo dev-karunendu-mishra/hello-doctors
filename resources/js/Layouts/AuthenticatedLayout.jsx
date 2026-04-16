@@ -2,24 +2,44 @@ import ApplicationLogo from '@/Components/ApplicationLogo';
 import Dropdown from '@/Components/Dropdown';
 import NavLink from '@/Components/NavLink';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
-import { Link, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
 export default function AuthenticatedLayout({ header, children }) {
-    const user = usePage().props.auth.user;
+    const { auth, site } = usePage().props;
+    const user = auth.user;
+    const siteName = site?.name || 'Hello Doctors';
+    const siteLogo = site?.logo || null;
+    const siteFavicon = site?.favicon || null;
 
     const [showingNavigationDropdown, setShowingNavigationDropdown] =
         useState(false);
 
     return (
-        <div className="min-h-screen bg-gray-100">
+        <>
+            <Head>
+                {siteFavicon && <link rel="icon" href={siteFavicon} head-key="site-favicon" />}
+                {siteFavicon && <link rel="shortcut icon" href={siteFavicon} head-key="site-shortcut-favicon" />}
+                {siteFavicon && <link rel="apple-touch-icon" href={siteFavicon} head-key="site-apple-touch-icon" />}
+            </Head>
+
+            <div className="min-h-screen bg-gray-100">
             <nav className="border-b border-gray-100 bg-white">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                     <div className="flex h-16 justify-between">
                         <div className="flex">
                             <div className="flex shrink-0 items-center">
                                 <Link href="/">
-                                    <ApplicationLogo className="block h-9 w-auto fill-current text-gray-800" />
+                                    {siteLogo ? (
+                                        <img
+                                            src={siteLogo}
+                                            alt={siteName}
+                                            className="block h-9 w-auto"
+                                            style={{ objectFit: 'contain' }}
+                                        />
+                                    ) : (
+                                        <ApplicationLogo className="block h-9 w-auto fill-current text-gray-800" />
+                                    )}
                                 </Link>
                             </div>
 
@@ -172,5 +192,6 @@ export default function AuthenticatedLayout({ header, children }) {
 
             <main>{children}</main>
         </div>
+        </>
     );
 }

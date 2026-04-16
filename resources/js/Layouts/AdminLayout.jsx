@@ -12,7 +12,7 @@ import {
     MenuUnfoldOutlined,
     HomeOutlined,
 } from '@ant-design/icons';
-import { Link, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 
 const { Header, Sider, Content } = Layout;
@@ -23,6 +23,7 @@ export default function AdminLayout({ children }) {
     const [selectedKeys, setSelectedKeys] = useState(['dashboard']);
     const siteName = site?.name || 'Hello Doctors';
     const siteLogo = site?.logo || null;
+    const siteFavicon = site?.favicon || null;
     const [openKeys, setOpenKeys] = useState([]);
 
     const getDashboardHref = () => {
@@ -63,8 +64,6 @@ export default function AdminLayout({ children }) {
             setSelectedKeys(['site-customization']);
         } else if (currentPath.includes('/admin/seo')) {
             setSelectedKeys(['seo']);
-        } else if (currentPath.includes('/admin/settings')) {
-            setSelectedKeys(['settings']);
         } else if (currentPath.includes('/admin/home-services/providers')) {
             setSelectedKeys(['home-service-providers']);
         } else if (currentPath.includes('/admin/home-services/bookings')) {
@@ -168,11 +167,6 @@ export default function AdminLayout({ children }) {
                     key: 'seo',
                     icon: <SettingOutlined />,
                     label: <Link href="/admin/seo">SEO Settings</Link>,
-                },
-                {
-                    key: 'settings',
-                    icon: <SettingOutlined />,
-                    label: <Link href="/admin/settings">Settings</Link>,
                 },
             ];
         }
@@ -286,7 +280,14 @@ export default function AdminLayout({ children }) {
     ];
 
     return (
-        <Layout style={{ minHeight: '100vh' }}>
+        <>
+            <Head>
+                {siteFavicon && <link rel="icon" href={siteFavicon} head-key="site-favicon" />}
+                {siteFavicon && <link rel="shortcut icon" href={siteFavicon} head-key="site-shortcut-favicon" />}
+                {siteFavicon && <link rel="apple-touch-icon" href={siteFavicon} head-key="site-apple-touch-icon" />}
+            </Head>
+
+            <Layout style={{ minHeight: '100vh' }}>
             <Sider
                 trigger={null}
                 collapsible
@@ -427,5 +428,6 @@ export default function AdminLayout({ children }) {
                 </Content>
             </Layout>
         </Layout>
+        </>
     );
 }

@@ -6,10 +6,14 @@ export default function GuestLayout({ children }) {
     const siteName = site?.name || 'Hello Doctors';
     const siteTagline = site?.tagline || 'Patient Care Network';
     const siteLogo = site?.logo || null;
+    const siteFavicon = site?.favicon || null;
 
     return (
         <>
             <Head>
+                {siteFavicon && <link rel="icon" href={siteFavicon} head-key="site-favicon" />}
+                {siteFavicon && <link rel="shortcut icon" href={siteFavicon} head-key="site-shortcut-favicon" />}
+                {siteFavicon && <link rel="apple-touch-icon" href={siteFavicon} head-key="site-apple-touch-icon" />}
                 <link rel="preload" href="/clinic-theme/vendor/bootstrap/css/bootstrap.min.css" as="style" />
                 <link rel="preload" href="/clinic-theme/vendor/bootstrap-icons/bootstrap-icons.css" as="style" />
                 <link rel="preload" href="/clinic-theme/main.css" as="style" />

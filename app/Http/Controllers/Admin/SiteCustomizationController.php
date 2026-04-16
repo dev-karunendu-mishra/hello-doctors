@@ -64,8 +64,10 @@ class SiteCustomizationController extends Controller
             'settings.email_delivery_mode' => 'nullable|in:sync,async',
         ]);
 
-        foreach ($validated['settings'] as $key => $value) {
-            SiteSetting::set($key, $value, 'text', $validated['group']);
+        $settings = $request->input('settings', []);
+
+        foreach ($settings as $key => $value) {
+            SiteSetting::set($key, $value ?? '', 'text', $validated['group']);
         }
 
         return redirect()->back()->with('success', 'Settings updated successfully');

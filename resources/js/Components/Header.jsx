@@ -4,11 +4,17 @@ import { useState } from 'react';
 export default function Header({ auth }) {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [morePagesOpen, setMorePagesOpen] = useState(false);
+    const [logoLoadFailed, setLogoLoadFailed] = useState(false);
     const { site = {} } = usePage().props;
     const contact = site?.contact || {};
     const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
     const siteName = site?.name || 'Hello Doctors';
     const siteLogo = site?.logo || null;
+    const normalizedSiteLogo = siteLogo
+        ? (siteLogo.startsWith('http://') || siteLogo.startsWith('https://') || siteLogo.startsWith('/'))
+            ? siteLogo
+            : `/${siteLogo}`
+        : null;
     const primaryEmail = contact?.email || 'support@hellodoctors.in';
     const primaryPhone = contact?.phone || '+91 (555) 123-4567';
     const dashboardHref = auth?.user
@@ -62,13 +68,38 @@ export default function Header({ auth }) {
             <div className="branding d-flex align-items-center">
                 <div className="container position-relative d-flex align-items-center justify-content-between">
                     <Link href="/" className="logo d-flex align-items-center" onClick={closeMenus}>
-                        {siteLogo ? (
-                            <img
-                                src={siteLogo}
-                                alt={siteName}
-                                style={{ maxHeight: 44, width: 'auto', objectFit: 'contain' }}
-                            />
-                        ) : <h1 className="sitename">{siteName}</h1>}
+                        {normalizedSiteLogo && !logoLoadFailed && (
+                            <span
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    minWidth: 52,
+                                    minHeight: 52,
+                                    padding: '6px 10px',
+                                    marginRight: 10,
+                                    borderRadius: 14,
+                                    background: '#ffffff',
+                                    boxShadow: '0 10px 24px rgba(17, 24, 39, 0.12)',
+                                    border: '1px solid rgba(15, 23, 42, 0.08)',
+                                }}
+                            >
+                                <img
+                                    src={normalizedSiteLogo}
+                                    alt={siteName}
+                                    onError={() => setLogoLoadFailed(true)}
+                                    style={{
+                                        maxHeight: 40,
+                                        maxWidth: 160,
+                                        width: 'auto',
+                                        objectFit: 'contain',
+                                        display: 'block',
+                                    }}
+                                />
+                            </span>
+                        )}
+
+                        <h1 className="sitename">{siteName}</h1>
                     </Link>
 
                     <nav id="navmenu" className="navmenu">

@@ -136,9 +136,6 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     // SEO Settings
     Route::get('/seo', [App\Http\Controllers\Admin\SeoController::class, 'index'])->name('seo');
     Route::post('/seo', [App\Http\Controllers\Admin\SeoController::class, 'update'])->name('seo.update');
-    
-    // Settings
-    Route::get('/settings', [App\Http\Controllers\Admin\SettingsController::class, 'index'])->name('settings');
 
     // Home Services Management
     Route::get('/home-services', function () {

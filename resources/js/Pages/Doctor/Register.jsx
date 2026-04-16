@@ -26,28 +26,35 @@ export default function Register({ auth, cities, specialties, flash, errors: ser
         profile_image: null,
     });
 
-    const [fileList, setFileList] = useState([]);
-
     const handleSubmit = (e) => {
         e.preventDefault();
         post('/register-doctor');
     };
 
-    const handleImageChange = ({ fileList: newFileList }) => {
-        setFileList(newFileList);
-        if (newFileList.length > 0) {
-            setData('profile_image', newFileList[0].originFileObj);
-        } else {
-            setData('profile_image', null);
-        }
+    const handleFileInputChange = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setRawFileName(file.name);
+        const reader = new FileReader();
+        reader.onload = () => {
+            setRawImageSrc(reader.result);
+            setCropModalOpen(true);
+        };
+        reader.readAsDataURL(file);
+        // Reset input so the same file can be re-selected
+        e.target.value = '';
     };
 
-    const uploadProps = {
-        beforeUpload: () => false,
-        maxCount: 1,
-        listType: 'picture',
-        fileList,
-        onChange: handleImageChange,
+    const handleCropDone = ({ file, previewUrl: url }) => {
+        setData('profile_image', file);
+        setPreviewUrl(url);
+        setCropModalOpen(false);
+        setRawImageSrc(null);
+    };
+
+    const handleRemoveImage = () => {
+        setData('profile_image', null);
+        setPreviewUrl(null);
     };
 
     return (
@@ -296,15 +303,76 @@ export default function Register({ auth, cities, specialties, flash, errors: ser
                                 </Col>
                             </Row>
 
-                            <Form.Item 
-                                label="Profile Image" 
+                            <Form.Item
+                                label="Profile Image"
                                 validateStatus={errors.profile_image ? 'error' : ''}
                                 help={errors.profile_image}
                             >
-                                <Upload {...uploadProps}>
-                                    <Button icon={<UploadOutlined />}>Select Image</Button>
-                                </Upload>
+                                {/* Hidden native file input */}
+                                <input
+                                    ref={imageInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    style={{ display: 'none' }}
+                                    onChange={handleFileInputChange}
+                                />
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                                    {/* Preview / placeholder */}
+                                    <div
+                                        style={{
+                                            width: 80,
+                                            height: 80,
+                                            borderRadius: '50%',
+                                            overflow: 'hidden',
+                                            border: '2px dashed #d9d9d9',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            background: '#fafafa',
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        {previewUrl ? (
+                                            <img
+                                                src={previewUrl}
+                                                alt="Profile preview"
+                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                            />
+                                        ) : (
+                                            <UserOutlined style={{ fontSize: 28, color: '#bbb' }} />
+                                        )}
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                        <Button
+                                            icon={<CameraOutlined />}
+                                            onClick={() => imageInputRef.current?.click()}
+                                        >
+                                            {previewUrl ? 'Change Photo' : 'Upload Photo'}
+                                        </Button>
+                                        {previewUrl && (
+                                            <Button
+                                                danger
+                                                icon={<DeleteOutlined />}
+                                                onClick={handleRemoveImage}
+                                            >
+                                                Remove
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
                             </Form.Item>
+
+                            {/* Crop modal — rendered outside the form flow */}
+                            <ImageCropModal
+                                open={cropModalOpen}
+                                imageSrc={rawImageSrc}
+                                fileName={rawFileName}
+                                aspect={1}
+                                onCancel={() => { setCropModalOpen(false); setRawImageSrc(null); }}
+                                onCropDone={handleCropDone}
+                            />
 
                             <Form.Item>
                                 <Checkbox

@@ -11,8 +11,18 @@
             $seoSettings = \Illuminate\Support\Facades\Schema::hasTable('site_settings')
                 ? App\Models\SiteSetting::where('group', 'seo')->get()->pluck('value', 'key')
                 : collect();
+            $generalSettings = \Illuminate\Support\Facades\Schema::hasTable('site_settings')
+                ? App\Models\SiteSetting::where('group', 'general')->get()->pluck('value', 'key')
+                : collect();
+            $siteFavicon = $generalSettings['site_favicon'] ?? null;
             $isPublicPage = str_starts_with($page['component'] ?? '', 'Public/');
         @endphp
+
+        @if($siteFavicon)
+        <link rel="icon" href="{{ $siteFavicon }}">
+        <link rel="shortcut icon" href="{{ $siteFavicon }}">
+        <link rel="apple-touch-icon" href="{{ $siteFavicon }}">
+        @endif
         
         <meta name="description" content="{{ $seoSettings['meta_description'] ?? 'Find the best doctors and healthcare professionals' }}">
         <meta name="keywords" content="{{ $seoSettings['meta_keywords'] ?? 'doctors, healthcare, medical' }}">

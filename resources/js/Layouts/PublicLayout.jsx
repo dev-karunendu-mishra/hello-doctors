@@ -148,8 +148,9 @@ export default function PublicLayout({ auth, title, children, pageClassName = 'i
             <Head title={title || siteName}>
                 <meta charSet="utf-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-                {siteFavicon && <link rel="icon" href={siteFavicon} />}
-                {siteFavicon && <link rel="apple-touch-icon" href={siteFavicon} />}
+                {siteFavicon && <link rel="icon" href={siteFavicon} head-key="site-favicon" />}
+                {siteFavicon && <link rel="shortcut icon" href={siteFavicon} head-key="site-shortcut-favicon" />}
+                {siteFavicon && <link rel="apple-touch-icon" href={siteFavicon} head-key="site-apple-touch-icon" />}
 
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
