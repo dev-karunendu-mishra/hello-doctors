@@ -35,7 +35,7 @@ export default function Header({ auth }) {
         return currentPath.startsWith(href);
     };
 
-    const isMorePagesActive = morePagesOpen || ['/faq', '/testimonials', '/terms', '/privacy', '/register-doctor', '/register-provider', '/dashboard', '/login']
+    const isMorePagesActive = morePagesOpen || ['/faq', '/testimonials', '/terms', '/privacy', '/register-doctor', '/register-provider', '/guest/cancel', '/dashboard', '/login']
         .some((path) => currentPath.startsWith(path));
 
     const closeMenus = () => {
@@ -128,6 +128,7 @@ export default function Header({ auth }) {
                                     <li><Link href="/privacy" className={isActive('/privacy') ? 'active' : ''} onClick={closeMenus}>Privacy Policy</Link></li>
                                     <li><Link href="/register-doctor" onClick={closeMenus}>Doctor Registration</Link></li>
                                     <li><Link href="/register-provider" onClick={closeMenus}>Provider Registration</Link></li>
+                                    <li><Link href="/guest/cancel" className={isActive('/guest/cancel') ? 'active' : ''} onClick={closeMenus}>Cancel Guest Booking</Link></li>
                                 </ul>
                             </li>
                             <li><Link href="/contact" className={isActive('/contact') ? 'active' : ''} onClick={closeMenus}>Contact</Link></li>

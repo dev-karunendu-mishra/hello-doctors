@@ -105,6 +105,10 @@ class HandleInertiaRequests extends Middleware
                 'online_enabled' => (bool) config('services.razorpay.enabled', true),
             ],
             'razorpay_key_id' => config('services.razorpay.key_id'),
+            'recaptcha' => [
+                'site_key' => config('recaptcha.site_key'),
+                'enabled' => config('recaptcha.enabled', true),
+            ],
         ];
     }
 }

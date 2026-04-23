@@ -310,10 +310,14 @@ export default function Search({ auth, doctors, specialties, filters }) {
                                                             <small>No Booking Fee</small>
                                                         </button>
                                                     ) : !isLoggedIn ? (
-                                                        <Link href="/login" className="doctor-listing-primary-btn">
-                                                            <span>Login to Book</span>
-                                                            <small>Secure appointment access</small>
-                                                        </Link>
+                                                        <button
+                                                            type="button"
+                                                            className="doctor-listing-primary-btn"
+                                                            onClick={() => openBookingModal(doctor)}
+                                                        >
+                                                            <span>Continue as Guest</span>
+                                                            <small>No account required</small>
+                                                        </button>
                                                     ) : (
                                                         <Link href="/patient/find-doctors" className="doctor-listing-primary-btn">
                                                             <span>Book from Dashboard</span>

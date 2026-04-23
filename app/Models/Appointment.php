@@ -16,6 +16,13 @@ class Appointment extends Model
     protected $fillable = [
         'appointment_number',
         'patient_id',
+        'is_guest',
+        'guest_name',
+        'guest_email',
+        'guest_phone',
+        'guest_access_token_hash',
+        'guest_token_expires_at',
+        'guest_cancel_verified_at',
         'doctor_hospital_clinic_id',
         'appointment_date',
         'appointment_time',
@@ -41,7 +48,10 @@ class Appointment extends Model
     ];
 
     protected $casts = [
+        'is_guest' => 'boolean',
         'appointment_date' => 'date',
+        'guest_token_expires_at' => 'datetime',
+        'guest_cancel_verified_at' => 'datetime',
         'confirmed_at' => 'datetime',
         'completed_at' => 'datetime',
         'cancelled_at' => 'datetime',

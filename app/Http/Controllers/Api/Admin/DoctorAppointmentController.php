@@ -18,6 +18,9 @@ class DoctorAppointmentController extends Controller
         $request->validate([
             'doctor_id'      => ['nullable', 'integer', 'exists:users,id'],
             'clinic_id'      => ['nullable', 'integer', 'exists:doctor_hospital_clinics,id'],
+            'source'         => ['nullable', 'in:guest,registered'],
+            'guest_email'    => ['nullable', 'string', 'max:255'],
+            'guest_phone'    => ['nullable', 'string', 'max:30'],
             'status'         => ['nullable', 'array'],
             'status.*'       => ['in:' . $validStatuses],
             'type'           => ['nullable', 'array'],
@@ -47,6 +50,18 @@ class DoctorAppointmentController extends Controller
 
         if ($request->filled('clinic_id')) {
             $query->where('doctor_hospital_clinic_id', $request->integer('clinic_id'));
+        }
+
+        if ($request->filled('source')) {
+            $query->where('is_guest', $request->string('source')->value() === 'guest');
+        }
+
+        if ($request->filled('guest_email')) {
+            $query->where('guest_email', 'like', '%' . trim($request->string('guest_email')->value()) . '%');
+        }
+
+        if ($request->filled('guest_phone')) {
+            $query->where('guest_phone', 'like', '%' . trim($request->string('guest_phone')->value()) . '%');
         }
 
         if ($request->filled('status')) {

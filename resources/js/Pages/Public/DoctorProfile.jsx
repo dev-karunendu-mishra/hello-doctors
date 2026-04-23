@@ -110,10 +110,10 @@ export default function DoctorProfile({ auth, doctor }) {
 
         if (!isLoggedIn) {
             return (
-                <Link href="/login" className="doctor-listing-primary-btn">
-                    <span>Login to Book</span>
-                    <small>Secure appointment access</small>
-                </Link>
+                <button type="button" className="doctor-listing-primary-btn" onClick={openBookingModal}>
+                    <span>Continue as Guest</span>
+                    <small>No account required</small>
+                </button>
             );
         }
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Card, Col, Empty, Form, Input, Modal, Radio, Row, Select, Space, Typography, message } from 'antd';
 import { usePage } from '@inertiajs/react';
+import { useGoogleReCAPTCHA } from '../Hooks/useGoogleReCAPTCHA';
 
 const { Paragraph } = Typography;
 
@@ -62,8 +63,11 @@ const groupSlots = (slots = []) => {
 };
 
 export default function DoctorBookingModal({ doctor, open, onClose }) {
-    const { payments = {} } = usePage().props;
+    const { auth = {}, payments = {}, recaptcha = {} } = usePage().props;
     const onlinePaymentsEnabled = payments?.online_enabled ?? true;
+    const isPatient = auth?.user?.role === 'patient';
+    const isGuestMode = !auth?.user;
+    const { executeRecaptcha } = useGoogleReCAPTCHA(recaptcha?.site_key || '');
     const [bookingSaving, setBookingSaving] = useState(false);
     const [slotsLoading, setSlotsLoading] = useState(false);
     const [availableSlots, setAvailableSlots] = useState([]);
@@ -76,7 +80,7 @@ export default function DoctorBookingModal({ doctor, open, onClose }) {
         () => clinicSchedules.filter((clinic) => Array.isArray(clinic.schedules) && clinic.schedules.length > 0),
         [clinicSchedules],
     );
-    const selectedPaymentMethod = Form.useWatch('payment_method', bookingForm) || (onlinePaymentsEnabled ? 'online' : 'cod');
+    const selectedPaymentMethod = Form.useWatch('payment_method', bookingForm) || (isGuestMode ? 'cod' : (onlinePaymentsEnabled ? 'online' : 'cod'));
     const selectedClinic = bookableClinics.find((clinic) => String(clinic.id) === String(selectedClinicId)) || bookableClinics[0] || null;
     const pricing = getPricingSummary(selectedClinic?.consultation_fee || doctor?.consultation_fee, selectedPaymentMethod);
 
@@ -104,10 +108,13 @@ export default function DoctorBookingModal({ doctor, open, onClose }) {
             appointment_date: initialDate,
             appointment_time: null,
             consultation_type: doctor.is_available_online ? 'online' : 'in-person',
-            payment_method: onlinePaymentsEnabled ? 'online' : 'cod',
+            payment_method: isGuestMode ? 'cod' : (onlinePaymentsEnabled ? 'online' : 'cod'),
+            guest_name: '',
+            guest_email: '',
+            guest_phone: '',
             reason_for_visit: '',
         });
-    }, [bookingForm, bookableClinics, doctor, onlinePaymentsEnabled, open]);
+    }, [bookingForm, bookableClinics, doctor, isGuestMode, onlinePaymentsEnabled, open]);
 
     useEffect(() => {
         if (!open || !selectedClinicId || !selectedDate) {
@@ -137,8 +144,36 @@ export default function DoctorBookingModal({ doctor, open, onClose }) {
             }
         };
 
-        fetchAvailableSlots();
-    }, [bookingForm, open, selectedClinicId, selectedDate]);
+        const fetchGuestAvailableSlots = async () => {
+            setSlotsLoading(true);
+
+            try {
+                const response = await window.axios.get(`/guest/data/clinics/${selectedClinicId}/available-slots`, {
+                    params: { date: selectedDate },
+                });
+
+                const slots = response?.data?.slots || [];
+                setAvailableSlots(slots);
+
+                const currentSlot = bookingForm.getFieldValue('appointment_time');
+                if (currentSlot && !slots.some((slot) => slot.time === currentSlot)) {
+                    bookingForm.setFieldValue('appointment_time', null);
+                }
+            } catch (error) {
+                setAvailableSlots([]);
+                message.error(error?.response?.data?.message || 'Failed to load available slots.');
+            } finally {
+                setSlotsLoading(false);
+            }
+        };
+
+        if (isPatient) {
+            fetchAvailableSlots();
+            return;
+        }
+
+        fetchGuestAvailableSlots();
+    }, [bookingForm, isGuestMode, isPatient, open, selectedClinicId, selectedDate]);
 
     const handleClose = () => {
         setAvailableSlots([]);
@@ -166,6 +201,39 @@ export default function DoctorBookingModal({ doctor, open, onClose }) {
                 consultation_type: values.consultation_type,
                 reason_for_visit: values.reason_for_visit,
             };
+
+            if (isGuestMode) {
+                // Get CAPTCHA token for guest booking
+                let captchaToken = null;
+                if (recaptcha?.site_key) {
+                    captchaToken = await executeRecaptcha('guest_appointment_booking');
+                    if (!captchaToken) {
+                        message.error('CAPTCHA verification failed. Please try again.');
+                        return;
+                    }
+                }
+
+                const guestPayload = {
+                    guest_name: values.guest_name,
+                    guest_email: values.guest_email || undefined,
+                    guest_phone: values.guest_phone || undefined,
+                    doctor_hospital_clinic_id: values.clinic_id,
+                    appointment_date: values.appointment_date,
+                    appointment_time: values.appointment_time,
+                    consultation_type: values.consultation_type,
+                    reason_for_visit: values.reason_for_visit || undefined,
+                    payment_method: 'cod',
+                    captcha_token: captchaToken,
+                };
+
+                const response = await window.axios.post('/guest/data/appointments', guestPayload);
+                const appointmentNumber = response?.data?.data?.appointment_number;
+                message.success(appointmentNumber
+                    ? `Guest appointment booked successfully. Booking no: ${appointmentNumber}`
+                    : 'Guest appointment booked successfully.');
+                handleClose();
+                return;
+            }
 
             const orderRes = await window.axios.post('/patient/data/payment/create-order', bookingParams);
             const orderData = orderRes.data;
@@ -245,7 +313,7 @@ export default function DoctorBookingModal({ doctor, open, onClose }) {
 
     return (
         <Modal
-            title={`Book Appointment with ${doctor.name}`}
+            title={isGuestMode ? `Book as Guest - ${doctor.name}` : `Book Appointment with ${doctor.name}`}
             open={open}
             onCancel={handleClose}
             onOk={confirmBooking}
@@ -303,6 +371,59 @@ export default function DoctorBookingModal({ doctor, open, onClose }) {
                             </Form.Item>
                         </Col>
                     </Row>
+
+                    {isGuestMode && (
+                        <Row gutter={16}>
+                            <Col xs={24} md={12}>
+                                <Form.Item
+                                    label="Full Name"
+                                    name="guest_name"
+                                    rules={[{ required: true, message: 'Please enter your full name.' }]}
+                                >
+                                    <Input placeholder="Your full name" />
+                                </Form.Item>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <Form.Item
+                                    label="Phone"
+                                    name="guest_phone"
+                                    rules={[
+                                        {
+                                            validator: (_, value) => {
+                                                const email = bookingForm.getFieldValue('guest_email');
+                                                if (value || email) {
+                                                    return Promise.resolve();
+                                                }
+                                                return Promise.reject(new Error('Enter phone or email.'));
+                                            },
+                                        },
+                                    ]}
+                                >
+                                    <Input placeholder="10-digit mobile" />
+                                </Form.Item>
+                            </Col>
+                            <Col xs={24}>
+                                <Form.Item
+                                    label="Email"
+                                    name="guest_email"
+                                    rules={[
+                                        { type: 'email', message: 'Please enter a valid email.' },
+                                        {
+                                            validator: (_, value) => {
+                                                const phone = bookingForm.getFieldValue('guest_phone');
+                                                if (value || phone) {
+                                                    return Promise.resolve();
+                                                }
+                                                return Promise.reject(new Error('Enter email or phone.'));
+                                            },
+                                        },
+                                    ]}
+                                >
+                                    <Input placeholder="you@example.com" />
+                                </Form.Item>
+                            </Col>
+                        </Row>
+                    )}
 
                     {selectedClinic && (
                         <Card size="small" style={{ marginBottom: 16, background: '#f8fbff' }}>
@@ -371,13 +492,22 @@ export default function DoctorBookingModal({ doctor, open, onClose }) {
                             <Form.Item label="Payment Method" name="payment_method">
                                 <Radio.Group>
                                     <Space direction="vertical">
-                                        {onlinePaymentsEnabled && <Radio value="online">Pay Online ({ONLINE_DISCOUNT_PERCENT}% off)</Radio>}
+                                        {!isGuestMode && onlinePaymentsEnabled && <Radio value="online">Pay Online ({ONLINE_DISCOUNT_PERCENT}% off)</Radio>}
                                         <Radio value="cod">Pay at Clinic</Radio>
                                     </Space>
                                 </Radio.Group>
                             </Form.Item>
                         </Col>
                     </Row>
+
+                    {isGuestMode && (
+                        <Alert
+                            type="info"
+                            showIcon
+                            style={{ marginBottom: 12 }}
+                            message="Guest booking supports pay-at-clinic only."
+                        />
+                    )}
 
                     {!onlinePaymentsEnabled && (
                         <Alert

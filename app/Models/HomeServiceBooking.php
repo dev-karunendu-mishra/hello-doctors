@@ -31,9 +31,23 @@ class HomeServiceBooking extends Model
     protected $fillable = [
         'booking_number',
         'user_id',
+        'is_guest',
+        'guest_name',
+        'guest_email',
+        'guest_phone',
+        'guest_access_token_hash',
+        'guest_token_expires_at',
+        'guest_cancel_verified_at',
         'home_service_id',
         'provider_id',
         'address_id',
+        'guest_line1',
+        'guest_line2',
+        'guest_landmark',
+        'guest_city_id',
+        'guest_pincode',
+        'guest_latitude',
+        'guest_longitude',
         'service_date',
         'service_time',
         'duration_minutes',
@@ -58,7 +72,12 @@ class HomeServiceBooking extends Model
     ];
 
     protected $casts = [
+        'is_guest' => 'boolean',
         'service_date' => 'date',
+        'guest_latitude' => 'decimal:7',
+        'guest_longitude' => 'decimal:7',
+        'guest_token_expires_at' => 'datetime',
+        'guest_cancel_verified_at' => 'datetime',
         'duration_minutes' => 'integer',
         'price' => 'decimal:2',
         'travel_fee' => 'decimal:2',
@@ -117,6 +136,11 @@ class HomeServiceBooking extends Model
     public function address(): BelongsTo
     {
         return $this->belongsTo(HomeServiceAddress::class, 'address_id');
+    }
+
+    public function guestCity(): BelongsTo
+    {
+        return $this->belongsTo(City::class, 'guest_city_id');
     }
 
     public function statusLogs(): HasMany

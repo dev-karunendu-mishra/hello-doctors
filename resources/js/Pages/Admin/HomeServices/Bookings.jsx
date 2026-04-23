@@ -49,7 +49,12 @@ export default function HomeServiceBookingsAdmin() {
     const [bookings, setBookings] = useState([]);
     const [providers, setProviders] = useState([]);
     const [pagination, setPagination] = useState({ current: 1, pageSize: 30, total: 0 });
-    const [status, setStatus] = useState(null);
+    const [filters, setFilters] = useState({
+        status: null,
+        source: null,
+        guest_email: '',
+        guest_phone: '',
+    });
 
     const [assignModalOpen, setAssignModalOpen] = useState(false);
     const [statusModalOpen, setStatusModalOpen] = useState(false);
@@ -64,11 +69,14 @@ export default function HomeServiceBookingsAdmin() {
         }
     };
 
-    const loadBookings = async (page = 1, nextStatus = status) => {
+    const loadBookings = async (page = 1, nextFilters = filters) => {
         setLoading(true);
         try {
             const params = { page };
-            if (nextStatus) params.status = nextStatus;
+            if (nextFilters.status) params.status = nextFilters.status;
+            if (nextFilters.source) params.source = nextFilters.source;
+            if (nextFilters.guest_email?.trim()) params.guest_email = nextFilters.guest_email.trim();
+            if (nextFilters.guest_phone?.trim()) params.guest_phone = nextFilters.guest_phone.trim();
 
             const response = await window.axios.get('/admin/home-services/bookings-data', { params });
             const paginated = response.data?.data || {};
@@ -172,12 +180,12 @@ export default function HomeServiceBookingsAdmin() {
                 />
 
                 <Card>
-                    <Space style={{ marginBottom: 16 }}>
+                    <Space style={{ marginBottom: 16 }} wrap>
                         <Select
                             allowClear
                             style={{ width: 220 }}
                             placeholder="Filter by status"
-                            value={status}
+                            value={filters.status}
                             options={[
                                 { value: 'pending', label: 'Pending' },
                                 { value: 'assigned', label: 'Assigned' },
@@ -188,10 +196,60 @@ export default function HomeServiceBookingsAdmin() {
                                 { value: 'no_show', label: 'No Show' },
                             ]}
                             onChange={async (value) => {
-                                setStatus(value || null);
-                                await loadBookings(1, value || null);
+                                const nextFilters = { ...filters, status: value || null };
+                                setFilters(nextFilters);
+                                await loadBookings(1, nextFilters);
                             }}
                         />
+                        <Select
+                            allowClear
+                            style={{ width: 180 }}
+                            placeholder="Filter by source"
+                            value={filters.source}
+                            options={[
+                                { value: 'guest', label: 'Guest' },
+                                { value: 'registered', label: 'Registered' },
+                            ]}
+                            onChange={async (value) => {
+                                const nextFilters = { ...filters, source: value || null };
+                                setFilters(nextFilters);
+                                await loadBookings(1, nextFilters);
+                            }}
+                        />
+                        <Input.Search
+                            allowClear
+                            style={{ width: 260 }}
+                            placeholder="Guest email contains"
+                            value={filters.guest_email}
+                            onChange={(e) => setFilters((prev) => ({ ...prev, guest_email: e.target.value }))}
+                            onSearch={async () => {
+                                await loadBookings(1, { ...filters, guest_email: filters.guest_email });
+                            }}
+                        />
+                        <Input.Search
+                            allowClear
+                            style={{ width: 240 }}
+                            placeholder="Guest phone contains"
+                            value={filters.guest_phone}
+                            onChange={(e) => setFilters((prev) => ({ ...prev, guest_phone: e.target.value }))}
+                            onSearch={async () => {
+                                await loadBookings(1, { ...filters, guest_phone: filters.guest_phone });
+                            }}
+                        />
+                        <Button
+                            onClick={async () => {
+                                const resetFilters = {
+                                    status: null,
+                                    source: null,
+                                    guest_email: '',
+                                    guest_phone: '',
+                                };
+                                setFilters(resetFilters);
+                                await loadBookings(1, resetFilters);
+                            }}
+                        >
+                            Reset Filters
+                        </Button>
                     </Space>
 
                     <Table
@@ -212,15 +270,51 @@ export default function HomeServiceBookingsAdmin() {
                                 key: 'user',
                                 render: (_, record) => (
                                     <Space direction="vertical" size={0}>
-                                        <span>{record.user?.name || '-'}</span>
-                                        <span style={{ color: '#888' }}>{record.user?.phone || '-'}</span>
+                                        <span>{record.is_guest ? (record.guest_name || '-') : (record.user?.name || '-')}</span>
+                                        <span style={{ color: '#888' }}>
+                                            {record.is_guest
+                                                ? ([record.guest_phone, record.guest_email].filter(Boolean).join(' | ') || '-')
+                                                : ([record.user?.phone, record.user?.email].filter(Boolean).join(' | ') || '-')}
+                                        </span>
                                     </Space>
+                                ),
+                            },
+                            {
+                                title: 'Source',
+                                key: 'source',
+                                render: (_, record) => (
+                                    <Tag color={record.is_guest ? 'magenta' : 'geekblue'}>
+                                        {record.is_guest ? 'Guest' : 'Registered'}
+                                    </Tag>
                                 ),
                             },
                             {
                                 title: 'Service',
                                 key: 'service',
                                 render: (_, record) => record.service?.name || '-',
+                            },
+                            {
+                                title: 'Address',
+                                key: 'address',
+                                render: (_, record) => {
+                                    const registeredAddress = [
+                                        record.address?.line1,
+                                        record.address?.line2,
+                                        record.address?.landmark,
+                                        record.address?.city?.name,
+                                        record.address?.pincode,
+                                    ].filter(Boolean).join(', ');
+
+                                    const guestAddress = [
+                                        record.guest_line1,
+                                        record.guest_line2,
+                                        record.guest_landmark,
+                                        record.guestCity?.name,
+                                        record.guest_pincode,
+                                    ].filter(Boolean).join(', ');
+
+                                    return record.is_guest ? (guestAddress || '-') : (registeredAddress || '-');
+                                },
                             },
                             {
                                 title: 'Provider',

@@ -31,7 +31,9 @@ use App\Http\Controllers\Api\Patient\HomeServiceController as PatientHomeService
 use App\Http\Controllers\Api\Patient\HomeServiceAddressController as PatientHomeServiceAddressController;
 use App\Http\Controllers\Api\Patient\HomeServiceBookingController as PatientHomeServiceBookingController;
 use App\Http\Controllers\Api\Patient\PaymentController as PatientPaymentController;
+use App\Http\Controllers\Api\Guest\BookingController as GuestBookingController;
 use App\Http\Controllers\Api\Provider\HomeServiceController as ProviderHomeServiceController;
+use App\Http\Middleware\GuestOperationRateLimiter;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -69,6 +71,25 @@ Route::post('/register-doctor', [RegistrationController::class, 'store'])->name(
 // Provider Registration (Public)
 Route::get('/register-provider', [ProviderRegistrationController::class, 'create'])->name('provider.register');
 Route::post('/register-provider', [ProviderRegistrationController::class, 'store'])->name('provider.register.store');
+
+// Guest Booking APIs (Public)
+Route::prefix('guest/data')->name('guest.data.')->middleware(['throttle:30,1', GuestOperationRateLimiter::class])->group(function () {
+    Route::get('/meta/cities', [ApiMetaController::class, 'cities'])->name('meta.cities');
+    Route::get('/clinics/{clinic}/available-slots', [PatientAvailableAppointmentController::class, 'slots'])->name('clinics.available-slots');
+    Route::get('/home-services/{service}/available-slots', [PatientHomeServiceController::class, 'availableSlots'])->name('home-services.available-slots');
+
+    Route::post('/appointments', [GuestBookingController::class, 'storeAppointment'])->name('appointments.store');
+    Route::post('/home-service-bookings', [GuestBookingController::class, 'storeHomeServiceBooking'])->name('home-service-bookings.store');
+
+    Route::post('/cancellations/init', [GuestBookingController::class, 'initiateCancellation'])->name('cancellations.init');
+    Route::post('/cancellations/verify', [GuestBookingController::class, 'verifyCancellation'])->name('cancellations.verify');
+    Route::post('/appointments/cancel', [GuestBookingController::class, 'cancelAppointment'])->name('appointments.cancel');
+    Route::post('/home-service-bookings/cancel', [GuestBookingController::class, 'cancelHomeServiceBooking'])->name('home-service-bookings.cancel');
+});
+
+Route::get('/guest/cancel', function () {
+    return Inertia::render('Public/GuestCancellation');
+})->name('guest.cancel');
 
 Route::get('/dashboard', function () {
     $user = Auth::user();

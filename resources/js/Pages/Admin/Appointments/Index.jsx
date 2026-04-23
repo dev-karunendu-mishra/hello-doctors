@@ -69,6 +69,9 @@ const api = {
 const defaultAppointmentFilters = {
     doctor_id: null,
     clinic_id: null,
+    source: null,
+    guest_email: '',
+    guest_phone: '',
     status: null,
     type: null,
     payment_status: null,
@@ -206,6 +209,9 @@ export default function Index() {
                     page,
                     doctor_id: nextFilters.doctor_id || undefined,
                     clinic_id: nextFilters.clinic_id || undefined,
+                    source: nextFilters.source || undefined,
+                    guest_email: nextFilters.guest_email?.trim() || undefined,
+                    guest_phone: nextFilters.guest_phone?.trim() || undefined,
                     status: statusParam,
                     type: typeParam,
                     payment_status: paymentStatusParam,
@@ -404,8 +410,32 @@ export default function Index() {
         {
             title: 'Patient',
             key: 'patient',
-            width: 160,
-            render: (_, record) => record.patient?.name || '-',
+            width: 240,
+            render: (_, record) => {
+                const name = record.is_guest ? (record.guest_name || '-') : (record.patient?.name || '-');
+                const contact = record.is_guest
+                    ? [record.guest_phone, record.guest_email].filter(Boolean).join(' | ')
+                    : [record.patient?.phone, record.patient?.email].filter(Boolean).join(' | ');
+
+                return (
+                    <Space direction="vertical" size={0}>
+                        <span>{name}</span>
+                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                            {contact || '-'}
+                        </Typography.Text>
+                    </Space>
+                );
+            },
+        },
+        {
+            title: 'Source',
+            key: 'source',
+            width: 120,
+            render: (_, record) => (
+                <Tag color={record.is_guest ? 'magenta' : 'geekblue'}>
+                    {record.is_guest ? 'Guest' : 'Registered'}
+                </Tag>
+            ),
         },
         {
             title: 'Doctor',
@@ -531,7 +561,7 @@ export default function Index() {
                                 children: (
                                     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
                                         <Row gutter={[12, 12]} align="middle">
-                                            <Col xs={24} md={7}>
+                                            <Col xs={24} md={6}>
                                                 <Select
                                                     showSearch
                                                     optionFilterProp="label"
@@ -546,7 +576,7 @@ export default function Index() {
                                                     }))}
                                                 />
                                             </Col>
-                                            <Col xs={24} md={7}>
+                                            <Col xs={24} md={6}>
                                                 <Select
                                                     showSearch
                                                     optionFilterProp="label"
@@ -563,6 +593,19 @@ export default function Index() {
                                                 />
                                             </Col>
                                             <Col xs={24} md={4}>
+                                                <Select
+                                                    allowClear
+                                                    style={{ width: '100%' }}
+                                                    placeholder="Source"
+                                                    value={appointmentFilters.source}
+                                                    onChange={(value) => updateAppointmentFilters({ source: value || null })}
+                                                    options={[
+                                                        { value: 'guest', label: 'Guest' },
+                                                        { value: 'registered', label: 'Registered' },
+                                                    ]}
+                                                />
+                                            </Col>
+                                            <Col xs={24} md={4}>
                                                 <Button
                                                     block
                                                     onClick={async () => {
@@ -575,10 +618,33 @@ export default function Index() {
                                                     Reset All
                                                 </Button>
                                             </Col>
-                                            <Col xs={24} md={6} style={{ textAlign: 'right' }}>
+                                            <Col xs={24} md={4} style={{ textAlign: 'right' }}>
                                                 <Tag color="geekblue">Total: {appointmentPagination.total}</Tag>
-                                                <Typography.Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
-                                                    Use column headers to filter &amp; sort
+                                            </Col>
+                                        </Row>
+
+                                        <Row gutter={[12, 12]} align="middle">
+                                            <Col xs={24} md={8}>
+                                                <Input.Search
+                                                    allowClear
+                                                    placeholder="Guest email contains"
+                                                    value={appointmentFilters.guest_email}
+                                                    onChange={(e) => setAppointmentFilters((prev) => ({ ...prev, guest_email: e.target.value }))}
+                                                    onSearch={() => updateAppointmentFilters({ guest_email: appointmentFilters.guest_email })}
+                                                />
+                                            </Col>
+                                            <Col xs={24} md={8}>
+                                                <Input.Search
+                                                    allowClear
+                                                    placeholder="Guest phone contains"
+                                                    value={appointmentFilters.guest_phone}
+                                                    onChange={(e) => setAppointmentFilters((prev) => ({ ...prev, guest_phone: e.target.value }))}
+                                                    onSearch={() => updateAppointmentFilters({ guest_phone: appointmentFilters.guest_phone })}
+                                                />
+                                            </Col>
+                                            <Col xs={24} md={8} style={{ textAlign: 'right' }}>
+                                                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                                                    Use column headers to filter and sort
                                                 </Typography.Text>
                                             </Col>
                                         </Row>
@@ -587,7 +653,7 @@ export default function Index() {
                                             rowKey="id"
                                             bordered
                                             size="middle"
-                                            scroll={{ x: 1450 }}
+                                            scroll={{ x: 1600 }}
                                             dataSource={appointments}
                                             onChange={handleTableChange}
                                             showSorterTooltip={{ target: 'sorter-icon' }}

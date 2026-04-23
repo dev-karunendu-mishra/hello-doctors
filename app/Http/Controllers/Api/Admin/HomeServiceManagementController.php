@@ -254,10 +254,13 @@ class HomeServiceManagementController extends Controller
             'status' => ['nullable', 'in:pending,assigned,confirmed,in_progress,completed,cancelled,no_show'],
             'service_date' => ['nullable', 'date'],
             'service_id' => ['nullable', 'integer', 'exists:home_services,id'],
+            'source' => ['nullable', 'in:guest,registered'],
+            'guest_email' => ['nullable', 'string', 'max:255'],
+            'guest_phone' => ['nullable', 'string', 'max:30'],
         ]);
 
         $query = HomeServiceBooking::query()
-            ->with(['service:id,name', 'user:id,name,phone', 'provider.user:id,name', 'address.city:id,name'])
+            ->with(['service:id,name', 'user:id,name,email,phone', 'provider.user:id,name', 'address.city:id,name', 'guestCity:id,name'])
             ->latest();
 
         if ($request->filled('status')) {
@@ -270,6 +273,18 @@ class HomeServiceManagementController extends Controller
 
         if ($request->filled('service_id')) {
             $query->where('home_service_id', $request->integer('service_id'));
+        }
+
+        if ($request->filled('source')) {
+            $query->where('is_guest', $request->string('source')->value() === 'guest');
+        }
+
+        if ($request->filled('guest_email')) {
+            $query->where('guest_email', 'like', '%' . trim($request->string('guest_email')->value()) . '%');
+        }
+
+        if ($request->filled('guest_phone')) {
+            $query->where('guest_phone', 'like', '%' . trim($request->string('guest_phone')->value()) . '%');
         }
 
         return response()->json(['data' => $query->paginate(30)]);

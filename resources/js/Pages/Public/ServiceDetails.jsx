@@ -2,6 +2,7 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Empty, Form, Input, Modal, Radio, Select, Space, message } from 'antd';
 import PublicLayout from '@/Layouts/PublicLayout';
+import { useGoogleReCAPTCHA } from '@/Hooks/useGoogleReCAPTCHA';
 
 const fallbackServiceDetails = [
     {
@@ -129,8 +130,9 @@ const loadRazorpayScript = () =>
     });
 
 export default function ServiceDetails({ auth, service }) {
-    const { site = {}, payments = {} } = usePage().props;
+    const { site = {}, payments = {}, recaptcha = {} } = usePage().props;
     const onlinePaymentsEnabled = payments?.online_enabled ?? true;
+    const { executeRecaptcha } = useGoogleReCAPTCHA(recaptcha?.site_key || '');
     const [bookingOpen, setBookingOpen] = useState(false);
     const [bookingLoading, setBookingLoading] = useState(false);
     const [bookingSubmitting, setBookingSubmitting] = useState(false);
@@ -144,6 +146,7 @@ export default function ServiceDetails({ auth, service }) {
     const canonicalPath = `/services/${service?.code || service?.id || 'service'}`;
     const isPatient = auth?.user?.role === 'patient';
     const isLoggedIn = Boolean(auth?.user);
+    const isGuestMode = !isLoggedIn;
     const displayCategory = service?.category_name || detail.category;
     const displayTitle = service?.name ? `${service.name} Service Details` : detail.title;
     const statOne = service?.providers_count ? `${service.providers_count}+` : detail.stats[0].number;
@@ -152,14 +155,14 @@ export default function ServiceDetails({ auth, service }) {
     const contactPhoneHref = `tel:${String(contactPhone).replace(/[^+\d]/g, '')}`;
     const selectedCityId = Form.useWatch('city_id', bookingForm);
     const selectedDate = Form.useWatch('service_date', bookingForm);
-    const selectedPaymentMethod = Form.useWatch('payment_method', bookingForm) || (onlinePaymentsEnabled ? 'online' : 'cod');
+    const selectedPaymentMethod = Form.useWatch('payment_method', bookingForm) || (isGuestMode ? 'cod' : (onlinePaymentsEnabled ? 'online' : 'cod'));
     const canDirectBook = Boolean(service?.id) && Number(service?.providers_count || 0) > 0;
     const bookingNote = !canDirectBook
         ? 'This home service is currently unavailable because no verified provider schedules are active yet.'
         : isPatient
             ? 'You can book this home service directly from this page.'
             : !isLoggedIn
-                ? 'Login as a patient to book this home service directly.'
+                ? 'Continue as guest to book this home service without creating an account.'
                 : 'The usual patient dashboard booking flow is still available.';
 
     const slotOptions = useMemo(() => {
@@ -180,32 +183,57 @@ export default function ServiceDetails({ auth, service }) {
     const pricing = getPricingSummary(service?.base_price, selectedPaymentMethod);
 
     const loadBookingData = async () => {
-        if (!isPatient) {
+        if (!isPatient && !isGuestMode) {
             return;
         }
 
         setBookingLoading(true);
 
         try {
-            const [addressRes, citiesRes] = await Promise.all([
-                window.axios.get('/patient/data/addresses'),
-                window.axios.get('/patient/data/meta/cities'),
-            ]);
-
-            const addressList = addressRes.data?.data || [];
-            const cityList = citiesRes.data?.data || citiesRes.data || [];
-            const defaultAddress = addressList.find((item) => item.is_default) || addressList[0] || null;
             const defaultDate = new Date().toISOString().slice(0, 10);
 
-            setAddresses(addressList);
+            if (isPatient) {
+                const [addressRes, citiesRes] = await Promise.all([
+                    window.axios.get('/patient/data/addresses'),
+                    window.axios.get('/patient/data/meta/cities'),
+                ]);
+
+                const addressList = addressRes.data?.data || [];
+                const cityList = citiesRes.data?.data || citiesRes.data || [];
+                const defaultAddress = addressList.find((item) => item.is_default) || addressList[0] || null;
+
+                setAddresses(addressList);
+                setCities(cityList);
+                bookingForm.setFieldsValue({
+                    address_id: defaultAddress?.id || null,
+                    city_id: defaultAddress?.city_id || null,
+                    service_date: bookingForm.getFieldValue('service_date') || defaultDate,
+                    provider_slot: null,
+                    preferred_time: null,
+                    payment_method: onlinePaymentsEnabled ? 'online' : 'cod',
+                    special_instructions: '',
+                });
+                return;
+            }
+
+            const citiesRes = await window.axios.get('/guest/data/meta/cities');
+            const cityList = citiesRes.data?.data || citiesRes.data || [];
+
+            setAddresses([]);
             setCities(cityList);
             bookingForm.setFieldsValue({
-                address_id: defaultAddress?.id || null,
-                city_id: defaultAddress?.city_id || null,
+                guest_name: '',
+                guest_email: '',
+                guest_phone: '',
+                guest_line1: '',
+                guest_line2: '',
+                guest_landmark: '',
+                guest_pincode: '',
+                city_id: null,
                 service_date: bookingForm.getFieldValue('service_date') || defaultDate,
                 provider_slot: null,
                 preferred_time: null,
-                payment_method: onlinePaymentsEnabled ? 'online' : 'cod',
+                payment_method: 'cod',
                 special_instructions: '',
             });
         } catch (error) {
@@ -216,7 +244,7 @@ export default function ServiceDetails({ auth, service }) {
     };
 
     const loadAvailableSlots = async () => {
-        if (!isPatient || !service?.id || !selectedCityId || !selectedDate) {
+        if ((!isPatient && !isGuestMode) || !service?.id || !selectedCityId || !selectedDate) {
             setSlotData([]);
             bookingForm.setFieldValue('provider_slot', null);
             return;
@@ -225,7 +253,11 @@ export default function ServiceDetails({ auth, service }) {
         setBookingLoading(true);
 
         try {
-            const response = await window.axios.get(`/patient/data/home-services/${service.id}/available-slots`, {
+            const slotsEndpoint = isPatient
+                ? `/patient/data/home-services/${service.id}/available-slots`
+                : `/guest/data/home-services/${service.id}/available-slots`;
+
+            const response = await window.axios.get(slotsEndpoint, {
                 params: {
                     city_id: selectedCityId,
                     date: selectedDate,
@@ -243,10 +275,10 @@ export default function ServiceDetails({ auth, service }) {
     };
 
     useEffect(() => {
-        if (bookingOpen && isPatient && selectedCityId && selectedDate) {
+        if (bookingOpen && (isPatient || isGuestMode) && selectedCityId && selectedDate) {
             loadAvailableSlots();
         }
-    }, [bookingOpen, isPatient, selectedCityId, selectedDate]);
+    }, [bookingOpen, isGuestMode, isPatient, selectedCityId, selectedDate]);
 
     const openBookingModal = async () => {
         if (!canDirectBook) {
@@ -282,6 +314,45 @@ export default function ServiceDetails({ auth, service }) {
             if (!serviceTime) {
                 message.error('Please choose an available slot or preferred time.');
                 setBookingSubmitting(false);
+                return;
+            }
+
+            if (isGuestMode) {
+                // Get CAPTCHA token for guest booking
+                let captchaToken = null;
+                if (recaptcha?.site_key) {
+                    captchaToken = await executeRecaptcha('guest_home_service_booking');
+                    if (!captchaToken) {
+                        message.error('CAPTCHA verification failed. Please try again.');
+                        return;
+                    }
+                }
+
+                const guestPayload = {
+                    guest_name: values.guest_name,
+                    guest_email: values.guest_email || undefined,
+                    guest_phone: values.guest_phone || undefined,
+                    home_service_id: service.id,
+                    provider_id: providerId,
+                    service_date: values.service_date,
+                    service_time: serviceTime,
+                    special_instructions: values.special_instructions || undefined,
+                    payment_method: 'cod',
+                    guest_line1: values.guest_line1,
+                    guest_line2: values.guest_line2 || undefined,
+                    guest_landmark: values.guest_landmark || undefined,
+                    guest_city_id: values.city_id,
+                    guest_pincode: values.guest_pincode,
+                    captcha_token: captchaToken,
+                };
+
+                const response = await window.axios.post('/guest/data/home-service-bookings', guestPayload);
+                const bookingNumber = response?.data?.data?.booking_number;
+                message.success(bookingNumber
+                    ? `Guest booking confirmed. Booking no: ${bookingNumber}`
+                    : 'Guest home service booking created successfully.');
+                setBookingOpen(false);
+                bookingForm.resetFields();
                 return;
             }
 
@@ -502,7 +573,7 @@ export default function ServiceDetails({ auth, service }) {
                                                     {detail.actions.primaryText}
                                                 </button>
                                             ) : !isLoggedIn ? (
-                                                <Link href="/login" className="btn-action">Login to Book</Link>
+                                                <button type="button" className="btn-action" onClick={openBookingModal}>Continue as Guest</button>
                                             ) : (
                                                 <Link href={`/patient/home-services/book?service_id=${service?.id || ''}`} className="btn-action">Book from Dashboard</Link>
                                             )
@@ -513,7 +584,7 @@ export default function ServiceDetails({ auth, service }) {
                                         )}
                                         <span className="availability">
                                             {canDirectBook
-                                                ? (isPatient ? 'Direct booking available' : !isLoggedIn ? 'Patient login required' : 'Dashboard booking available')
+                                                ? (isPatient ? 'Direct booking available' : !isLoggedIn ? 'Guest booking available' : 'Dashboard booking available')
                                                 : 'No active provider slots'}
                                         </span>
                                     </div>
@@ -557,12 +628,12 @@ export default function ServiceDetails({ auth, service }) {
                         onOk={confirmBooking}
                         okText="Confirm Booking"
                         confirmLoading={bookingSubmitting}
-                        okButtonProps={{ disabled: bookingLoading || addresses.length === 0 }}
+                        okButtonProps={{ disabled: bookingLoading || (isPatient ? addresses.length === 0 : cities.length === 0) }}
                         width={720}
                         destroyOnClose
                     >
-                        <Form form={bookingForm} layout="vertical" initialValues={{ payment_method: 'online' }}>
-                            {addresses.length === 0 && !bookingLoading ? (
+                        <Form form={bookingForm} layout="vertical" initialValues={{ payment_method: isGuestMode ? 'cod' : 'online' }}>
+                            {isPatient && addresses.length === 0 && !bookingLoading ? (
                                 <Empty
                                     description="Please add a service address before booking this home service."
                                     image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -574,7 +645,9 @@ export default function ServiceDetails({ auth, service }) {
                             ) : (
                                 <>
                                     <div style={{ marginBottom: 16, color: '#595959' }}>
-                                        Complete your booking details below. You can still use the patient dashboard flow anytime.
+                                        {isPatient
+                                            ? 'Complete your booking details below. You can still use the patient dashboard flow anytime.'
+                                            : 'Complete your guest booking details below. No account is required.'}
                                     </div>
 
                                     <Form.Item
@@ -585,20 +658,85 @@ export default function ServiceDetails({ auth, service }) {
                                         <Input disabled />
                                     </Form.Item>
 
-                                    <Form.Item
-                                        label="Address"
-                                        name="address_id"
-                                        rules={[{ required: true, message: 'Please select address.' }]}
-                                    >
-                                        <Select
-                                            placeholder="Select address"
-                                            options={addresses.map((address) => ({
-                                                value: address.id,
-                                                label: `${address.label}: ${address.line1}, ${address.city?.name || ''}`,
-                                            }))}
-                                            onChange={onAddressChange}
-                                        />
-                                    </Form.Item>
+                                    {isPatient ? (
+                                        <Form.Item
+                                            label="Address"
+                                            name="address_id"
+                                            rules={[{ required: true, message: 'Please select address.' }]}
+                                        >
+                                            <Select
+                                                placeholder="Select address"
+                                                options={addresses.map((address) => ({
+                                                    value: address.id,
+                                                    label: `${address.label}: ${address.line1}, ${address.city?.name || ''}`,
+                                                }))}
+                                                onChange={onAddressChange}
+                                            />
+                                        </Form.Item>
+                                    ) : (
+                                        <>
+                                            <Form.Item
+                                                label="Full Name"
+                                                name="guest_name"
+                                                rules={[{ required: true, message: 'Please enter full name.' }]}
+                                            >
+                                                <Input placeholder="Your full name" />
+                                            </Form.Item>
+
+                                            <Form.Item
+                                                label="Phone"
+                                                name="guest_phone"
+                                                rules={[
+                                                    {
+                                                        validator: (_, value) => {
+                                                            const email = bookingForm.getFieldValue('guest_email');
+                                                            if (value || email) {
+                                                                return Promise.resolve();
+                                                            }
+                                                            return Promise.reject(new Error('Enter phone or email.'));
+                                                        },
+                                                    },
+                                                ]}
+                                            >
+                                                <Input placeholder="10-digit mobile" />
+                                            </Form.Item>
+
+                                            <Form.Item
+                                                label="Email"
+                                                name="guest_email"
+                                                rules={[
+                                                    { type: 'email', message: 'Please enter a valid email.' },
+                                                    {
+                                                        validator: (_, value) => {
+                                                            const phone = bookingForm.getFieldValue('guest_phone');
+                                                            if (value || phone) {
+                                                                return Promise.resolve();
+                                                            }
+                                                            return Promise.reject(new Error('Enter email or phone.'));
+                                                        },
+                                                    },
+                                                ]}
+                                            >
+                                                <Input placeholder="you@example.com" />
+                                            </Form.Item>
+
+                                            <Form.Item
+                                                label="Address Line 1"
+                                                name="guest_line1"
+                                                rules={[{ required: true, message: 'Please enter address line 1.' }]}
+                                            >
+                                                <Input placeholder="House no, street, area" />
+                                            </Form.Item>
+
+                                            <Form.Item label="Address Line 2" name="guest_line2">
+                                                <Input placeholder="Apartment, building (optional)" />
+                                            </Form.Item>
+
+                                            <Form.Item label="Landmark" name="guest_landmark">
+                                                <Input placeholder="Nearby landmark (optional)" />
+                                            </Form.Item>
+                                        </>
+                                    )}
 
                                     <Space direction="vertical" size={12} style={{ width: '100%' }}>
                                         <Form.Item
@@ -611,6 +749,16 @@ export default function ServiceDetails({ auth, service }) {
                                                 options={cities.map((city) => ({ value: city.id, label: city.name }))}
                                             />
                                         </Form.Item>
+
+                                        {!isPatient && (
+                                            <Form.Item
+                                                label="Pincode"
+                                                name="guest_pincode"
+                                                rules={[{ required: true, message: 'Please enter pincode.' }]}
+                                            >
+                                                <Input placeholder="6-digit pincode" />
+                                            </Form.Item>
+                                        )}
 
                                         <Form.Item
                                             label="Service Date"
@@ -637,11 +785,20 @@ export default function ServiceDetails({ auth, service }) {
                                     <Form.Item label="Payment Method" name="payment_method">
                                         <Radio.Group>
                                             <Space direction="vertical">
-                                                {onlinePaymentsEnabled && <Radio value="online">Pay Online ({ONLINE_DISCOUNT_PERCENT}% off)</Radio>}
+                                                {isPatient && onlinePaymentsEnabled && <Radio value="online">Pay Online ({ONLINE_DISCOUNT_PERCENT}% off)</Radio>}
                                                 <Radio value="cod">Pay on Visit</Radio>
                                             </Space>
                                         </Radio.Group>
                                     </Form.Item>
+
+                                    {isGuestMode && (
+                                        <Alert
+                                            type="info"
+                                            showIcon
+                                            style={{ marginBottom: 12 }}
+                                            message="Guest booking currently supports pay-on-visit only."
+                                        />
+                                    )}
 
                                     {!onlinePaymentsEnabled && (
                                         <Alert
