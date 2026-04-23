@@ -129,7 +129,8 @@ const loadRazorpayScript = () =>
     });
 
 export default function ServiceDetails({ auth, service }) {
-    const { site = {} } = usePage().props;
+    const { site = {}, payments = {} } = usePage().props;
+    const onlinePaymentsEnabled = payments?.online_enabled ?? true;
     const [bookingOpen, setBookingOpen] = useState(false);
     const [bookingLoading, setBookingLoading] = useState(false);
     const [bookingSubmitting, setBookingSubmitting] = useState(false);
@@ -151,7 +152,7 @@ export default function ServiceDetails({ auth, service }) {
     const contactPhoneHref = `tel:${String(contactPhone).replace(/[^+\d]/g, '')}`;
     const selectedCityId = Form.useWatch('city_id', bookingForm);
     const selectedDate = Form.useWatch('service_date', bookingForm);
-    const selectedPaymentMethod = Form.useWatch('payment_method', bookingForm) || 'online';
+    const selectedPaymentMethod = Form.useWatch('payment_method', bookingForm) || (onlinePaymentsEnabled ? 'online' : 'cod');
     const canDirectBook = Boolean(service?.id) && Number(service?.providers_count || 0) > 0;
     const bookingNote = !canDirectBook
         ? 'This home service is currently unavailable because no verified provider schedules are active yet.'
@@ -204,7 +205,7 @@ export default function ServiceDetails({ auth, service }) {
                 service_date: bookingForm.getFieldValue('service_date') || defaultDate,
                 provider_slot: null,
                 preferred_time: null,
-                payment_method: 'online',
+                payment_method: onlinePaymentsEnabled ? 'online' : 'cod',
                 special_instructions: '',
             });
         } catch (error) {
@@ -636,11 +637,20 @@ export default function ServiceDetails({ auth, service }) {
                                     <Form.Item label="Payment Method" name="payment_method">
                                         <Radio.Group>
                                             <Space direction="vertical">
-                                                <Radio value="online">Pay Online ({ONLINE_DISCOUNT_PERCENT}% off)</Radio>
+                                                {onlinePaymentsEnabled && <Radio value="online">Pay Online ({ONLINE_DISCOUNT_PERCENT}% off)</Radio>}
                                                 <Radio value="cod">Pay on Visit</Radio>
                                             </Space>
                                         </Radio.Group>
                                     </Form.Item>
+
+                                    {!onlinePaymentsEnabled && (
+                                        <Alert
+                                            type="warning"
+                                            showIcon
+                                            style={{ marginBottom: 12 }}
+                                            message="Online payment is currently disabled. Pay-on-visit is available."
+                                        />
+                                    )}
 
                                     <Alert
                                         type={selectedPaymentMethod === 'online' ? 'success' : 'warning'}

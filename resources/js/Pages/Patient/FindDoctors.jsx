@@ -1,5 +1,5 @@
 import AdminLayout from '@/Layouts/AdminLayout';
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import {
     Alert,
     Button,
@@ -77,6 +77,8 @@ const groupSlots = (slots) => {
 };
 
 export default function FindDoctors() {
+    const { payments = {} } = usePage().props;
+    const onlinePaymentsEnabled = payments?.online_enabled ?? true;
     const [loading, setLoading] = useState(false);
     const [specialties, setSpecialties] = useState([]);
     const [cities, setCities] = useState([]);
@@ -91,7 +93,7 @@ export default function FindDoctors() {
         date_to: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     });
     const [bookingForm] = Form.useForm();
-    const selectedPaymentMethod = Form.useWatch('payment_method', bookingForm) || 'online';
+    const selectedPaymentMethod = Form.useWatch('payment_method', bookingForm) || (onlinePaymentsEnabled ? 'online' : 'cod');
 
     const loadMeta = async () => {
         try {
@@ -134,7 +136,7 @@ export default function FindDoctors() {
         setBookingSelection({ doctor, clinic, date, slot });
         bookingForm.setFieldsValue({
             consultation_type: 'in-person',
-            payment_method: 'online',
+            payment_method: onlinePaymentsEnabled ? 'online' : 'cod',
             reason_for_visit: '',
         });
         setBookingOpen(true);
@@ -369,12 +371,20 @@ export default function FindDoctors() {
                     <Form.Item name="consultation_type" label="Consultation Type" rules={[{ required: true }]}>
                         <Select options={consultationTypes} />
                     </Form.Item>
-                    <Form.Item name="payment_method" label="Payment Option" rules={[{ required: true }]} initialValue="online">
+                    <Form.Item name="payment_method" label="Payment Option" rules={[{ required: true }]} initialValue={onlinePaymentsEnabled ? 'online' : 'cod'}>
                         <Radio.Group optionType="button" buttonStyle="solid">
-                            <Radio.Button value="online">Pay Online ({ONLINE_DISCOUNT_PERCENT}% off)</Radio.Button>
+                            {onlinePaymentsEnabled && <Radio.Button value="online">Pay Online ({ONLINE_DISCOUNT_PERCENT}% off)</Radio.Button>}
                             <Radio.Button value="cod">Pay at Clinic</Radio.Button>
                         </Radio.Group>
                     </Form.Item>
+                    {!onlinePaymentsEnabled && (
+                        <Alert
+                            type="warning"
+                            showIcon
+                            style={{ marginBottom: 12 }}
+                            message="Online payment is currently disabled. Pay-at-clinic is available."
+                        />
+                    )}
                     <Alert
                         type={selectedPaymentMethod === 'online' ? 'success' : 'warning'}
                         showIcon

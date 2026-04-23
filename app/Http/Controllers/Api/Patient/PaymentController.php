@@ -23,6 +23,11 @@ class PaymentController extends Controller
 {
     private const ONLINE_DISCOUNT_PERCENT = 10.0;
 
+    private function onlinePaymentsEnabled(): bool
+    {
+        return (bool) config('services.razorpay.enabled', true);
+    }
+
     public function __construct(
         private readonly AppointmentNotificationService $appointmentNotifications,
         private readonly HomeServiceNotificationService $homeServiceNotifications,
@@ -49,6 +54,12 @@ class PaymentController extends Controller
             'service_time' => ['required_if:type,home_service', 'nullable', 'date_format:H:i'],
             'provider_id' => ['nullable', 'exists:home_service_providers,id'],
         ]);
+
+        if (!$this->onlinePaymentsEnabled() && $validated['payment_method'] === Appointment::PAYMENT_METHOD_ONLINE) {
+            return response()->json([
+                'message' => 'Online payment is currently disabled. Please choose pay on visit.',
+            ], 422);
+        }
 
         $baseAmount = $validated['type'] === 'appointment'
             ? $this->determineAppointmentBaseAmount($validated)
@@ -107,6 +118,12 @@ class PaymentController extends Controller
      */
     public function verifyAndBook(Request $request): JsonResponse
     {
+        if (!$this->onlinePaymentsEnabled()) {
+            return response()->json([
+                'message' => 'Online payment is currently disabled. Please choose pay on visit.',
+            ], 422);
+        }
+
         $validated = $request->validate([
             'type' => ['required', 'in:appointment,home_service'],
             'payment_method' => ['required', 'in:online'],

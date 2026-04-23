@@ -101,6 +101,9 @@ class HandleInertiaRequests extends Middleware
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),
             ],
+            'payments' => [
+                'online_enabled' => (bool) config('services.razorpay.enabled', true),
+            ],
             'razorpay_key_id' => config('services.razorpay.key_id'),
         ];
     }

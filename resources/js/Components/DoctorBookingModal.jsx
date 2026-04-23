@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Card, Col, Empty, Form, Input, Modal, Radio, Row, Select, Space, Typography, message } from 'antd';
+import { usePage } from '@inertiajs/react';
 
 const { Paragraph } = Typography;
 
@@ -61,6 +62,8 @@ const groupSlots = (slots = []) => {
 };
 
 export default function DoctorBookingModal({ doctor, open, onClose }) {
+    const { payments = {} } = usePage().props;
+    const onlinePaymentsEnabled = payments?.online_enabled ?? true;
     const [bookingSaving, setBookingSaving] = useState(false);
     const [slotsLoading, setSlotsLoading] = useState(false);
     const [availableSlots, setAvailableSlots] = useState([]);
@@ -73,7 +76,7 @@ export default function DoctorBookingModal({ doctor, open, onClose }) {
         () => clinicSchedules.filter((clinic) => Array.isArray(clinic.schedules) && clinic.schedules.length > 0),
         [clinicSchedules],
     );
-    const selectedPaymentMethod = Form.useWatch('payment_method', bookingForm) || 'online';
+    const selectedPaymentMethod = Form.useWatch('payment_method', bookingForm) || (onlinePaymentsEnabled ? 'online' : 'cod');
     const selectedClinic = bookableClinics.find((clinic) => String(clinic.id) === String(selectedClinicId)) || bookableClinics[0] || null;
     const pricing = getPricingSummary(selectedClinic?.consultation_fee || doctor?.consultation_fee, selectedPaymentMethod);
 
@@ -101,10 +104,10 @@ export default function DoctorBookingModal({ doctor, open, onClose }) {
             appointment_date: initialDate,
             appointment_time: null,
             consultation_type: doctor.is_available_online ? 'online' : 'in-person',
-            payment_method: 'online',
+            payment_method: onlinePaymentsEnabled ? 'online' : 'cod',
             reason_for_visit: '',
         });
-    }, [bookingForm, bookableClinics, doctor, open]);
+    }, [bookingForm, bookableClinics, doctor, onlinePaymentsEnabled, open]);
 
     useEffect(() => {
         if (!open || !selectedClinicId || !selectedDate) {
@@ -368,13 +371,22 @@ export default function DoctorBookingModal({ doctor, open, onClose }) {
                             <Form.Item label="Payment Method" name="payment_method">
                                 <Radio.Group>
                                     <Space direction="vertical">
-                                        <Radio value="online">Pay Online ({ONLINE_DISCOUNT_PERCENT}% off)</Radio>
+                                        {onlinePaymentsEnabled && <Radio value="online">Pay Online ({ONLINE_DISCOUNT_PERCENT}% off)</Radio>}
                                         <Radio value="cod">Pay at Clinic</Radio>
                                     </Space>
                                 </Radio.Group>
                             </Form.Item>
                         </Col>
                     </Row>
+
+                    {!onlinePaymentsEnabled && (
+                        <Alert
+                            type="warning"
+                            showIcon
+                            style={{ marginBottom: 12 }}
+                            message="Online payment is currently disabled. Pay-at-clinic is available."
+                        />
+                    )}
 
                     <Alert
                         type={selectedPaymentMethod === 'online' ? 'success' : 'warning'}

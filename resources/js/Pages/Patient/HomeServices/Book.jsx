@@ -1,5 +1,5 @@
 import AdminLayout from '@/Layouts/AdminLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import {
     Alert,
     Button,
@@ -51,6 +51,8 @@ const loadRazorpayScript = () =>
     });
 
 export default function HomeServicesBook() {
+    const { payments = {} } = usePage().props;
+    const onlinePaymentsEnabled = payments?.online_enabled ?? true;
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -62,7 +64,7 @@ export default function HomeServicesBook() {
     const selectedServiceId = Form.useWatch('home_service_id', form);
     const selectedCityId = Form.useWatch('city_id', form);
     const selectedDate = Form.useWatch('service_date', form);
-    const selectedPaymentMethod = Form.useWatch('payment_method', form) || 'online';
+    const selectedPaymentMethod = Form.useWatch('payment_method', form) || (onlinePaymentsEnabled ? 'online' : 'cod');
 
     const serviceById = useMemo(() => {
         const map = new Map();
@@ -296,7 +298,7 @@ export default function HomeServicesBook() {
                     <Row gutter={[16, 16]}>
                         <Col xs={24} xl={16}>
                             <Card>
-                                <Form form={form} layout="vertical" initialValues={{ payment_method: 'online' }}>
+                                <Form form={form} layout="vertical" initialValues={{ payment_method: onlinePaymentsEnabled ? 'online' : 'cod' }}>
                                     <Row gutter={12}>
                                         <Col xs={24} md={12}>
                                             <Form.Item
@@ -376,10 +378,19 @@ export default function HomeServicesBook() {
 
                                     <Form.Item name="payment_method" label="Payment Option" rules={[{ required: true }]}> 
                                         <Radio.Group optionType="button" buttonStyle="solid">
-                                            <Radio.Button value="online">Pay Online ({ONLINE_DISCOUNT_PERCENT}% off)</Radio.Button>
+                                            {onlinePaymentsEnabled && <Radio.Button value="online">Pay Online ({ONLINE_DISCOUNT_PERCENT}% off)</Radio.Button>}
                                             <Radio.Button value="cod">Pay on Visit (C.O.D.)</Radio.Button>
                                         </Radio.Group>
                                     </Form.Item>
+
+                                    {!onlinePaymentsEnabled && (
+                                        <Alert
+                                            type="warning"
+                                            showIcon
+                                            style={{ marginBottom: 16 }}
+                                            message="Online payment is currently disabled. Pay-on-visit is available."
+                                        />
+                                    )}
 
                                     <Alert
                                         type={selectedPaymentMethod === 'online' ? 'success' : 'warning'}
