@@ -104,11 +104,11 @@ export default function Header({ auth }) {
 
                     <nav id="navmenu" className="navmenu">
                         <ul>
-                            <li><Link href="/" className={isActive('/') ? 'active' : ''} onClick={closeMenus}>Home</Link></li>
-                            <li><Link href="/about" className={isActive('/about') ? 'active' : ''} onClick={closeMenus}>About</Link></li>
-                            <li><Link href="/departments" className={isActive('/departments') ? 'active' : ''} onClick={closeMenus}>Departments</Link></li>
-                            <li><Link href="/services" className={isActive('/services') ? 'active' : ''} onClick={closeMenus}>Services</Link></li>
-                            <li><Link href="/doctors" className={isActive('/doctors') ? 'active' : ''} onClick={closeMenus}>Doctors</Link></li>
+                            <li><Link href="/" className={isActive('/') ? 'active' : ''} onClick={closeMenus} prefetch>Home</Link></li>
+                            <li><Link href="/about" className={isActive('/about') ? 'active' : ''} onClick={closeMenus} prefetch>About</Link></li>
+                            <li><Link href="/departments" className={isActive('/departments') ? 'active' : ''} onClick={closeMenus} prefetch>Departments</Link></li>
+                            <li><Link href="/services" className={isActive('/services') ? 'active' : ''} onClick={closeMenus} prefetch>Services</Link></li>
+                            <li><Link href="/doctors" className={isActive('/doctors') ? 'active' : ''} onClick={closeMenus} prefetch>Doctors</Link></li>
                             <li className="dropdown">
                                 <a
                                     href="#!"
@@ -131,7 +131,7 @@ export default function Header({ auth }) {
                                     <li><Link href="/guest/cancel" className={isActive('/guest/cancel') ? 'active' : ''} onClick={closeMenus}>Cancel Guest Booking</Link></li>
                                 </ul>
                             </li>
-                            <li><Link href="/contact" className={isActive('/contact') ? 'active' : ''} onClick={closeMenus}>Contact</Link></li>
+                            <li><Link href="/contact" className={isActive('/contact') ? 'active' : ''} onClick={closeMenus} prefetch>Contact</Link></li>
 
                             {auth?.user ? (
                                 <>

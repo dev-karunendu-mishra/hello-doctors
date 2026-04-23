@@ -1,7 +1,8 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import PublicLayout from '@/Layouts/PublicLayout';
-import DoctorBookingModal from '@/Components/DoctorBookingModal';
+
+const DoctorBookingModal = lazy(() => import('@/Components/DoctorBookingModal'));
 
 export default function Search({ auth, doctors, specialties, filters }) {
     const [searchForm, setSearchForm] = useState({
@@ -400,11 +401,15 @@ export default function Search({ auth, doctors, specialties, filters }) {
                     </div>
                 </section>
 
-                <DoctorBookingModal
-                    doctor={bookingDoctor}
-                    open={bookingOpen}
-                    onClose={() => setBookingOpen(false)}
-                />
+                {(bookingDoctor || bookingOpen) && (
+                    <Suspense fallback={null}>
+                        <DoctorBookingModal
+                            doctor={bookingDoctor}
+                            open={bookingOpen}
+                            onClose={() => setBookingOpen(false)}
+                        />
+                    </Suspense>
+                )}
             </PublicLayout>
         </>
     );

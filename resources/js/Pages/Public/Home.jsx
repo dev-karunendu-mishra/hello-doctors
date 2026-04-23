@@ -1,9 +1,9 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
-import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
-import L from 'leaflet';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import PublicLayout from '@/Layouts/PublicLayout';
 import { useLocation } from '@/Contexts/LocationContext';
+
+const HomeLocationPickerMap = lazy(() => import('@/Components/maps/HomeLocationPickerMap'));
 
 const fallbackSpecialties = [
     { id: 'cardiology', name: 'Cardiovascular Medicine', image_url: '/clinic-assets/cardiology-1.webp', doctors_count: 24 },
@@ -57,8 +57,6 @@ const specialtyShowcase = [
     { title: 'Advanced Technology', image: '/clinic-assets/facilities-6.webp', text: 'State-of-the-art medical equipment' },
 ];
 
-const DEFAULT_MAP_CENTER = [25.4358, 81.8463];
-
 const normalizeSearchCityValue = (value) => {
     const trimmed = String(value || '').trim();
 
@@ -99,94 +97,6 @@ const findMatchingCityFromLocation = (value, cities = []) => {
     }) || null;
 };
 
-if (typeof window !== 'undefined') {
-    delete L.Icon.Default.prototype._getIconUrl;
-    L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-    });
-}
-
-function HomeMapViewport({ position, isVisible }) {
-    const map = useMap();
-
-    useEffect(() => {
-        if (!isVisible) {
-            return undefined;
-        }
-
-        const timer = window.setTimeout(() => {
-            map.invalidateSize();
-
-            if (position) {
-                map.setView([position.lat, position.lng], Math.max(map.getZoom(), 14), {
-                    animate: true,
-                });
-            }
-        }, 180);
-
-        return () => window.clearTimeout(timer);
-    }, [isVisible, map, position]);
-
-    return null;
-}
-
-function HomeLocationSelectionMarker({ position, onSelect }) {
-    useMapEvents({
-        click(event) {
-            onSelect({
-                lat: event.latlng.lat,
-                lng: event.latlng.lng,
-            });
-        },
-    });
-
-    if (!position) {
-        return null;
-    }
-
-    return (
-        <Marker
-            position={[position.lat, position.lng]}
-            draggable
-            eventHandlers={{
-                dragend: (event) => {
-                    const { lat, lng } = event.target.getLatLng();
-                    onSelect({ lat, lng });
-                },
-            }}
-        />
-    );
-}
-
-function HomeLocationPickerMap({ position, onSelect, isVisible }) {
-    const [isClient, setIsClient] = useState(false);
-
-    useEffect(() => {
-        setIsClient(true);
-    }, []);
-
-    if (!isClient) {
-        return <div className="home-map-picker-placeholder">Loading map…</div>;
-    }
-
-    const center = position ? [position.lat, position.lng] : DEFAULT_MAP_CENTER;
-
-    return (
-        <div className="home-map-picker-canvas">
-            <MapContainer center={center} zoom={position ? 14 : 7} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false}>
-                <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <HomeMapViewport position={position} isVisible={isVisible} />
-                <HomeLocationSelectionMarker position={position} onSelect={onSelect} />
-            </MapContainer>
-        </div>
-    );
-}
-
 export default function Home({ auth, site, seo, cities = [], specialties = [], featuredDoctors = [], stats = {}, homeServices = [], homeServicesStats = {} }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCity, setSelectedCity] = useState('');
@@ -196,6 +106,8 @@ export default function Home({ auth, site, seo, cities = [], specialties = [], f
     const [isManualLocationOverride, setIsManualLocationOverride] = useState(false);
     const [hasRequestedLocation, setHasRequestedLocation] = useState(false);
     const [isResolvingMapLocation, setIsResolvingMapLocation] = useState(false);
+    const [shouldLoadMapPicker, setShouldLoadMapPicker] = useState(false);
+    const mapPickerVisibilityRef = useRef(null);
     const { location, coordinates, isLoadingLocation, detectLocation } = useLocation();
 
     const pageTitle = seo?.meta_title || (site?.name && site?.tagline ? `${site.name} - ${site.tagline}` : 'Hello Doctors - Find Best Doctors');
@@ -324,6 +236,26 @@ export default function Home({ auth, site, seo, cities = [], specialties = [], f
         setDetectedSearchCity(normalizeSearchCityValue(derivedCity));
     }, [cities, isManualLocationOverride, location]);
 
+    useEffect(() => {
+        if (!showMapPicker || shouldLoadMapPicker || !mapPickerVisibilityRef.current || typeof IntersectionObserver === 'undefined') {
+            return;
+        }
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0]?.isIntersecting) {
+                    setShouldLoadMapPicker(true);
+                    observer.disconnect();
+                }
+            },
+            { rootMargin: '120px 0px' }
+        );
+
+        observer.observe(mapPickerVisibilityRef.current);
+
+        return () => observer.disconnect();
+    }, [shouldLoadMapPicker, showMapPicker]);
+
     const resolveLocationFromCoordinates = async (latitude, longitude) => {
         const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`,
@@ -449,7 +381,7 @@ export default function Home({ auth, site, seo, cities = [], specialties = [], f
                                     </div>
 
                                     <div className="hero-actions" data-aos="fade-right" data-aos-delay="600">
-                                        <Link href={homePrimaryHref} className="btn btn-primary">Book Appointment</Link>
+                                        <Link href={homePrimaryHref} className="btn btn-primary" prefetch>Book Appointment</Link>
                                         <a href="https://www.youtube.com/watch?v=Y7f98aduVJ8" className="btn btn-outline glightbox">
                                             <i className="bi bi-play-circle me-2" />
                                             Watch Our Story
@@ -666,7 +598,7 @@ export default function Home({ auth, site, seo, cities = [], specialties = [], f
                                         <p>
                                             Explore trusted doctors, specialist support, and verified home services in one patient-friendly platform built for modern healthcare journeys.
                                         </p>
-                                        <Link href={homeSecondaryHref} className="main-cta">Explore Our Services</Link>
+                                        <Link href={homeSecondaryHref} className="main-cta" prefetch>Explore Our Services</Link>
                                     </div>
                                 </div>
                             </div>
@@ -816,7 +748,7 @@ export default function Home({ auth, site, seo, cities = [], specialties = [], f
                                             )}
 
                                             {showMapPicker && (
-                                                <div className="home-map-picker-wrap">
+                                                <div className="home-map-picker-wrap" ref={mapPickerVisibilityRef}>
                                                     <div className="home-map-picker-head">
                                                         <div>
                                                             <h4>Pick your location from the map</h4>
@@ -829,11 +761,17 @@ export default function Home({ auth, site, seo, cities = [], specialties = [], f
                                                         )}
                                                     </div>
 
-                                                    <HomeLocationPickerMap
-                                                        position={selectedCoords}
-                                                        onSelect={handleMapLocationSelection}
-                                                        isVisible={showMapPicker}
-                                                    />
+                                                    {shouldLoadMapPicker ? (
+                                                        <Suspense fallback={<div className="home-map-picker-placeholder">Loading map...</div>}>
+                                                            <HomeLocationPickerMap
+                                                                position={selectedCoords}
+                                                                onSelect={handleMapLocationSelection}
+                                                                isVisible={showMapPicker}
+                                                            />
+                                                        </Suspense>
+                                                    ) : (
+                                                        <div className="home-map-picker-placeholder">Preparing map...</div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>

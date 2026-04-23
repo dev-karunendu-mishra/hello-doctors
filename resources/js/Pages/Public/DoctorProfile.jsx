@@ -1,9 +1,10 @@
 import { Head, Link } from '@inertiajs/react';
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Avatar, Button, Card, Col, Descriptions, Divider, Row, Tag, Typography, message } from 'antd';
 import { ClockCircleOutlined, EnvironmentOutlined, GlobalOutlined, MailOutlined, MedicineBoxOutlined, PhoneOutlined, UserOutlined } from '@ant-design/icons';
 import PublicLayout from '@/Layouts/PublicLayout';
-import DoctorBookingModal from '@/Components/DoctorBookingModal';
+
+const DoctorBookingModal = lazy(() => import('@/Components/DoctorBookingModal'));
 
 const { Title, Paragraph } = Typography;
 
@@ -438,11 +439,15 @@ export default function DoctorProfile({ auth, doctor }) {
                         </div>
                     </Card>
 
-                    <DoctorBookingModal
-                        doctor={doctor}
-                        open={bookingOpen}
-                        onClose={() => setBookingOpen(false)}
-                    />
+                    {bookingOpen && (
+                        <Suspense fallback={null}>
+                            <DoctorBookingModal
+                                doctor={doctor}
+                                open={bookingOpen}
+                                onClose={() => setBookingOpen(false)}
+                            />
+                        </Suspense>
+                    )}
                 </div>
             </div>
             </PublicLayout>

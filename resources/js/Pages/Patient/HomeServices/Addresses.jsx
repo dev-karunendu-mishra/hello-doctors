@@ -1,5 +1,6 @@
 import AdminLayout from '@/Layouts/AdminLayout';
 import { Head, Link } from '@inertiajs/react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
     Alert,
     Button,
@@ -17,81 +18,9 @@ import {
     message,
 } from 'antd';
 import { EditOutlined, PlusOutlined, DeleteOutlined, AimOutlined, EnvironmentOutlined } from '@ant-design/icons';
-import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
-import L from 'leaflet';
-import { useEffect, useState } from 'react';
+const AddressPickerMap = lazy(() => import('@/Components/maps/AddressPickerMap'));
 
 const { Title, Text } = Typography;
-const DEFAULT_MAP_CENTER = [20.5937, 78.9629];
-
-if (typeof window !== 'undefined') {
-    delete L.Icon.Default.prototype._getIconUrl;
-    L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-    });
-}
-
-function MapViewportUpdater({ position, isVisible }) {
-    const map = useMap();
-
-    useEffect(() => {
-        if (!isVisible) {
-            return undefined;
-        }
-
-        const timer = window.setTimeout(() => {
-            map.invalidateSize();
-
-            if (position) {
-                map.setView([position.lat, position.lng], Math.max(map.getZoom(), 16), {
-                    animate: true,
-                });
-            }
-        }, 250);
-
-        return () => window.clearTimeout(timer);
-    }, [map, position, isVisible]);
-
-    useEffect(() => {
-        if (position) {
-            map.setView([position.lat, position.lng], Math.max(map.getZoom(), 16), {
-                animate: true,
-            });
-        }
-    }, [map, position]);
-
-    return null;
-}
-
-function LocationSelectionMarker({ position, onChange }) {
-    useMapEvents({
-        click(event) {
-            onChange({
-                lat: event.latlng.lat,
-                lng: event.latlng.lng,
-            }, true);
-        },
-    });
-
-    if (!position) {
-        return null;
-    }
-
-    return (
-        <Marker
-            position={[position.lat, position.lng]}
-            draggable
-            eventHandlers={{
-                dragend: (event) => {
-                    const { lat, lng } = event.target.getLatLng();
-                    onChange({ lat, lng }, true);
-                },
-            }}
-        />
-    );
-}
 
 export default function HomeServiceAddresses() {
     const [form] = Form.useForm();
@@ -102,8 +31,9 @@ export default function HomeServiceAddresses() {
     const [modalOpen, setModalOpen] = useState(false);
     const [editingAddress, setEditingAddress] = useState(null);
     const [locating, setLocating] = useState(false);
-    const [mapReady, setMapReady] = useState(false);
+    const [shouldLoadMap, setShouldLoadMap] = useState(false);
     const [selectedCoords, setSelectedCoords] = useState(null);
+    const mapContainerRef = useRef(null);
 
     const loadData = async () => {
         setLoading(true);
@@ -124,8 +54,27 @@ export default function HomeServiceAddresses() {
 
     useEffect(() => {
         loadData();
-        setMapReady(true);
     }, []);
+
+    useEffect(() => {
+        if (!modalOpen || shouldLoadMap || !mapContainerRef.current || typeof IntersectionObserver === 'undefined') {
+            return;
+        }
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0]?.isIntersecting) {
+                    setShouldLoadMap(true);
+                    observer.disconnect();
+                }
+            },
+            { rootMargin: '100px 0px' }
+        );
+
+        observer.observe(mapContainerRef.current);
+
+        return () => observer.disconnect();
+    }, [modalOpen, shouldLoadMap]);
 
     const normalizeCityName = (value) => {
         const normalized = String(value || '').trim().toLowerCase();
@@ -466,27 +415,27 @@ export default function HomeServiceAddresses() {
                             </Text>
                         </Space>
 
-                        {mapReady ? (
-                            <div style={{ height: 320, borderRadius: 12, overflow: 'hidden', border: '1px solid #f0f0f0' }}>
-                                <MapContainer
-                                    center={selectedCoords ? [selectedCoords.lat, selectedCoords.lng] : DEFAULT_MAP_CENTER}
-                                    zoom={selectedCoords ? 16 : 5}
-                                    style={{ height: '100%', width: '100%' }}
-                                    scrollWheelZoom
+                        <div ref={mapContainerRef}>
+                            {shouldLoadMap ? (
+                                <Suspense
+                                    fallback={(
+                                        <Card size="small">
+                                            <Text type="secondary">Loading map...</Text>
+                                        </Card>
+                                    )}
                                 >
-                                    <TileLayer
-                                        attribution='&copy; OpenStreetMap contributors'
-                                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                    <AddressPickerMap
+                                        position={selectedCoords}
+                                        isVisible={modalOpen}
+                                        onChange={handleLocationSelection}
                                     />
-                                    <MapViewportUpdater position={selectedCoords} isVisible={modalOpen} />
-                                    <LocationSelectionMarker position={selectedCoords} onChange={handleLocationSelection} />
-                                </MapContainer>
-                            </div>
-                        ) : (
-                            <Card size="small">
-                                <Text type="secondary">Loading map...</Text>
-                            </Card>
-                        )}
+                                </Suspense>
+                            ) : (
+                                <Card size="small">
+                                    <Text type="secondary">Preparing map...</Text>
+                                </Card>
+                            )}
+                        </div>
                     </Space>
 
                     <Form.Item name="is_default" label="Default Address" valuePropName="checked">

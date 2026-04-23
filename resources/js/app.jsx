@@ -1,6 +1,5 @@
 import '../css/app.css';
 import 'antd/dist/reset.css';
-import 'leaflet/dist/leaflet.css';
 import './bootstrap';
 
 import { createInertiaApp } from '@inertiajs/react';
